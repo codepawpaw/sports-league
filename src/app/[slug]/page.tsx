@@ -7,6 +7,7 @@ import { Trophy, Calendar, Users, Settings, LogIn } from 'lucide-react'
 import { createSupabaseComponentClient } from '@/lib/supabase'
 import HeadToHeadComparison from '@/components/HeadToHeadComparison'
 import PlayerMatchHistoryModal from '@/components/PlayerMatchHistoryModal'
+import TopPlayersBanner from '@/components/TopPlayersBanner'
 
 interface League {
   id: string
@@ -305,6 +306,12 @@ export default function LeaguePage() {
           </div>
         )}
 
+        {/* Top Players Banner */}
+        <TopPlayersBanner 
+          participants={participants}
+          upcomingMatches={upcomingMatches}
+        />
+
         {/* Rankings - Full Width */}
         <div className="space-y-8">
           <div className="card">
@@ -390,7 +397,6 @@ export default function LeaguePage() {
           <div className="card">
             <div className="p-4 border-b border-gray-200">
               <div className="flex items-center">
-                <Calendar className="h-5 w-5 text-black mr-2" />
                 <h3 className="font-semibold text-black">Upcoming Matches</h3>
               </div>
             </div>
