@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Trophy, ArrowLeft, Users, Calendar, Plus, Edit, Trash2, Save, X, Shuffle, Eye, Clock } from 'lucide-react'
+import { Trophy, ArrowLeft, Users, Calendar, Plus, Edit, Trash2, Save, X, Shuffle, Eye, Clock, Shield } from 'lucide-react'
 import { createSupabaseComponentClient } from '@/lib/supabase'
 
 interface League {
@@ -30,6 +30,12 @@ interface Match {
   scheduled_at: string | null
 }
 
+interface Admin {
+  id: string
+  email: string
+  created_at: string
+}
+
 export default function AdminPage() {
   const params = useParams()
   const router = useRouter()
@@ -39,13 +45,19 @@ export default function AdminPage() {
   const [league, setLeague] = useState<League | null>(null)
   const [participants, setParticipants] = useState<Participant[]>([])
   const [matches, setMatches] = useState<Match[]>([])
+  const [admins, setAdmins] = useState<Admin[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('participants')
+  const [currentUserEmail, setCurrentUserEmail] = useState<string>('')
   
   // Forms state
   const [newParticipant, setNewParticipant] = useState({ name: '', email: '' })
   const [editingParticipant, setEditingParticipant] = useState<string | null>(null)
   const [editParticipantData, setEditParticipantData] = useState({ name: '', email: '' })
+  
+  // Admin forms state
+  const [newAdminEmail, setNewAdminEmail] = useState('')
+  const [addingAdmin, setAddingAdmin] = useState(false)
   
   const [newMatch, setNewMatch] = useState({
     player1Id: '',
@@ -91,6 +103,8 @@ export default function AdminPage() {
         return
       }
 
+      setCurrentUserEmail(user.email || '')
+
       // Get league and verify admin access
       const { data: leagueData } = await supabase
         .from('leagues')
@@ -117,6 +131,7 @@ export default function AdminPage() {
 
       setLeague(leagueData)
       await fetchData(leagueData.id)
+      await fetchAdmins()
     } catch (error) {
       console.error('Error checking admin access:', error)
       router.push(`/${slug}`)
@@ -162,6 +177,18 @@ export default function AdminPage() {
       }
     } catch (error) {
       console.error('Error fetching data:', error)
+    }
+  }
+
+  const fetchAdmins = async () => {
+    try {
+      const response = await fetch(`/api/leagues/${slug}/admins`)
+      if (response.ok) {
+        const data = await response.json()
+        setAdmins(data.admins)
+      }
+    } catch (error) {
+      console.error('Error fetching admins:', error)
     }
   }
 
@@ -440,6 +467,61 @@ export default function AdminPage() {
     return days[dayNumber]
   }
 
+  // Admin management functions
+  const handleAddAdmin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newAdminEmail.trim()) return
+
+    setAddingAdmin(true)
+
+    try {
+      const response = await fetch(`/api/leagues/${slug}/admins`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: newAdminEmail.trim() })
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setNewAdminEmail('')
+        await fetchAdmins()
+        alert('Administrator added successfully!')
+      } else {
+        alert(data.error || 'Failed to add administrator')
+      }
+    } catch (error) {
+      console.error('Error adding admin:', error)
+      alert('Failed to add administrator')
+    } finally {
+      setAddingAdmin(false)
+    }
+  }
+
+  const handleRemoveAdmin = async (admin: Admin) => {
+    if (!confirm(`Are you sure you want to remove ${admin.email} as an administrator?`)) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/leagues/${slug}/admins?id=${admin.id}&email=${admin.email}`, {
+        method: 'DELETE'
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        await fetchAdmins()
+        alert('Administrator removed successfully!')
+      } else {
+        alert(data.error || 'Failed to remove administrator')
+      }
+    } catch (error) {
+      console.error('Error removing admin:', error)
+      alert('Failed to remove administrator')
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -500,6 +582,17 @@ export default function AdminPage() {
             >
               <Calendar className="h-4 w-4 inline mr-2" />
               Matches
+            </button>
+            <button
+              onClick={() => setActiveTab('admins')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'admins'
+                  ? 'border-black text-black'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <Shield className="h-4 w-4 inline mr-2" />
+              Administrators
             </button>
           </nav>
         </div>
@@ -620,6 +713,109 @@ export default function AdminPage() {
                         <tr>
                           <td colSpan={3} className="table-cell text-center text-gray-500">
                             No participants yet
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'admins' && (
+          <div>
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-black mb-4">Manage Administrators</h2>
+              
+              {/* Add Admin Form */}
+              <div className="card p-6 mb-6">
+                <h3 className="text-lg font-semibold text-black mb-4">Add New Administrator</h3>
+                <p className="text-gray-600 text-sm mb-4">
+                  Add an email address to grant administrative access to this league. The user will be able to manage participants, matches, and other administrators.
+                </p>
+                <form onSubmit={handleAddAdmin} className="flex gap-4">
+                  <input
+                    type="email"
+                    placeholder="Enter email address"
+                    value={newAdminEmail}
+                    onChange={(e) => setNewAdminEmail(e.target.value)}
+                    className="input-field flex-1"
+                    required
+                  />
+                  <button 
+                    type="submit" 
+                    className="btn-primary"
+                    disabled={addingAdmin}
+                  >
+                    {addingAdmin ? (
+                      <>
+                        <Clock className="h-4 w-4 mr-2 animate-spin" />
+                        Adding...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Admin
+                      </>
+                    )}
+                  </button>
+                </form>
+              </div>
+
+              {/* Current Admins List */}
+              <div className="card">
+                <div className="p-6 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-black">Current Administrators</h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    All users listed below can access and manage this league's admin panel.
+                  </p>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr>
+                        <th className="table-header">Email</th>
+                        <th className="table-header">Added On</th>
+                        <th className="table-header">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {admins.map((admin) => (
+                        <tr key={admin.id}>
+                          <td className="table-cell">
+                            <div className="flex items-center">
+                              <span>{admin.email}</span>
+                              {admin.email === currentUserEmail && (
+                                <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                                  You
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="table-cell">
+                            {new Date(admin.created_at).toLocaleDateString()}
+                          </td>
+                          <td className="table-cell">
+                            {admin.email === currentUserEmail ? (
+                              <span className="text-gray-500 text-sm">Cannot remove yourself</span>
+                            ) : (
+                              <button
+                                onClick={() => handleRemoveAdmin(admin)}
+                                className="p-2 text-red-600 hover:text-red-800"
+                                title="Remove administrator"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                      {admins.length === 0 && (
+                        <tr>
+                          <td colSpan={3} className="table-cell text-center text-gray-500">
+                            No administrators found
                           </td>
                         </tr>
                       )}

@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Trophy, Calendar, Users, Settings, LogIn } from 'lucide-react'
 import { createSupabaseComponentClient } from '@/lib/supabase'
 import HeadToHeadComparison from '@/components/HeadToHeadComparison'
+import PlayerMatchHistoryModal from '@/components/PlayerMatchHistoryModal'
 
 interface League {
   id: string
@@ -22,6 +23,9 @@ interface Participant {
   email: string | null
   wins: number
   losses: number
+  sets_won: number
+  sets_lost: number
+  set_diff: number
   points: number
 }
 
@@ -64,6 +68,8 @@ export default function LeaguePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [selectedPlayer, setSelectedPlayer] = useState<{ id: string; name: string } | null>(null)
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
 
   useEffect(() => {
     if (slug) {
@@ -119,18 +125,33 @@ export default function LeaguePage() {
           
           let wins = 0
           let losses = 0
+          let sets_won = 0
+          let sets_lost = 0
 
           completedMatches1.forEach((m: SupabaseMatchData) => {
-            if ((m.player1_score || 0) > (m.player2_score || 0)) wins++
+            const player1_sets = m.player1_score || 0
+            const player2_sets = m.player2_score || 0
+            
+            sets_won += player1_sets // Add sets won by this player in this match
+            sets_lost += player2_sets // Add sets lost by this player in this match
+            
+            if (player1_sets > player2_sets) wins++
             else losses++
           })
 
           completedMatches2.forEach((m: SupabaseMatchData) => {
-            if ((m.player2_score || 0) > (m.player1_score || 0)) wins++
+            const player1_sets = m.player1_score || 0
+            const player2_sets = m.player2_score || 0
+            
+            sets_won += player2_sets // Add sets won by this player in this match
+            sets_lost += player1_sets // Add sets lost by this player in this match
+            
+            if (player2_sets > player1_sets) wins++
             else losses++
           })
 
-          const points = wins * 3 + losses * 1 // 3 points for win, 1 for loss
+          const set_diff = sets_won - sets_lost // Calculate set difference
+          const points = wins * 2 // 2 points for win, 0 for loss
 
           return {
             id: p.id,
@@ -138,14 +159,17 @@ export default function LeaguePage() {
             email: p.email,
             wins,
             losses,
+            sets_won,
+            sets_lost,
+            set_diff,
             points
           }
         })
 
-        // Sort by points (descending), then by wins
+        // Sort by points (descending), then by set diff (descending)
         participantsWithStats.sort((a, b) => {
           if (a.points !== b.points) return b.points - a.points
-          return b.wins - a.wins
+          return b.set_diff - a.set_diff
         })
 
         setParticipants(participantsWithStats)
@@ -281,160 +305,191 @@ export default function LeaguePage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Rankings */}
-          <div className="lg:col-span-2 space-y-8">
-            <div className="card">
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex items-center">
-                  <Trophy className="h-6 w-6 text-black mr-2" />
-                  <h2 className="text-xl font-bold text-black">Current Rankings</h2>
-                </div>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr>
-                      <th className="table-header">Rank</th>
-                      <th className="table-header">Player</th>
-                      <th className="table-header">Wins</th>
-                      <th className="table-header">Losses</th>
-                      <th className="table-header">Points</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {participants.map((participant, index) => (
-                      <tr key={participant.id}>
-                        <td className="table-cell">
-                          <span className="font-bold text-lg">#{index + 1}</span>
-                        </td>
-                        <td className="table-cell">
-                          <span className="font-medium">{participant.name}</span>
-                        </td>
-                        <td className="table-cell">{participant.wins}</td>
-                        <td className="table-cell">{participant.losses}</td>
-                        <td className="table-cell">
-                          <span className="font-semibold">{participant.points}</span>
-                        </td>
-                      </tr>
-                    ))}
-                    {participants.length === 0 && (
-                      <tr>
-                        <td colSpan={5} className="table-cell text-center text-gray-500">
-                          No participants yet
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+        {/* Rankings - Full Width */}
+        <div className="space-y-8">
+          <div className="card">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center">
+                <Trophy className="h-6 w-6 text-black mr-2" />
+                <h2 className="text-xl font-bold text-black">Current Rankings</h2>
               </div>
             </div>
-
-            {/* Head-to-Head Analysis */}
-            {participants.length >= 2 && (
-              <HeadToHeadComparison 
-                participants={participants.map(p => ({ id: p.id, name: p.name }))} 
-                slug={slug}
-              />
-            )}
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-full">
+                <thead>
+                  <tr>
+                    <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Rank</th>
+                    <th className="bg-gray-50 border-b border-gray-200 px-4 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Player</th>
+                    <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">W</th>
+                    <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">L</th>
+                    <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Sets W</th>
+                    <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Sets L</th>
+                    <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Set Diff</th>
+                    <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Points</th>
+                    <th className="bg-gray-50 border-b border-gray-200 px-4 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {participants.map((participant, index) => (
+                    <tr key={participant.id}>
+                      <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">
+                        <span className="font-bold text-lg">#{index + 1}</span>
+                      </td>
+                      <td className="px-4 py-4 border-b border-gray-200 text-sm text-gray-900">
+                        <span className="font-medium">{participant.name}</span>
+                      </td>
+                      <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">{participant.wins}</td>
+                      <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">{participant.losses}</td>
+                      <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">{participant.sets_won}</td>
+                      <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">{participant.sets_lost}</td>
+                      <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">
+                        <span className={`font-medium ${participant.set_diff >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {participant.set_diff >= 0 ? '+' : ''}{participant.set_diff}
+                        </span>
+                      </td>
+                      <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">
+                        <span className="font-semibold">{participant.points}</span>
+                      </td>
+                      <td className="px-4 py-4 border-b border-gray-200 text-sm text-gray-900">
+                        <button
+                          onClick={() => {
+                            setSelectedPlayer({ id: participant.id, name: participant.name })
+                            setIsHistoryModalOpen(true)
+                          }}
+                          className="text-sm bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-2 rounded-md font-medium transition-colors border border-blue-200 hover:border-blue-300"
+                        >
+                          History
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {participants.length === 0 && (
+                    <tr>
+                      <td colSpan={9} className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900 text-center text-gray-500">
+                        No participants yet
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
 
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Upcoming Matches */}
-            <div className="card">
-              <div className="p-4 border-b border-gray-200">
-                <div className="flex items-center">
-                  <Calendar className="h-5 w-5 text-black mr-2" />
-                  <h3 className="font-semibold text-black">Upcoming Matches</h3>
-                </div>
+          {/* Head-to-Head Analysis */}
+          {participants.length >= 2 && (
+            <HeadToHeadComparison 
+              participants={participants.map(p => ({ id: p.id, name: p.name }))} 
+              slug={slug}
+            />
+          )}
+        </div>
+
+        {/* Sidebar - Now Below Rankings */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+          {/* Upcoming Matches */}
+          <div className="card">
+            <div className="p-4 border-b border-gray-200">
+              <div className="flex items-center">
+                <Calendar className="h-5 w-5 text-black mr-2" />
+                <h3 className="font-semibold text-black">Upcoming Matches</h3>
               </div>
-              <div className="p-4 space-y-3">
-                {upcomingMatches.map((match) => (
-                  <div key={match.id} className="text-sm">
-                    <div className="font-medium text-black">
-                      {match.player1.name} vs {match.player2.name}
+            </div>
+            <div className="p-4 space-y-3">
+              {upcomingMatches.map((match) => (
+                <div key={match.id} className="text-sm">
+                  <div className="font-medium text-black">
+                    {match.player1.name} vs {match.player2.name}
+                  </div>
+                  {match.scheduled_at && (
+                    <div className="text-gray-500">
+                      {formatDate(match.scheduled_at)}
                     </div>
-                    {match.scheduled_at && (
+                  )}
+                  <div className={`inline-block px-2 py-1 rounded-full text-xs ${
+                    match.status === 'scheduled' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'
+                  }`}>
+                    {match.status === 'scheduled' ? 'Scheduled' : 'In Progress'}
+                  </div>
+                </div>
+              ))}
+              {upcomingMatches.length === 0 && (
+                <p className="text-gray-500 text-sm">No upcoming matches</p>
+              )}
+            </div>
+          </div>
+
+          {/* Recent Results */}
+          <div className="card">
+            <div className="p-4 border-b border-gray-200">
+              <h3 className="font-semibold text-black">Recent Results</h3>
+            </div>
+            <div className="p-4 space-y-3">
+              {recentMatches.map((match) => (
+                <div key={match.id} className="text-sm">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="font-medium text-black">
+                        {match.player1.name} vs {match.player2.name}
+                      </div>
                       <div className="text-gray-500">
-                        {formatDate(match.scheduled_at)}
+                        {match.completed_at && formatDate(match.completed_at)}
                       </div>
-                    )}
-                    <div className={`inline-block px-2 py-1 rounded-full text-xs ${
-                      match.status === 'scheduled' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {match.status === 'scheduled' ? 'Scheduled' : 'In Progress'}
                     </div>
-                  </div>
-                ))}
-                {upcomingMatches.length === 0 && (
-                  <p className="text-gray-500 text-sm">No upcoming matches</p>
-                )}
-              </div>
-            </div>
-
-            {/* Recent Results */}
-            <div className="card">
-              <div className="p-4 border-b border-gray-200">
-                <h3 className="font-semibold text-black">Recent Results</h3>
-              </div>
-              <div className="p-4 space-y-3">
-                {recentMatches.map((match) => (
-                  <div key={match.id} className="text-sm">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="font-medium text-black">
-                          {match.player1.name} vs {match.player2.name}
-                        </div>
-                        <div className="text-gray-500">
-                          {match.completed_at && formatDate(match.completed_at)}
-                        </div>
+                    <div className="text-right">
+                      <div className="font-semibold text-black">
+                        {match.player1_score} - {match.player2_score}
                       </div>
-                      <div className="text-right">
-                        <div className="font-semibold text-black">
-                          {match.player1_score} - {match.player2_score}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {(match.player1_score !== null && match.player2_score !== null && 
-                            match.player1_score > match.player2_score) ? 
-                            match.player1.name : match.player2.name} wins
-                        </div>
+                      <div className="text-xs text-gray-500">
+                        {(match.player1_score !== null && match.player2_score !== null && 
+                          match.player1_score > match.player2_score) ? 
+                          match.player1.name : match.player2.name} wins
                       </div>
                     </div>
                   </div>
-                ))}
-                {recentMatches.length === 0 && (
-                  <p className="text-gray-500 text-sm">No completed matches</p>
-                )}
+                </div>
+              ))}
+              {recentMatches.length === 0 && (
+                <p className="text-gray-500 text-sm">No completed matches</p>
+              )}
+            </div>
+          </div>
+
+          {/* League Info */}
+          <div className="card">
+            <div className="p-4 border-b border-gray-200">
+              <div className="flex items-center">
+                <Users className="h-5 w-5 text-black mr-2" />
+                <h3 className="font-semibold text-black">League Info</h3>
               </div>
             </div>
-
-            {/* League Info */}
-            <div className="card">
-              <div className="p-4 border-b border-gray-200">
-                <div className="flex items-center">
-                  <Users className="h-5 w-5 text-black mr-2" />
-                  <h3 className="font-semibold text-black">League Info</h3>
-                </div>
+            <div className="p-4 space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Format:</span>
+                <span className="text-black">Best of {league?.sets_per_match}</span>
               </div>
-              <div className="p-4 space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Format:</span>
-                  <span className="text-black">Best of {league?.sets_per_match}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Players:</span>
-                  <span className="text-black">{participants.length}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Matches:</span>
-                  <span className="text-black">{upcomingMatches.length + recentMatches.length}</span>
-                </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Players:</span>
+                <span className="text-black">{participants.length}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Matches:</span>
+                <span className="text-black">{upcomingMatches.length + recentMatches.length}</span>
               </div>
             </div>
           </div>
         </div>
       </main>
+
+      {/* Player Match History Modal */}
+      <PlayerMatchHistoryModal
+        isOpen={isHistoryModalOpen}
+        onClose={() => {
+          setIsHistoryModalOpen(false)
+          setSelectedPlayer(null)
+        }}
+        player={selectedPlayer}
+        slug={slug}
+      />
     </div>
   )
 }
