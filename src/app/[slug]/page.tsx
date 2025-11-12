@@ -327,6 +327,7 @@ export default function LeaguePage() {
                   <tr>
                     <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Rank</th>
                     <th className="bg-gray-50 border-b border-gray-200 px-4 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Player</th>
+                    <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Total Matches</th>
                     <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">W</th>
                     <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">L</th>
                     <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Sets W</th>
@@ -344,6 +345,9 @@ export default function LeaguePage() {
                       </td>
                       <td className="px-4 py-4 border-b border-gray-200 text-sm text-gray-900">
                         <span className="font-medium">{participant.name}</span>
+                      </td>
+                      <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">
+                        <span className="font-medium">{participant.wins + participant.losses}</span>
                       </td>
                       <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">{participant.wins}</td>
                       <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">{participant.losses}</td>
@@ -372,7 +376,7 @@ export default function LeaguePage() {
                   ))}
                   {participants.length === 0 && (
                     <tr>
-                      <td colSpan={9} className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900 text-center text-gray-500">
+                      <td colSpan={10} className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900 text-center text-gray-500">
                         No participants yet
                       </td>
                     </tr>
