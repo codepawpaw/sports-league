@@ -1,0 +1,440 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useParams } from 'next/navigation'
+import Link from 'next/link'
+import { Trophy, Calendar, Users, Settings, LogIn } from 'lucide-react'
+import { createSupabaseComponentClient } from '@/lib/supabase'
+import HeadToHeadComparison from '@/components/HeadToHeadComparison'
+
+interface League {
+  id: string
+  name: string
+  slug: string
+  description: string | null
+  sets_per_match: number
+  created_at: string
+}
+
+interface Participant {
+  id: string
+  name: string
+  email: string | null
+  wins: number
+  losses: number
+  points: number
+}
+
+interface Match {
+  id: string
+  player1: { id: string; name: string }
+  player2: { id: string; name: string }
+  player1_score: number | null
+  player2_score: number | null
+  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled'
+  scheduled_at: string | null
+  completed_at: string | null
+}
+
+interface SupabaseMatchData {
+  id: string
+  player1_score: number | null
+  player2_score: number | null
+  status: string
+}
+
+interface SupabaseParticipantData {
+  id: string
+  name: string
+  email: string | null
+  league_id: string
+  player1_matches?: SupabaseMatchData[]
+  player2_matches?: SupabaseMatchData[]
+}
+
+export default function LeaguePage() {
+  const params = useParams()
+  const slug = params.slug as string
+  const supabase = createSupabaseComponentClient()
+  
+  const [league, setLeague] = useState<League | null>(null)
+  const [participants, setParticipants] = useState<Participant[]>([])
+  const [upcomingMatches, setUpcomingMatches] = useState<Match[]>([])
+  const [recentMatches, setRecentMatches] = useState<Match[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
+
+  useEffect(() => {
+    if (slug) {
+      fetchLeagueData()
+    }
+  }, [slug])
+
+  const fetchLeagueData = async () => {
+    try {
+      setLoading(true)
+
+      // Fetch league info
+      const { data: leagueData, error: leagueError } = await supabase
+        .from('leagues')
+        .select('*')
+        .eq('slug', slug)
+        .single()
+
+      if (leagueError || !leagueData) {
+        setError('League not found')
+        return
+      }
+
+      setLeague(leagueData)
+
+      // Check if current user is admin
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: adminData } = await supabase
+          .from('league_admins')
+          .select('id')
+          .eq('league_id', leagueData.id)
+          .eq('email', user.email)
+          .single()
+
+        setIsAdmin(!!adminData)
+      }
+
+      // Fetch participants with calculated stats
+      const { data: participantsData } = await supabase
+        .from('participants')
+        .select(`
+          *,
+          player1_matches:matches!matches_player1_id_fkey(id, player1_score, player2_score, status),
+          player2_matches:matches!matches_player2_id_fkey(id, player1_score, player2_score, status)
+        `)
+        .eq('league_id', leagueData.id)
+
+      if (participantsData) {
+        const participantsWithStats = (participantsData as SupabaseParticipantData[]).map((p: SupabaseParticipantData) => {
+          const completedMatches1 = p.player1_matches?.filter((m: SupabaseMatchData) => m.status === 'completed') || []
+          const completedMatches2 = p.player2_matches?.filter((m: SupabaseMatchData) => m.status === 'completed') || []
+          
+          let wins = 0
+          let losses = 0
+
+          completedMatches1.forEach((m: SupabaseMatchData) => {
+            if ((m.player1_score || 0) > (m.player2_score || 0)) wins++
+            else losses++
+          })
+
+          completedMatches2.forEach((m: SupabaseMatchData) => {
+            if ((m.player2_score || 0) > (m.player1_score || 0)) wins++
+            else losses++
+          })
+
+          const points = wins * 3 + losses * 1 // 3 points for win, 1 for loss
+
+          return {
+            id: p.id,
+            name: p.name,
+            email: p.email,
+            wins,
+            losses,
+            points
+          }
+        })
+
+        // Sort by points (descending), then by wins
+        participantsWithStats.sort((a, b) => {
+          if (a.points !== b.points) return b.points - a.points
+          return b.wins - a.wins
+        })
+
+        setParticipants(participantsWithStats)
+      }
+
+      // Fetch upcoming matches
+      const { data: upcomingData } = await supabase
+        .from('matches')
+        .select(`
+          *,
+          player1:participants!matches_player1_id_fkey(id, name),
+          player2:participants!matches_player2_id_fkey(id, name)
+        `)
+        .eq('league_id', leagueData.id)
+        .in('status', ['scheduled', 'in_progress'])
+        .order('scheduled_at', { ascending: true })
+        .limit(5)
+
+      if (upcomingData) {
+        setUpcomingMatches(upcomingData.map(m => ({
+          id: m.id,
+          player1: m.player1,
+          player2: m.player2,
+          player1_score: m.player1_score,
+          player2_score: m.player2_score,
+          status: m.status,
+          scheduled_at: m.scheduled_at,
+          completed_at: m.completed_at
+        })))
+      }
+
+      // Fetch recent completed matches
+      const { data: recentData } = await supabase
+        .from('matches')
+        .select(`
+          *,
+          player1:participants!matches_player1_id_fkey(id, name),
+          player2:participants!matches_player2_id_fkey(id, name)
+        `)
+        .eq('league_id', leagueData.id)
+        .eq('status', 'completed')
+        .order('completed_at', { ascending: false })
+        .limit(5)
+
+      if (recentData) {
+        setRecentMatches(recentData.map(m => ({
+          id: m.id,
+          player1: m.player1,
+          player2: m.player2,
+          player1_score: m.player1_score,
+          player2_score: m.player2_score,
+          status: m.status,
+          scheduled_at: m.scheduled_at,
+          completed_at: m.completed_at
+        })))
+      }
+
+    } catch (err) {
+      console.error('Error fetching league data:', err)
+      setError('Failed to load league data')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    })
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="spinner mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading league data...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-black mb-4">League Not Found</h1>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <Link href="/" className="btn-primary">
+            Go Home
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-white">
+      {/* Header */}
+      <header className="border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center">
+              <Link href="/" className="flex items-center text-black hover:text-gray-600 mr-8">
+                <Trophy className="h-8 w-8" />
+              </Link>
+              <div>
+                <h1 className="text-lg font-semibold text-black">{league?.name}</h1>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              {isAdmin ? (
+                <Link href={`/${slug}/admin`} className="btn-outline">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Admin Panel
+                </Link>
+              ) : (
+                <div></div>
+              )}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        {league?.description && (
+          <div className="mb-8">
+            <p className="text-lg text-gray-600">{league.description}</p>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Rankings */}
+          <div className="lg:col-span-2 space-y-8">
+            <div className="card">
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center">
+                  <Trophy className="h-6 w-6 text-black mr-2" />
+                  <h2 className="text-xl font-bold text-black">Current Rankings</h2>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr>
+                      <th className="table-header">Rank</th>
+                      <th className="table-header">Player</th>
+                      <th className="table-header">Wins</th>
+                      <th className="table-header">Losses</th>
+                      <th className="table-header">Points</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {participants.map((participant, index) => (
+                      <tr key={participant.id}>
+                        <td className="table-cell">
+                          <span className="font-bold text-lg">#{index + 1}</span>
+                        </td>
+                        <td className="table-cell">
+                          <span className="font-medium">{participant.name}</span>
+                        </td>
+                        <td className="table-cell">{participant.wins}</td>
+                        <td className="table-cell">{participant.losses}</td>
+                        <td className="table-cell">
+                          <span className="font-semibold">{participant.points}</span>
+                        </td>
+                      </tr>
+                    ))}
+                    {participants.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="table-cell text-center text-gray-500">
+                          No participants yet
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Head-to-Head Analysis */}
+            {participants.length >= 2 && (
+              <HeadToHeadComparison 
+                participants={participants.map(p => ({ id: p.id, name: p.name }))} 
+                slug={slug}
+              />
+            )}
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Upcoming Matches */}
+            <div className="card">
+              <div className="p-4 border-b border-gray-200">
+                <div className="flex items-center">
+                  <Calendar className="h-5 w-5 text-black mr-2" />
+                  <h3 className="font-semibold text-black">Upcoming Matches</h3>
+                </div>
+              </div>
+              <div className="p-4 space-y-3">
+                {upcomingMatches.map((match) => (
+                  <div key={match.id} className="text-sm">
+                    <div className="font-medium text-black">
+                      {match.player1.name} vs {match.player2.name}
+                    </div>
+                    {match.scheduled_at && (
+                      <div className="text-gray-500">
+                        {formatDate(match.scheduled_at)}
+                      </div>
+                    )}
+                    <div className={`inline-block px-2 py-1 rounded-full text-xs ${
+                      match.status === 'scheduled' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {match.status === 'scheduled' ? 'Scheduled' : 'In Progress'}
+                    </div>
+                  </div>
+                ))}
+                {upcomingMatches.length === 0 && (
+                  <p className="text-gray-500 text-sm">No upcoming matches</p>
+                )}
+              </div>
+            </div>
+
+            {/* Recent Results */}
+            <div className="card">
+              <div className="p-4 border-b border-gray-200">
+                <h3 className="font-semibold text-black">Recent Results</h3>
+              </div>
+              <div className="p-4 space-y-3">
+                {recentMatches.map((match) => (
+                  <div key={match.id} className="text-sm">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="font-medium text-black">
+                          {match.player1.name} vs {match.player2.name}
+                        </div>
+                        <div className="text-gray-500">
+                          {match.completed_at && formatDate(match.completed_at)}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-semibold text-black">
+                          {match.player1_score} - {match.player2_score}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {(match.player1_score !== null && match.player2_score !== null && 
+                            match.player1_score > match.player2_score) ? 
+                            match.player1.name : match.player2.name} wins
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {recentMatches.length === 0 && (
+                  <p className="text-gray-500 text-sm">No completed matches</p>
+                )}
+              </div>
+            </div>
+
+            {/* League Info */}
+            <div className="card">
+              <div className="p-4 border-b border-gray-200">
+                <div className="flex items-center">
+                  <Users className="h-5 w-5 text-black mr-2" />
+                  <h3 className="font-semibold text-black">League Info</h3>
+                </div>
+              </div>
+              <div className="p-4 space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Format:</span>
+                  <span className="text-black">Best of {league?.sets_per_match}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Players:</span>
+                  <span className="text-black">{participants.length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Matches:</span>
+                  <span className="text-black">{upcomingMatches.length + recentMatches.length}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  )
+}

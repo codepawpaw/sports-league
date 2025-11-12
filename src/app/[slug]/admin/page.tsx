@@ -1,0 +1,1041 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { Trophy, ArrowLeft, Users, Calendar, Plus, Edit, Trash2, Save, X, Shuffle, Eye, Clock } from 'lucide-react'
+import { createSupabaseComponentClient } from '@/lib/supabase'
+
+interface League {
+  id: string
+  name: string
+  slug: string
+  description: string | null
+  sets_per_match: number
+}
+
+interface Participant {
+  id: string
+  name: string
+  email: string | null
+}
+
+interface Match {
+  id: string
+  player1: { id: string; name: string }
+  player2: { id: string; name: string }
+  player1_score: number | null
+  player2_score: number | null
+  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled'
+  scheduled_at: string | null
+}
+
+export default function AdminPage() {
+  const params = useParams()
+  const router = useRouter()
+  const slug = params.slug as string
+  const supabase = createSupabaseComponentClient()
+  
+  const [league, setLeague] = useState<League | null>(null)
+  const [participants, setParticipants] = useState<Participant[]>([])
+  const [matches, setMatches] = useState<Match[]>([])
+  const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState('participants')
+  
+  // Forms state
+  const [newParticipant, setNewParticipant] = useState({ name: '', email: '' })
+  const [editingParticipant, setEditingParticipant] = useState<string | null>(null)
+  const [editParticipantData, setEditParticipantData] = useState({ name: '', email: '' })
+  
+  const [newMatch, setNewMatch] = useState({
+    player1Id: '',
+    player2Id: '',
+    scheduledAt: ''
+  })
+  
+  const [editingMatch, setEditingMatch] = useState<string | null>(null)
+  const [editMatchData, setEditMatchData] = useState({
+    player1_score: '',
+    player2_score: '',
+    status: 'scheduled' as Match['status'],
+    scheduled_at: ''
+  })
+
+  // Auto draw state
+  const [showAutoDraw, setShowAutoDraw] = useState(false)
+  const [autoDrawConfig, setAutoDrawConfig] = useState({
+    clearExisting: false,
+    autoSchedule: false,
+    startDate: '',
+    startTime: '09:00',
+    intervalDays: 1,
+    daysOfWeek: [1, 2, 3, 4, 5] // Monday to Friday
+  })
+  const [autoDrawPreview, setAutoDrawPreview] = useState<any>(null)
+  const [isGeneratingDraw, setIsGeneratingDraw] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
+
+  useEffect(() => {
+    if (slug) {
+      checkAdminAccess()
+    }
+  }, [slug])
+
+  const checkAdminAccess = async () => {
+    try {
+      // Check if user is authenticated and is admin
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        router.push(`/${slug}/auth`)
+        return
+      }
+
+      // Get league and verify admin access
+      const { data: leagueData } = await supabase
+        .from('leagues')
+        .select('*')
+        .eq('slug', slug)
+        .single()
+
+      if (!leagueData) {
+        router.push('/')
+        return
+      }
+
+      const { data: adminData } = await supabase
+        .from('league_admins')
+        .select('id')
+        .eq('league_id', leagueData.id)
+        .eq('email', user.email)
+        .single()
+
+      if (!adminData) {
+        router.push(`/${slug}`)
+        return
+      }
+
+      setLeague(leagueData)
+      await fetchData(leagueData.id)
+    } catch (error) {
+      console.error('Error checking admin access:', error)
+      router.push(`/${slug}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchData = async (leagueId: string) => {
+    try {
+      // Fetch participants
+      const { data: participantsData } = await supabase
+        .from('participants')
+        .select('*')
+        .eq('league_id', leagueId)
+        .order('name')
+
+      if (participantsData) {
+        setParticipants(participantsData)
+      }
+
+      // Fetch matches
+      const { data: matchesData } = await supabase
+        .from('matches')
+        .select(`
+          *,
+          player1:participants!matches_player1_id_fkey(id, name),
+          player2:participants!matches_player2_id_fkey(id, name)
+        `)
+        .eq('league_id', leagueId)
+        .order('created_at', { ascending: false })
+
+      if (matchesData) {
+        setMatches(matchesData.map((m: any) => ({
+          id: m.id,
+          player1: m.player1,
+          player2: m.player2,
+          player1_score: m.player1_score,
+          player2_score: m.player2_score,
+          status: m.status,
+          scheduled_at: m.scheduled_at
+        })))
+      }
+    } catch (error) {
+      console.error('Error fetching data:', error)
+    }
+  }
+
+  const handleAddParticipant = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!league || !newParticipant.name.trim()) return
+
+    try {
+      const { error } = await supabase
+        .from('participants')
+        .insert({
+          league_id: league.id,
+          name: newParticipant.name.trim(),
+          email: newParticipant.email.trim() || null
+        })
+
+      if (!error) {
+        setNewParticipant({ name: '', email: '' })
+        await fetchData(league.id)
+      } else {
+        alert('Error adding participant: ' + error.message)
+      }
+    } catch (error) {
+      console.error('Error adding participant:', error)
+      alert('Failed to add participant')
+    }
+  }
+
+  const handleEditParticipant = async (participantId: string) => {
+    if (!league) return
+
+    try {
+      const { error } = await supabase
+        .from('participants')
+        .update({
+          name: editParticipantData.name.trim(),
+          email: editParticipantData.email.trim() || null
+        })
+        .eq('id', participantId)
+
+      if (!error) {
+        setEditingParticipant(null)
+        await fetchData(league.id)
+      } else {
+        alert('Error updating participant: ' + error.message)
+      }
+    } catch (error) {
+      console.error('Error updating participant:', error)
+      alert('Failed to update participant')
+    }
+  }
+
+  const handleDeleteParticipant = async (participantId: string) => {
+    if (!league || !confirm('Are you sure you want to delete this participant?')) return
+
+    try {
+      const { error } = await supabase
+        .from('participants')
+        .delete()
+        .eq('id', participantId)
+
+      if (!error) {
+        await fetchData(league.id)
+      } else {
+        alert('Error deleting participant: ' + error.message)
+      }
+    } catch (error) {
+      console.error('Error deleting participant:', error)
+      alert('Failed to delete participant')
+    }
+  }
+
+  const handleDeleteMatch = async (matchId: string) => {
+    if (!league) return
+
+    // Find the match to show player names in confirmation
+    const match = matches.find(m => m.id === matchId)
+    if (!match) return
+
+    const confirmMessage = `Are you sure you want to delete the match between ${match.player1.name} and ${match.player2.name}?`
+    if (!confirm(confirmMessage)) return
+
+    try {
+      const { error } = await supabase
+        .from('matches')
+        .delete()
+        .eq('id', matchId)
+
+      if (!error) {
+        await fetchData(league.id)
+      } else {
+        alert('Error deleting match: ' + error.message)
+      }
+    } catch (error) {
+      console.error('Error deleting match:', error)
+      alert('Failed to delete match')
+    }
+  }
+
+  const handleAddMatch = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!league || !newMatch.player1Id || !newMatch.player2Id || newMatch.player1Id === newMatch.player2Id) {
+      alert('Please select two different players')
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('matches')
+        .insert({
+          league_id: league.id,
+          player1_id: newMatch.player1Id,
+          player2_id: newMatch.player2Id,
+          scheduled_at: newMatch.scheduledAt ? new Date(newMatch.scheduledAt).toISOString() : null,
+          status: 'scheduled'
+        })
+
+      if (!error) {
+        setNewMatch({ player1Id: '', player2Id: '', scheduledAt: '' })
+        await fetchData(league.id)
+      } else {
+        alert('Error creating match: ' + error.message)
+      }
+    } catch (error) {
+      console.error('Error creating match:', error)
+      alert('Failed to create match')
+    }
+  }
+
+  const handleUpdateMatch = async (matchId: string) => {
+    if (!league) return
+
+    try {
+      const updateData: any = {
+        status: editMatchData.status,
+        scheduled_at: editMatchData.scheduled_at ? new Date(editMatchData.scheduled_at).toISOString() : null
+      }
+
+      if (editMatchData.status === 'completed') {
+        if (!editMatchData.player1_score || !editMatchData.player2_score) {
+          alert('Please enter scores for both players')
+          return
+        }
+        updateData.player1_score = parseInt(editMatchData.player1_score)
+        updateData.player2_score = parseInt(editMatchData.player2_score)
+        updateData.completed_at = new Date().toISOString()
+      }
+
+      const { error } = await supabase
+        .from('matches')
+        .update(updateData)
+        .eq('id', matchId)
+
+      if (!error) {
+        setEditingMatch(null)
+        await fetchData(league.id)
+      } else {
+        alert('Error updating match: ' + error.message)
+      }
+    } catch (error) {
+      console.error('Error updating match:', error)
+      alert('Failed to update match')
+    }
+  }
+
+  const startEditingParticipant = (participant: Participant) => {
+    setEditingParticipant(participant.id)
+    setEditParticipantData({
+      name: participant.name,
+      email: participant.email || ''
+    })
+  }
+
+  const startEditingMatch = (match: Match) => {
+    setEditingMatch(match.id)
+    setEditMatchData({
+      player1_score: match.player1_score?.toString() || '',
+      player2_score: match.player2_score?.toString() || '',
+      status: match.status,
+      scheduled_at: match.scheduled_at ? new Date(match.scheduled_at).toISOString().slice(0, 16) : ''
+    })
+  }
+
+  // Auto draw functions
+  const handlePreviewAutoDraw = async () => {
+    if (!league) return
+
+    if (participants.length < 2) {
+      alert('At least 2 participants are required for auto draw')
+      return
+    }
+
+    try {
+      const queryParams = new URLSearchParams({
+        clearExisting: autoDrawConfig.clearExisting.toString(),
+        autoSchedule: autoDrawConfig.autoSchedule.toString(),
+        ...(autoDrawConfig.autoSchedule && autoDrawConfig.startDate && {
+          startDate: autoDrawConfig.startDate,
+          startTime: autoDrawConfig.startTime,
+          intervalDays: autoDrawConfig.intervalDays.toString(),
+          daysOfWeek: autoDrawConfig.daysOfWeek.join(',')
+        })
+      })
+
+      const response = await fetch(`/api/leagues/${slug}/auto-draw?${queryParams}`)
+      const data = await response.json()
+
+      if (response.ok) {
+        setAutoDrawPreview(data)
+        setShowPreview(true)
+      } else {
+        alert(data.error || 'Failed to generate preview')
+      }
+    } catch (error) {
+      console.error('Error generating preview:', error)
+      alert('Failed to generate preview')
+    }
+  }
+
+  const handleGenerateAutoDraw = async () => {
+    if (!league || !confirm('This will create all matches. Continue?')) return
+
+    if (autoDrawConfig.clearExisting && !confirm('This will delete all existing matches. Are you sure?')) {
+      return
+    }
+
+    setIsGeneratingDraw(true)
+
+    try {
+      const response = await fetch(`/api/leagues/${slug}/auto-draw`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(autoDrawConfig)
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        alert(`Successfully created ${data.matchesCreated} matches!`)
+        setShowAutoDraw(false)
+        setShowPreview(false)
+        setAutoDrawPreview(null)
+        await fetchData(league.id)
+      } else {
+        alert(data.error || 'Failed to generate matches')
+      }
+    } catch (error) {
+      console.error('Error generating matches:', error)
+      alert('Failed to generate matches')
+    } finally {
+      setIsGeneratingDraw(false)
+    }
+  }
+
+  const handleDayOfWeekToggle = (day: number) => {
+    setAutoDrawConfig(prev => ({
+      ...prev,
+      daysOfWeek: prev.daysOfWeek.includes(day)
+        ? prev.daysOfWeek.filter(d => d !== day)
+        : [...prev.daysOfWeek, day].sort()
+    }))
+  }
+
+  const formatPreviewDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  const getDayName = (dayNumber: number) => {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+    return days[dayNumber]
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="spinner mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading admin panel...</p>
+        </div>
+      </div>
+    )
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleString()
+  }
+
+  return (
+    <div className="min-h-screen bg-white">
+      {/* Header */}
+      <header className="border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center">
+              <Link href={`/${slug}`} className="flex items-center text-black hover:text-gray-600 mr-8">
+                <ArrowLeft className="h-5 w-5 mr-2" />
+                <Trophy className="h-8 w-8 mr-3" />
+                <span className="text-xl font-bold">{league?.name} - Admin</span>
+              </Link>
+            </div>
+            <Link href={`/${slug}`} className="btn-outline">
+              View Public Page
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      {/* Tabs */}
+      <div className="border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <nav className="flex space-x-8">
+            <button
+              onClick={() => setActiveTab('participants')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'participants'
+                  ? 'border-black text-black'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <Users className="h-4 w-4 inline mr-2" />
+              Participants
+            </button>
+            <button
+              onClick={() => setActiveTab('matches')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'matches'
+                  ? 'border-black text-black'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <Calendar className="h-4 w-4 inline mr-2" />
+              Matches
+            </button>
+          </nav>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        {activeTab === 'participants' && (
+          <div>
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-black mb-4">Manage Participants</h2>
+              
+              {/* Add Participant Form */}
+              <div className="card p-6 mb-6">
+                <h3 className="text-lg font-semibold text-black mb-4">Add New Participant</h3>
+                <form onSubmit={handleAddParticipant} className="flex gap-4">
+                  <input
+                    type="text"
+                    placeholder="Participant name"
+                    value={newParticipant.name}
+                    onChange={(e) => setNewParticipant(prev => ({ ...prev, name: e.target.value }))}
+                    className="input-field flex-1"
+                    required
+                  />
+                  <input
+                    type="email"
+                    placeholder="Email (optional)"
+                    value={newParticipant.email}
+                    onChange={(e) => setNewParticipant(prev => ({ ...prev, email: e.target.value }))}
+                    className="input-field flex-1"
+                  />
+                  <button type="submit" className="btn-primary">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add
+                  </button>
+                </form>
+              </div>
+
+              {/* Participants List */}
+              <div className="card">
+                <div className="p-6 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-black">Current Participants</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr>
+                        <th className="table-header">Name</th>
+                        <th className="table-header">Email</th>
+                        <th className="table-header">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {participants.map((participant) => (
+                        <tr key={participant.id}>
+                          <td className="table-cell">
+                            {editingParticipant === participant.id ? (
+                              <input
+                                type="text"
+                                value={editParticipantData.name}
+                                onChange={(e) => setEditParticipantData(prev => ({ ...prev, name: e.target.value }))}
+                                className="input-field"
+                              />
+                            ) : (
+                              participant.name
+                            )}
+                          </td>
+                          <td className="table-cell">
+                            {editingParticipant === participant.id ? (
+                              <input
+                                type="email"
+                                value={editParticipantData.email}
+                                onChange={(e) => setEditParticipantData(prev => ({ ...prev, email: e.target.value }))}
+                                className="input-field"
+                              />
+                            ) : (
+                              participant.email || '-'
+                            )}
+                          </td>
+                          <td className="table-cell">
+                            <div className="flex gap-2">
+                              {editingParticipant === participant.id ? (
+                                <>
+                                  <button
+                                    onClick={() => handleEditParticipant(participant.id)}
+                                    className="p-2 text-green-600 hover:text-green-800"
+                                  >
+                                    <Save className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => setEditingParticipant(null)}
+                                    className="p-2 text-gray-600 hover:text-gray-800"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => startEditingParticipant(participant)}
+                                    className="p-2 text-blue-600 hover:text-blue-800"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteParticipant(participant.id)}
+                                    className="p-2 text-red-600 hover:text-red-800"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {participants.length === 0 && (
+                        <tr>
+                          <td colSpan={3} className="table-cell text-center text-gray-500">
+                            No participants yet
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'matches' && (
+          <div>
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-black mb-4">Manage Matches</h2>
+              
+              {/* Add Match Form */}
+              <div className="card p-6 mb-6">
+                <h3 className="text-lg font-semibold text-black mb-4">Schedule New Match</h3>
+                <form onSubmit={handleAddMatch} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <select
+                    value={newMatch.player1Id}
+                    onChange={(e) => setNewMatch(prev => ({ ...prev, player1Id: e.target.value }))}
+                    className="input-field"
+                    required
+                  >
+                    <option value="">Select Player 1</option>
+                    {participants.map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={newMatch.player2Id}
+                    onChange={(e) => setNewMatch(prev => ({ ...prev, player2Id: e.target.value }))}
+                    className="input-field"
+                    required
+                  >
+                    <option value="">Select Player 2</option>
+                    {participants.map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                  <input
+                    type="datetime-local"
+                    value={newMatch.scheduledAt}
+                    onChange={(e) => setNewMatch(prev => ({ ...prev, scheduledAt: e.target.value }))}
+                    className="input-field"
+                  />
+                  <button type="submit" className="btn-primary">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Schedule Match
+                  </button>
+                </form>
+              </div>
+
+              {/* Auto Draw Section */}
+              <div className="card p-6 mb-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-black">Auto Draw Tournament</h3>
+                  {!showAutoDraw && (
+                    <button
+                      onClick={() => setShowAutoDraw(true)}
+                      className="btn-primary"
+                      disabled={participants.length < 2}
+                    >
+                      <Shuffle className="h-4 w-4 mr-2" />
+                      Generate All Matches
+                    </button>
+                  )}
+                </div>
+
+                {participants.length < 2 && (
+                  <p className="text-gray-600 text-sm mb-4">
+                    Add at least 2 participants to use auto draw feature
+                  </p>
+                )}
+
+                {showAutoDraw && (
+                  <div className="space-y-6">
+                    {/* Clear Existing Option */}
+                    <div>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={autoDrawConfig.clearExisting}
+                          onChange={(e) => setAutoDrawConfig(prev => ({ ...prev, clearExisting: e.target.checked }))}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-700">Clear existing matches first</span>
+                      </label>
+                      {matches.length > 0 && (
+                        <p className="text-sm text-gray-500 ml-6">
+                          This will delete all {matches.length} existing match(es)
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Schedule Options */}
+                    <div>
+                      <h4 className="font-medium text-black mb-3">Schedule Options</h4>
+                      <div className="space-y-3">
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            name="scheduleOption"
+                            checked={!autoDrawConfig.autoSchedule}
+                            onChange={() => setAutoDrawConfig(prev => ({ ...prev, autoSchedule: false }))}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-gray-700">No automatic scheduling</span>
+                        </label>
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            name="scheduleOption"
+                            checked={autoDrawConfig.autoSchedule}
+                            onChange={() => setAutoDrawConfig(prev => ({ ...prev, autoSchedule: true }))}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-gray-700">Automatic scheduling</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Automatic Scheduling Options */}
+                    {autoDrawConfig.autoSchedule && (
+                      <div className="border-l-4 border-blue-500 pl-4 space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Start Date
+                            </label>
+                            <input
+                              type="date"
+                              value={autoDrawConfig.startDate}
+                              onChange={(e) => setAutoDrawConfig(prev => ({ ...prev, startDate: e.target.value }))}
+                              className="input-field"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Start Time
+                            </label>
+                            <input
+                              type="time"
+                              value={autoDrawConfig.startTime}
+                              onChange={(e) => setAutoDrawConfig(prev => ({ ...prev, startTime: e.target.value }))}
+                              className="input-field"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Match Interval
+                            </label>
+                            <select
+                              value={autoDrawConfig.intervalDays}
+                              onChange={(e) => setAutoDrawConfig(prev => ({ ...prev, intervalDays: parseInt(e.target.value) }))}
+                              className="input-field"
+                            >
+                              <option value={1}>Daily</option>
+                              <option value={2}>Every 2 days</option>
+                              <option value={3}>Every 3 days</option>
+                              <option value={7}>Weekly</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Days of Week
+                          </label>
+                          <div className="flex gap-2">
+                            {[0, 1, 2, 3, 4, 5, 6].map(day => (
+                              <button
+                                key={day}
+                                type="button"
+                                onClick={() => handleDayOfWeekToggle(day)}
+                                className={`px-3 py-2 rounded text-sm font-medium ${
+                                  autoDrawConfig.daysOfWeek.includes(day)
+                                    ? 'bg-black text-white'
+                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                }`}
+                              >
+                                {getDayName(day)}
+                              </button>
+                            ))}
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Select which days matches can be scheduled
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex gap-3">
+                      <button
+                        onClick={handlePreviewAutoDraw}
+                        className="btn-outline"
+                        disabled={autoDrawConfig.autoSchedule && !autoDrawConfig.startDate}
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        Preview Matches
+                      </button>
+                      <button
+                        onClick={handleGenerateAutoDraw}
+                        className="btn-primary"
+                        disabled={isGeneratingDraw || (autoDrawConfig.autoSchedule && !autoDrawConfig.startDate)}
+                      >
+                        {isGeneratingDraw ? (
+                          <>
+                            <Clock className="h-4 w-4 mr-2 animate-spin" />
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <Shuffle className="h-4 w-4 mr-2" />
+                            Generate Tournament
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowAutoDraw(false)
+                          setShowPreview(false)
+                          setAutoDrawPreview(null)
+                        }}
+                        className="btn-outline"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Preview Modal */}
+                {showPreview && autoDrawPreview && (
+                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full m-4 max-h-[90vh] overflow-hidden">
+                      <div className="p-6 border-b border-gray-200">
+                        <h3 className="text-lg font-semibold text-black">Match Preview</h3>
+                        <p className="text-sm text-gray-600 mt-1">
+                          {autoDrawPreview.totalMatches} matches will be created for {autoDrawPreview.participants} participants
+                          {autoDrawPreview.estimatedDuration && ` (${autoDrawPreview.estimatedDuration})`}
+                        </p>
+                      </div>
+                      <div className="p-6 overflow-y-auto max-h-96">
+                        <div className="space-y-2">
+                          {autoDrawPreview.matches.map((match: any, index: number) => (
+                            <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded">
+                              <span className="font-medium">
+                                {match.player1_name} vs {match.player2_name}
+                              </span>
+                              <span className="text-sm text-gray-600">
+                                {match.scheduled_at ? formatPreviewDate(match.scheduled_at) : 'No date'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="p-6 border-t border-gray-200 flex gap-3">
+                        <button
+                          onClick={handleGenerateAutoDraw}
+                          className="btn-primary"
+                          disabled={isGeneratingDraw}
+                        >
+                          {isGeneratingDraw ? 'Generating...' : 'Confirm & Generate'}
+                        </button>
+                        <button
+                          onClick={() => setShowPreview(false)}
+                          className="btn-outline"
+                        >
+                          Back to Config
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Matches List */}
+              <div className="card">
+                <div className="p-6 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-black">All Matches</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr>
+                        <th className="table-header">Players</th>
+                        <th className="table-header">Score</th>
+                        <th className="table-header">Status</th>
+                        <th className="table-header">Scheduled</th>
+                        <th className="table-header">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {matches.map((match) => (
+                        <tr key={match.id}>
+                          <td className="table-cell">
+                            {match.player1.name} vs {match.player2.name}
+                          </td>
+                          <td className="table-cell">
+                            {editingMatch === match.id ? (
+                              <div className="flex gap-2">
+                                <input
+                                  type="number"
+                                  placeholder="P1"
+                                  value={editMatchData.player1_score}
+                                  onChange={(e) => setEditMatchData(prev => ({ ...prev, player1_score: e.target.value }))}
+                                  className="input-field w-16"
+                                  min="0"
+                                />
+                                <span>-</span>
+                                <input
+                                  type="number"
+                                  placeholder="P2"
+                                  value={editMatchData.player2_score}
+                                  onChange={(e) => setEditMatchData(prev => ({ ...prev, player2_score: e.target.value }))}
+                                  className="input-field w-16"
+                                  min="0"
+                                />
+                              </div>
+                            ) : (
+                              match.status === 'completed' 
+                                ? `${match.player1_score} - ${match.player2_score}`
+                                : '-'
+                            )}
+                          </td>
+                          <td className="table-cell">
+                            {editingMatch === match.id ? (
+                              <select
+                                value={editMatchData.status}
+                                onChange={(e) => setEditMatchData(prev => ({ ...prev, status: e.target.value as Match['status'] }))}
+                                className="input-field"
+                              >
+                                <option value="scheduled">Scheduled</option>
+                                <option value="in_progress">In Progress</option>
+                                <option value="completed">Completed</option>
+                                <option value="cancelled">Cancelled</option>
+                              </select>
+                            ) : (
+                              <span className={`badge-${
+                                match.status === 'completed' ? 'green' :
+                                match.status === 'in_progress' ? 'yellow' :
+                                match.status === 'cancelled' ? 'red' : 'gray'
+                              }`}>
+                                {match.status.replace('_', ' ')}
+                              </span>
+                            )}
+                          </td>
+                          <td className="table-cell">
+                            {editingMatch === match.id ? (
+                              <input
+                                type="datetime-local"
+                                value={editMatchData.scheduled_at}
+                                onChange={(e) => setEditMatchData(prev => ({ ...prev, scheduled_at: e.target.value }))}
+                                className="input-field"
+                              />
+                            ) : (
+                              match.scheduled_at ? formatDate(match.scheduled_at) : '-'
+                            )}
+                          </td>
+                          <td className="table-cell">
+                            <div className="flex gap-2">
+                              {editingMatch === match.id ? (
+                                <>
+                                  <button
+                                    onClick={() => handleUpdateMatch(match.id)}
+                                    className="p-2 text-green-600 hover:text-green-800"
+                                  >
+                                    <Save className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => setEditingMatch(null)}
+                                    className="p-2 text-gray-600 hover:text-gray-800"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => startEditingMatch(match)}
+                                    className="p-2 text-blue-600 hover:text-blue-800"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteMatch(match.id)}
+                                    className="p-2 text-red-600 hover:text-red-800"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {matches.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="table-cell text-center text-gray-500">
+                            No matches yet
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
+  )
+}
