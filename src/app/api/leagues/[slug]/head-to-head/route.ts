@@ -243,32 +243,68 @@ export async function GET(
       confidence = totalDirectMatches >= 5 ? 'high' : 'medium'
       basis = 'direct_matches'
     } else if (commonOpponents.length > 0) {
-      // Use common opponents method
-      let player1TotalWins = 0
-      let player1TotalGames = 0
-      let player2TotalWins = 0
-      let player2TotalGames = 0
+      // Use improved common opponents method for transitive analysis
+      let validComparisons = 0
+      let player1AdvantageSum = 0
 
       commonOpponents.forEach(opponent => {
         const p1Games = opponent.player1_record.wins + opponent.player1_record.losses
         const p2Games = opponent.player2_record.wins + opponent.player2_record.losses
 
-        player1TotalWins += opponent.player1_record.wins
-        player1TotalGames += p1Games
-        player2TotalWins += opponent.player2_record.wins
-        player2TotalGames += p2Games
+        // Only consider opponents both players have actually played against
+        if (p1Games > 0 && p2Games > 0) {
+          const player1WinRate = opponent.player1_record.wins / p1Games
+          const player2WinRate = opponent.player2_record.wins / p2Games
+          
+          // Calculate the performance difference against this common opponent
+          // Higher win rate = better performance
+          const performanceDiff = player1WinRate - player2WinRate
+          
+          // Weight by minimum games played (more reliable comparisons get higher weight)
+          const weight = Math.min(p1Games, p2Games)
+          player1AdvantageSum += performanceDiff * weight
+          validComparisons += weight
+        }
       })
 
-      if (player1TotalGames > 0 && player2TotalGames > 0) {
-        const player1WinRate = player1TotalWins / player1TotalGames
-        const player2WinRate = player2TotalWins / player2TotalGames
-
-        if (player1WinRate + player2WinRate > 0) {
-          player1Chance = Math.round((player1WinRate / (player1WinRate + player2WinRate)) * 100)
-          player2Chance = 100 - player1Chance
-          confidence = commonOpponents.length >= 3 ? 'medium' : 'low'
-          basis = 'common_opponents'
+      if (validComparisons > 0) {
+        // Calculate weighted average advantage
+        const avgAdvantage = player1AdvantageSum / validComparisons
+        
+        // Convert advantage to probability using sigmoid-like function
+        // This ensures probabilities stay within reasonable bounds (20% - 80%)
+        const scaledAdvantage = Math.max(-2, Math.min(2, avgAdvantage * 3))
+        const probabilityFromAdvantage = 1 / (1 + Math.exp(-scaledAdvantage))
+        
+        // Scale to 20-80% range to avoid extreme probabilities
+        const minProb = 20
+        const maxProb = 80
+        player1Chance = Math.round(minProb + (maxProb - minProb) * probabilityFromAdvantage)
+        player2Chance = 100 - player1Chance
+        
+        // Set confidence based on data quality
+        const totalGames = commonOpponents.reduce((sum, opp) => {
+          return sum + (opp.player1_record.wins + opp.player1_record.losses) + 
+                     (opp.player2_record.wins + opp.player2_record.losses)
+        }, 0)
+        
+        if (commonOpponents.length >= 3 && totalGames >= 10) {
+          confidence = 'medium'
+        } else if (commonOpponents.length >= 2 && totalGames >= 6) {
+          confidence = 'low'
+        } else {
+          confidence = 'low'
         }
+        
+        basis = 'common_opponents'
+        
+        console.log(`Head-to-head calculation for ${player1.name} vs ${player2.name}:`)
+        console.log(`- Common opponents: ${commonOpponents.length}`)
+        console.log(`- Valid comparisons weight: ${validComparisons}`)
+        console.log(`- Average advantage: ${avgAdvantage}`)
+        console.log(`- Final probability: ${player1Chance}% vs ${player2Chance}%`)
+      } else {
+        console.log(`No valid common opponent data for ${player1.name} vs ${player2.name}`)
       }
     }
 
