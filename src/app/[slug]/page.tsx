@@ -299,20 +299,11 @@ export default function LeaguePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <Link href="/" className="flex items-center text-black hover:text-gray-600 mr-8">
+              <Link href="/" className="flex items-center text-black hover:text-gray-600">
                 <Trophy className="h-8 w-8" />
               </Link>
-              <div>
-                <h1 className="text-lg font-semibold text-black">{league?.name}</h1>
-              </div>
             </div>
             <div className="flex items-center gap-4">
-              <Link href={`/${slug}/upcoming`} className="btn-outline">
-                Upcoming Matches
-              </Link>
-              <Link href={`/${slug}/results`} className="btn-outline">
-                All Results
-              </Link>
               {isAdmin && (
                 <Link href={`/${slug}/admin`} className="btn-outline">
                   Admin Panel
@@ -322,6 +313,25 @@ export default function LeaguePage() {
           </div>
         </div>
       </header>
+
+      {/* League Title and Navigation */}
+      <div className="border-b border-gray-100 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-black break-words">{league?.name}</h1>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Link href={`/${slug}/upcoming`} className="btn-compact">
+                Upcoming Matches
+              </Link>
+              <Link href={`/${slug}/results`} className="btn-compact">
+                All Results
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
