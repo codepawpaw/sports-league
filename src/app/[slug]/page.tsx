@@ -320,6 +320,9 @@ export default function LeaguePage() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-black break-words">{league?.name}</h1>
+              {activeSeason && (
+                <h2 className="text-lg font-medium text-gray-600 mt-1">{activeSeason.name}</h2>
+              )}
             </div>
             <div className="flex flex-wrap gap-2">
               <Link href={`/${slug}/upcoming`} className="btn-compact">
@@ -335,15 +338,10 @@ export default function LeaguePage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        {/* Active Season Banner */}
-        {activeSeason && (
-          <div className="mb-8 p-6 bg-black text-white rounded-lg">
-            <div className="text-center">
-              <h2 className="text-2xl font-bold mb-2">{activeSeason.name}</h2>
-              {activeSeason.description && (
-                <p className="text-gray-200">{activeSeason.description}</p>
-              )}
-            </div>
+        {/* Active Season Description */}
+        {activeSeason?.description && (
+          <div className="mb-8 p-4 bg-gray-50 rounded-lg border">
+            <p className="text-gray-700 text-center">{activeSeason.description}</p>
           </div>
         )}
 
