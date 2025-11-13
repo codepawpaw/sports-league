@@ -285,13 +285,19 @@ export default function LeaguePage() {
               </div>
             </div>
             <div className="flex items-center gap-4">
-              {isAdmin ? (
+              <Link href={`/${slug}/upcoming`} className="btn-outline">
+                <Calendar className="h-4 w-4 mr-2" />
+                Upcoming Matches
+              </Link>
+              <Link href={`/${slug}/results`} className="btn-outline">
+                <Trophy className="h-4 w-4 mr-2" />
+                All Results
+              </Link>
+              {isAdmin && (
                 <Link href={`/${slug}/admin`} className="btn-outline">
                   <Settings className="h-4 w-4 mr-2" />
                   Admin Panel
                 </Link>
-              ) : (
-                <div></div>
               )}
             </div>
           </div>
