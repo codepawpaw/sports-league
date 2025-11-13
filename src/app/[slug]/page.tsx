@@ -18,6 +18,15 @@ interface League {
   created_at: string
 }
 
+interface Season {
+  id: string
+  name: string
+  slug: string
+  description: string | null
+  is_active: boolean
+  is_finished: boolean
+}
+
 interface Participant {
   id: string
   name: string
@@ -63,6 +72,7 @@ export default function LeaguePage() {
   const supabase = createSupabaseComponentClient()
   
   const [league, setLeague] = useState<League | null>(null)
+  const [activeSeason, setActiveSeason] = useState<Season | null>(null)
   const [participants, setParticipants] = useState<Participant[]>([])
   const [upcomingMatches, setUpcomingMatches] = useState<Match[]>([])
   const [recentMatches, setRecentMatches] = useState<Match[]>([])
@@ -95,6 +105,18 @@ export default function LeaguePage() {
       }
 
       setLeague(leagueData)
+
+      // Fetch active season info
+      try {
+        const response = await fetch(`/api/leagues/${slug}/seasons`)
+        if (response.ok) {
+          const data = await response.json()
+          const activeSeasonData = data.seasons.find((s: Season) => s.is_active)
+          setActiveSeason(activeSeasonData || null)
+        }
+      } catch (error) {
+        console.error('Error fetching season data:', error)
+      }
 
       // Check if current user is admin
       const { data: { user } } = await supabase.auth.getUser()
@@ -303,6 +325,18 @@ export default function LeaguePage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        {/* Active Season Banner */}
+        {activeSeason && (
+          <div className="mb-8 p-6 bg-black text-white rounded-lg">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold mb-2">{activeSeason.name}</h2>
+              {activeSeason.description && (
+                <p className="text-gray-200">{activeSeason.description}</p>
+              )}
+            </div>
+          </div>
+        )}
+
         {league?.description && (
           <div className="mb-8">
             <p className="text-lg text-gray-600">{league.description}</p>

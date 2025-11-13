@@ -36,6 +36,18 @@ interface Admin {
   created_at: string
 }
 
+interface Season {
+  id: string
+  name: string
+  slug: string
+  description: string | null
+  is_active: boolean
+  is_finished: boolean
+  start_date: string | null
+  end_date: string | null
+  created_at: string
+}
+
 export default function AdminPage() {
   const params = useParams()
   const router = useRouter()
@@ -46,6 +58,8 @@ export default function AdminPage() {
   const [participants, setParticipants] = useState<Participant[]>([])
   const [matches, setMatches] = useState<Match[]>([])
   const [admins, setAdmins] = useState<Admin[]>([])
+  const [seasons, setSeasons] = useState<Season[]>([])
+  const [activeSeason, setActiveSeason] = useState<Season | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('participants')
   const [currentUserEmail, setCurrentUserEmail] = useState<string>('')
@@ -58,6 +72,16 @@ export default function AdminPage() {
   // Admin forms state
   const [newAdminEmail, setNewAdminEmail] = useState('')
   const [addingAdmin, setAddingAdmin] = useState(false)
+  
+  // Season forms state
+  const [newSeason, setNewSeason] = useState({
+    name: '',
+    description: '',
+    startDate: '',
+    makeActive: false,
+    convertExisting: false
+  })
+  const [addingSeason, setAddingSeason] = useState(false)
   
   const [newMatch, setNewMatch] = useState({
     player1Id: '',
@@ -132,6 +156,7 @@ export default function AdminPage() {
       setLeague(leagueData)
       await fetchData(leagueData.id)
       await fetchAdmins()
+      await fetchSeasons()
     } catch (error) {
       console.error('Error checking admin access:', error)
       router.push(`/${slug}`)
@@ -189,6 +214,22 @@ export default function AdminPage() {
       }
     } catch (error) {
       console.error('Error fetching admins:', error)
+    }
+  }
+
+  const fetchSeasons = async () => {
+    try {
+      const response = await fetch(`/api/leagues/${slug}/seasons`)
+      if (response.ok) {
+        const data = await response.json()
+        setSeasons(data.seasons)
+        
+        // Find the active season
+        const active = data.seasons.find((s: Season) => s.is_active)
+        setActiveSeason(active || null)
+      }
+    } catch (error) {
+      console.error('Error fetching seasons:', error)
     }
   }
 
@@ -467,6 +508,95 @@ export default function AdminPage() {
     return days[dayNumber]
   }
 
+  // Season management functions
+  const handleAddSeason = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newSeason.name.trim()) return
+
+    setAddingSeason(true)
+
+    try {
+      const response = await fetch(`/api/leagues/${slug}/seasons`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newSeason)
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setNewSeason({
+          name: '',
+          description: '',
+          startDate: '',
+          makeActive: false,
+          convertExisting: false
+        })
+        await fetchSeasons()
+        if (newSeason.makeActive) {
+          await fetchData(league!.id)
+        }
+        alert('Season created successfully!')
+      } else {
+        alert(data.error || 'Failed to create season')
+      }
+    } catch (error) {
+      console.error('Error creating season:', error)
+      alert('Failed to create season')
+    } finally {
+      setAddingSeason(false)
+    }
+  }
+
+  const handleActivateSeason = async (seasonSlug: string) => {
+    if (!confirm('Are you sure you want to activate this season? This will deactivate the current active season.')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/leagues/${slug}/seasons/${seasonSlug}/activate`, {
+        method: 'POST'
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        await fetchSeasons()
+        await fetchData(league!.id)
+        alert('Season activated successfully!')
+      } else {
+        alert(data.error || 'Failed to activate season')
+      }
+    } catch (error) {
+      console.error('Error activating season:', error)
+      alert('Failed to activate season')
+    }
+  }
+
+  const handleFinishSeason = async (seasonSlug: string) => {
+    if (!confirm('Are you sure you want to finish this season? This action cannot be undone.')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/leagues/${slug}/seasons/${seasonSlug}/finish`, {
+        method: 'POST'
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        await fetchSeasons()
+        alert('Season finished successfully!')
+      } else {
+        alert(data.error || 'Failed to finish season')
+      }
+    } catch (error) {
+      console.error('Error finishing season:', error)
+      alert('Failed to finish season')
+    }
+  }
+
   // Admin management functions
   const handleAddAdmin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -582,6 +712,17 @@ export default function AdminPage() {
             >
               <Calendar className="h-4 w-4 inline mr-2" />
               Matches
+            </button>
+            <button
+              onClick={() => setActiveTab('seasons')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'seasons'
+                  ? 'border-black text-black'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <Calendar className="h-4 w-4 inline mr-2" />
+              Seasons
             </button>
             <button
               onClick={() => setActiveTab('admins')}
@@ -816,6 +957,227 @@ export default function AdminPage() {
                         <tr>
                           <td colSpan={3} className="table-cell text-center text-gray-500">
                             No administrators found
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'seasons' && (
+          <div>
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-black mb-4">Manage Seasons</h2>
+              
+              {/* Current Active Season */}
+              {activeSeason && (
+                <div className="card p-6 mb-6">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h3 className="text-lg font-semibold text-black">Currently Active Season</h3>
+                      <div className="mt-2">
+                        <span className="text-xl font-bold text-black">{activeSeason.name}</span>
+                        {activeSeason.description && (
+                          <p className="text-gray-600 mt-1">{activeSeason.description}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-3">
+                      <span className="px-3 py-1 bg-green-100 text-green-800 text-sm font-medium rounded-full">
+                        Active
+                      </span>
+                      {!activeSeason.is_finished && (
+                        <button
+                          onClick={() => handleFinishSeason(activeSeason.slug)}
+                          className="btn-outline text-red-600 border-red-600 hover:bg-red-50"
+                        >
+                          Finish Season
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Add Season Form */}
+              <div className="card p-6 mb-6">
+                <h3 className="text-lg font-semibold text-black mb-4">Create New Season</h3>
+                <form onSubmit={handleAddSeason} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Season Name *
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g., Season 2, Spring Tournament"
+                        value={newSeason.name}
+                        onChange={(e) => setNewSeason(prev => ({ ...prev, name: e.target.value }))}
+                        className="input-field"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Start Date
+                      </label>
+                      <input
+                        type="date"
+                        value={newSeason.startDate}
+                        onChange={(e) => setNewSeason(prev => ({ ...prev, startDate: e.target.value }))}
+                        className="input-field"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Description
+                    </label>
+                    <textarea
+                      placeholder="Optional description for this season"
+                      value={newSeason.description}
+                      onChange={(e) => setNewSeason(prev => ({ ...prev, description: e.target.value }))}
+                      className="input-field"
+                      rows={3}
+                    />
+                  </div>
+
+                  <div className="space-y-3">
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={newSeason.makeActive}
+                        onChange={(e) => setNewSeason(prev => ({ ...prev, makeActive: e.target.checked }))}
+                        className="mr-2"
+                      />
+                      <span className="text-sm text-gray-700">Make this the active season</span>
+                    </label>
+                    
+                    {newSeason.makeActive && (
+                      <label className="flex items-center ml-6">
+                        <input
+                          type="checkbox"
+                          checked={newSeason.convertExisting}
+                          onChange={(e) => setNewSeason(prev => ({ ...prev, convertExisting: e.target.checked }))}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-700">Copy participants from current active season</span>
+                      </label>
+                    )}
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button 
+                      type="submit" 
+                      className="btn-primary"
+                      disabled={addingSeason}
+                    >
+                      {addingSeason ? (
+                        <>
+                          <Clock className="h-4 w-4 mr-2 animate-spin" />
+                          Creating...
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Create Season
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* All Seasons List */}
+              <div className="card">
+                <div className="p-6 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-black">All Seasons</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr>
+                        <th className="table-header">Name</th>
+                        <th className="table-header">Status</th>
+                        <th className="table-header">Start Date</th>
+                        <th className="table-header">End Date</th>
+                        <th className="table-header">Created</th>
+                        <th className="table-header">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {seasons.map((season) => (
+                        <tr key={season.id}>
+                          <td className="table-cell">
+                            <div>
+                              <div className="font-medium text-black">{season.name}</div>
+                              {season.description && (
+                                <div className="text-sm text-gray-500">{season.description}</div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="table-cell">
+                            <div className="flex gap-2">
+                              {season.is_active && (
+                                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
+                                  Active
+                                </span>
+                              )}
+                              {season.is_finished && (
+                                <span className="px-2 py-1 bg-gray-100 text-gray-800 text-xs font-medium rounded-full">
+                                  Finished
+                                </span>
+                              )}
+                              {!season.is_active && !season.is_finished && (
+                                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                                  Inactive
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="table-cell">
+                            {season.start_date ? new Date(season.start_date).toLocaleDateString() : '-'}
+                          </td>
+                          <td className="table-cell">
+                            {season.end_date ? new Date(season.end_date).toLocaleDateString() : '-'}
+                          </td>
+                          <td className="table-cell">
+                            {new Date(season.created_at).toLocaleDateString()}
+                          </td>
+                          <td className="table-cell">
+                            <div className="flex gap-2">
+                              {!season.is_active && !season.is_finished && (
+                                <button
+                                  onClick={() => handleActivateSeason(season.slug)}
+                                  className="text-sm bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-2 rounded font-medium transition-colors border border-blue-200 hover:border-blue-300"
+                                >
+                                  Activate
+                                </button>
+                              )}
+                              {season.is_active && !season.is_finished && (
+                                <button
+                                  onClick={() => handleFinishSeason(season.slug)}
+                                  className="text-sm bg-red-100 hover:bg-red-200 text-red-800 px-3 py-2 rounded font-medium transition-colors border border-red-200 hover:border-red-300"
+                                >
+                                  Finish
+                                </button>
+                              )}
+                              {season.is_finished && (
+                                <span className="text-sm text-gray-500">Finished</span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {seasons.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="table-cell text-center text-gray-500">
+                            No seasons yet
                           </td>
                         </tr>
                       )}

@@ -147,11 +147,91 @@ create policy "League admins can manage match sets" on public.match_sets for all
   )
 );
 
+-- Create seasons table
+create table public.seasons (
+  id uuid default uuid_generate_v4() primary key,
+  league_id uuid references public.leagues(id) on delete cascade not null,
+  name varchar(255) not null,
+  slug varchar(255) not null,
+  description text,
+  is_active boolean default true,
+  is_finished boolean default false,
+  start_date timestamp with time zone,
+  end_date timestamp with time zone,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  unique(league_id, slug)
+);
+
+-- Add unique constraint to ensure only one active season per league
+create unique index idx_one_active_season_per_league 
+on public.seasons(league_id) 
+where (is_active = true);
+
+-- Add season_id to participants table
+alter table public.participants add column season_id uuid references public.seasons(id) on delete cascade;
+
+-- Add season_id to matches table  
+alter table public.matches add column season_id uuid references public.seasons(id) on delete cascade;
+
+-- Create trigger for seasons updated_at
+create trigger update_seasons_updated_at before update on public.seasons
+  for each row execute function public.update_updated_at_column();
+
+-- Enable RLS for seasons
+alter table public.seasons enable row level security;
+
+-- RLS Policies for seasons
+create policy "Anyone can view seasons" on public.seasons for select using (true);
+create policy "League admins can manage seasons" on public.seasons for all using (
+  exists (
+    select 1 from public.league_admins 
+    where league_id = seasons.league_id 
+    and email = auth.jwt() ->> 'email'
+  )
+);
+
+-- Create default seasons for existing leagues
+insert into public.seasons (league_id, name, slug, description, is_active)
+select 
+  id as league_id,
+  'Season 1' as name,
+  'season-1' as slug,
+  'Initial season' as description,
+  true as is_active
+from public.leagues;
+
+-- Update existing participants to belong to default seasons
+update public.participants 
+set season_id = (
+  select s.id 
+  from public.seasons s 
+  where s.league_id = participants.league_id 
+  and s.slug = 'season-1'
+);
+
+-- Update existing matches to belong to default seasons
+update public.matches 
+set season_id = (
+  select s.id 
+  from public.seasons s 
+  where s.league_id = matches.league_id 
+  and s.slug = 'season-1'
+);
+
+-- Make season_id not null after migration
+alter table public.participants alter column season_id set not null;
+alter table public.matches alter column season_id set not null;
+
 -- Create indexes for performance
 create index idx_leagues_slug on public.leagues(slug);
 create index idx_league_admins_league_email on public.league_admins(league_id, email);
 create index idx_participants_league on public.participants(league_id);
+create index idx_participants_season on public.participants(season_id);
 create index idx_matches_league on public.matches(league_id);
+create index idx_matches_season on public.matches(season_id);
 create index idx_matches_players on public.matches(player1_id, player2_id);
 create index idx_matches_status on public.matches(status);
 create index idx_match_sets_match on public.match_sets(match_id);
+create index idx_seasons_league on public.seasons(league_id);
+create index idx_seasons_active on public.seasons(league_id, is_active);
