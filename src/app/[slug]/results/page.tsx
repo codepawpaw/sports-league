@@ -114,22 +114,29 @@ export default function ResultsPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <Link href="/" className="flex items-center text-black hover:text-gray-600 mr-8">
+              <Link href="/" className="flex items-center text-black hover:text-gray-600">
                 <Trophy className="h-8 w-8" />
               </Link>
-              <div>
-                <h1 className="text-lg font-semibold text-black">{data.league.name} - Results</h1>
-              </div>
             </div>
             <div className="flex items-center gap-4">
-              <Link href={`/${slug}`} className="btn-outline">
-                <ArrowLeft className="h-4 w-4 mr-2" />
+              <Link href={`/${slug}`} className="btn-mobile">
+                <ArrowLeft className="h-3 w-3 mr-1 sm:h-4 sm:w-4 sm:mr-2" />
                 Back to League
               </Link>
             </div>
           </div>
         </div>
       </header>
+
+      {/* League Title */}
+      <div className="border-b border-gray-100 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-black break-words">{data.league.name}</h1>
+            <h2 className="text-lg font-medium text-gray-600 mt-1">Match Results</h2>
+          </div>
+        </div>
+      </div>
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
