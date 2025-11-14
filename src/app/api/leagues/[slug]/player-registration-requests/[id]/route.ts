@@ -125,18 +125,43 @@ async function handleRegistrationRequest(
 
     } else if (action === 'reject') {
       // Update the registration request status to rejected
+      // Include updated_at explicitly to handle both old and new schema versions
+      const updateData = {
+        status: 'rejected' as const,
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: user.email,
+        updated_at: new Date().toISOString()
+      }
+
       const { error: statusError } = await supabase
         .from('player_registration_requests')
-        .update({
-          status: 'rejected',
-          reviewed_at: new Date().toISOString(),
-          reviewed_by: user.email
-        })
+        .update(updateData)
         .eq('id', id)
 
       if (statusError) {
         console.error('Error updating request status:', statusError)
-        return NextResponse.json({ error: 'Failed to reject request' }, { status: 500 })
+        
+        // If the error might be due to missing updated_at column, try without it
+        if (statusError.message?.includes('updated_at') || statusError.message?.includes('column')) {
+          console.log('Retrying without updated_at column...')
+          const fallbackUpdateData = {
+            status: 'rejected' as const,
+            reviewed_at: new Date().toISOString(),
+            reviewed_by: user.email
+          }
+          
+          const { error: retryError } = await supabase
+            .from('player_registration_requests')
+            .update(fallbackUpdateData)
+            .eq('id', id)
+          
+          if (retryError) {
+            console.error('Error on retry:', retryError)
+            return NextResponse.json({ error: 'Failed to reject request' }, { status: 500 })
+          }
+        } else {
+          return NextResponse.json({ error: 'Failed to reject request' }, { status: 500 })
+        }
       }
 
       return NextResponse.json({

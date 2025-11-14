@@ -235,6 +235,7 @@ create table public.player_registration_requests (
   reviewed_at timestamp with time zone,
   reviewed_by varchar(255),
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null,
   unique(league_id, player_id),
   unique(league_id, claimer_email)
 );
