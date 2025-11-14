@@ -778,6 +778,8 @@ export default function AdminPage() {
     if (!claim) return
 
     const actionText = action === 'approved' ? 'approve' : 'reject'
+    const apiAction = action === 'approved' ? 'approve' : 'reject'
+    
     if (!confirm(`Are you sure you want to ${actionText} the claim request for ${claim.player.name} by ${claim.email}?`)) {
       return
     }
@@ -788,7 +790,7 @@ export default function AdminPage() {
       const response = await fetch(`/api/leagues/${slug}/claims/${claimId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: action })
+        body: JSON.stringify({ action: apiAction })
       })
 
       const data = await response.json()
