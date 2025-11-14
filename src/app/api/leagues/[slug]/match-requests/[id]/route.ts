@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase'
 
-// PUT - Approve or reject match request
+// PUT - Approve or reject match request (opponent or admin)
 export async function PUT(
   request: Request,
   { params }: { params: { slug: string; id: string } }
@@ -9,7 +9,7 @@ export async function PUT(
   try {
     const supabase = createSupabaseServerClient()
     const body = await request.json()
-    const { action, scheduledAt } = body // action: 'approve' | 'reject', scheduledAt: optional date
+    const { action, scheduledAt, userRole } = body // action: 'approve' | 'reject', userRole: 'opponent' | 'admin'
 
     // Check authentication
     const { data: { session } } = await supabase.auth.getSession()
@@ -28,25 +28,13 @@ export async function PUT(
       return NextResponse.json({ error: 'League not found' }, { status: 404 })
     }
 
-    // Check if user is admin
-    const { data: adminData, error: adminError } = await supabase
-      .from('league_admins')
-      .select('id')
-      .eq('league_id', league.id)
-      .eq('email', session.user.email)
-      .single()
-
-    if (adminError || !adminData) {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
-    }
-
-    // Get match request
+    // Get match request first to check permissions
     const { data: matchRequest, error: matchRequestError } = await supabase
       .from('match_requests')
       .select(`
         *,
-        requesting_player:participants!match_requests_requesting_player_id_fkey(id, name),
-        requested_player:participants!match_requests_requested_player_id_fkey(id, name)
+        requesting_player:participants!match_requests_requesting_player_id_fkey(id, name, email),
+        requested_player:participants!match_requests_requested_player_id_fkey(id, name, email)
       `)
       .eq('id', params.id)
       .eq('league_id', league.id)
@@ -62,16 +50,71 @@ export async function PUT(
       }, { status: 400 })
     }
 
-    const newStatus = action === 'approve' ? 'approved' : 'rejected'
+    // Check user permissions based on role
+    let isAdmin = false
+    let isOpponent = false
+    
+    // Check if user is admin
+    const { data: adminData } = await supabase
+      .from('league_admins')
+      .select('id')
+      .eq('league_id', league.id)
+      .eq('email', session.user.email)
+      .single()
+    
+    isAdmin = !!adminData
+    
+    // Check if user is the requested player (opponent)
+    isOpponent = matchRequest.requested_player?.email === session.user.email
 
-    // Update match request status
+    // Determine what action is allowed
+    if (userRole === 'opponent') {
+      if (!isOpponent) {
+        return NextResponse.json({ error: 'Only the requested player can approve/reject this request' }, { status: 403 })
+      }
+    } else if (userRole === 'admin') {
+      if (!isAdmin) {
+        return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+      }
+      // Admin can only approve if opponent has already approved
+      if (action === 'approve' && !matchRequest.opponent_approved) {
+        return NextResponse.json({ 
+          error: 'Cannot approve match until opponent has approved' 
+        }, { status: 400 })
+      }
+    } else {
+      return NextResponse.json({ error: 'Invalid user role specified' }, { status: 400 })
+    }
+
+    // Prepare update data based on user role and action
+    let updateData: any = {}
+    
+    if (userRole === 'opponent') {
+      if (action === 'approve') {
+        updateData.opponent_approved = true
+        updateData.opponent_approved_at = new Date().toISOString()
+      } else {
+        updateData.status = 'rejected'
+        updateData.reviewed_at = new Date().toISOString()
+      }
+    } else if (userRole === 'admin') {
+      if (action === 'approve') {
+        updateData.admin_approved = true
+        updateData.admin_approved_at = new Date().toISOString()
+        updateData.status = 'approved'
+        updateData.reviewed_by_admin_id = adminData!.id
+        updateData.reviewed_at = new Date().toISOString()
+      } else {
+        updateData.status = 'rejected'
+        updateData.reviewed_by_admin_id = adminData!.id
+        updateData.reviewed_at = new Date().toISOString()
+      }
+    }
+
+    // Update match request
     const { error: updateError } = await supabase
       .from('match_requests')
-      .update({
-        status: newStatus,
-        reviewed_by_admin_id: adminData.id,
-        reviewed_at: new Date().toISOString()
-      })
+      .update(updateData)
       .eq('id', params.id)
 
     if (updateError) {
@@ -80,16 +123,17 @@ export async function PUT(
     }
 
     let createdMatch = null
+    let message = ''
 
-    // If approved, create a new match
-    if (action === 'approve') {
+    // Create match only if both opponent and admin have approved
+    if (userRole === 'admin' && action === 'approve') {
       const matchData = {
         league_id: league.id,
         season_id: matchRequest.season_id,
         player1_id: matchRequest.requesting_player_id,
         player2_id: matchRequest.requested_player_id,
         status: 'scheduled' as const,
-        scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null
+        scheduled_at: matchRequest.preferred_date || (scheduledAt ? new Date(scheduledAt).toISOString() : null)
       }
 
       const { data: newMatch, error: matchError } = await supabase
@@ -104,20 +148,22 @@ export async function PUT(
 
       if (matchError) {
         console.error('Error creating match:', matchError)
-        // Don't fail the request if match creation fails, just log it
-        console.error('Match request was approved but match creation failed')
+        message = 'Match request approved but match creation failed'
       } else {
         createdMatch = newMatch
+        message = 'Match request approved and match created successfully'
       }
+    } else if (userRole === 'opponent' && action === 'approve') {
+      message = 'Match request approved by opponent. Waiting for admin approval.'
+    } else if (action === 'reject') {
+      message = 'Match request rejected successfully'
     }
 
     return NextResponse.json({ 
       success: true,
-      status: newStatus,
+      status: updateData.status || 'pending',
       match: createdMatch,
-      message: action === 'approve' 
-        ? 'Match request approved and match created successfully'
-        : 'Match request rejected successfully'
+      message: message
     })
 
   } catch (error) {

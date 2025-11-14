@@ -7,6 +7,11 @@ interface MatchRequest {
   id: string
   status: 'pending' | 'approved' | 'rejected'
   message: string | null
+  preferred_date: string | null
+  opponent_approved: boolean
+  opponent_approved_at: string | null
+  admin_approved: boolean
+  admin_approved_at: string | null
   requested_at: string
   reviewed_at: string | null
   requesting_player: {
@@ -38,6 +43,7 @@ export default function MatchRequestsDisplay({
 }: MatchRequestsDisplayProps) {
   const [matchRequests, setMatchRequests] = useState<MatchRequest[]>([])
   const [loading, setLoading] = useState(true)
+  const [processingRequest, setProcessingRequest] = useState<string | null>(null)
 
   useEffect(() => {
     if (currentUserEmail) {
@@ -94,6 +100,48 @@ export default function MatchRequestsDisplay({
     }
   }
 
+  const handleOpponentAction = async (requestId: string, action: 'approve' | 'reject') => {
+    setProcessingRequest(requestId)
+    try {
+      const response = await fetch(`/api/leagues/${slug}/match-requests/${requestId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action,
+          userRole: 'opponent'
+        })
+      })
+
+      if (response.ok) {
+        // Refresh the match requests
+        await fetchMatchRequests()
+      } else {
+        const data = await response.json()
+        console.error('Error processing request:', data.error)
+      }
+    } catch (error) {
+      console.error('Error processing request:', error)
+    } finally {
+      setProcessingRequest(null)
+    }
+  }
+
+  const getRequestStatus = (request: MatchRequest) => {
+    if (request.status === 'approved') return 'Approved'
+    if (request.status === 'rejected') return 'Rejected'
+    
+    if (request.opponent_approved && !request.admin_approved) {
+      return 'Waiting for admin approval'
+    }
+    if (!request.opponent_approved) {
+      return 'Waiting for opponent approval'
+    }
+    
+    return 'Pending'
+  }
+
   if (!currentUserEmail || loading) {
     return null
   }
@@ -130,6 +178,9 @@ export default function MatchRequestsDisplay({
                     </div>
                     <div className="text-sm text-gray-600 mt-1">
                       Requested {formatDate(request.requested_at)}
+                      {request.preferred_date && (
+                        <> • Preferred date: {formatDate(request.preferred_date)}</>
+                      )}
                     </div>
                     {request.message && (
                       <div className="mt-2 p-3 bg-white border border-gray-200 rounded text-sm">
@@ -140,11 +191,33 @@ export default function MatchRequestsDisplay({
                       </div>
                     )}
                   </div>
-                  <div className="ml-4">
+                  <div className="ml-4 flex flex-col items-end gap-2">
                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                       <Clock className="h-3 w-3 mr-1" />
-                      Pending Review
+                      {getRequestStatus(request)}
                     </span>
+                    
+                    {/* Show action buttons for opponent */}
+                    {request.requested_player.email === currentUserEmail && 
+                     !request.opponent_approved && 
+                     request.status === 'pending' && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleOpponentAction(request.id, 'approve')}
+                          disabled={processingRequest === request.id}
+                          className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:opacity-50"
+                        >
+                          {processingRequest === request.id ? 'Processing...' : 'Accept'}
+                        </button>
+                        <button
+                          onClick={() => handleOpponentAction(request.id, 'reject')}
+                          disabled={processingRequest === request.id}
+                          className="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 disabled:opacity-50"
+                        >
+                          Decline
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -173,6 +246,9 @@ export default function MatchRequestsDisplay({
                     </div>
                     <div className="text-sm text-gray-600 mt-1">
                       Requested {formatDate(request.requested_at)}
+                      {request.preferred_date && (
+                        <> • Preferred date: {formatDate(request.preferred_date)}</>
+                      )}
                       {request.reviewed_at && (
                         <> • Reviewed {formatDate(request.reviewed_at)}</>
                       )}

@@ -28,6 +28,7 @@ export default function MatchRequestModal({
   const [participants, setParticipants] = useState<Participant[]>([])
   const [selectedPlayerId, setSelectedPlayerId] = useState('')
   const [message, setMessage] = useState('')
+  const [preferredDate, setPreferredDate] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const supabase = createSupabaseComponentClient()
@@ -105,7 +106,8 @@ export default function MatchRequestModal({
         },
         body: JSON.stringify({
           requestedPlayerId: selectedPlayerId,
-          message: message.trim() || null
+          message: message.trim() || null,
+          preferredDate: preferredDate || null
         })
       })
 
@@ -119,6 +121,7 @@ export default function MatchRequestModal({
       // Reset form
       setSelectedPlayerId('')
       setMessage('')
+      setPreferredDate('')
       
       // Close modal and notify parent
       onClose()
@@ -136,6 +139,7 @@ export default function MatchRequestModal({
     if (!submitting) {
       setSelectedPlayerId('')
       setMessage('')
+      setPreferredDate('')
       setError(null)
       onClose()
     }
@@ -193,6 +197,23 @@ export default function MatchRequestModal({
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
+              Preferred Match Date (Optional)
+            </label>
+            <input
+              type="datetime-local"
+              value={preferredDate}
+              onChange={(e) => setPreferredDate(e.target.value)}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-black focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
+              disabled={submitting}
+              min={new Date().toISOString().slice(0, 16)}
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Choose when you'd like to play this match
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Message (Optional)
             </label>
             <textarea
@@ -212,9 +233,9 @@ export default function MatchRequestModal({
           <div className="bg-gray-50 p-4 rounded-lg border">
             <h4 className="font-medium text-black mb-2">What happens next?</h4>
             <ol className="text-sm text-gray-600 space-y-1">
-              <li>1. Your match request will be sent to the league admin</li>
-              <li>2. The admin will review and approve the request</li>
-              <li>3. Once approved, a match will be scheduled</li>
+              <li>1. Your match request will be sent to your opponent</li>
+              <li>2. Your opponent can approve or reject the request</li>
+              <li>3. If approved, the admin will review and schedule the match</li>
               <li>4. Both players will see the upcoming match</li>
             </ol>
           </div>

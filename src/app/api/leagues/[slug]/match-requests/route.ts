@@ -89,8 +89,8 @@ export async function POST(
 ) {
   try {
     const supabase = createSupabaseServerClient()
-    const body = await request.json()
-    const { requestedPlayerId, message } = body
+  const body = await request.json()
+  const { requestedPlayerId, message, preferredDate } = body
 
     // Check authentication
     const { data: { session } } = await supabase.auth.getSession()
@@ -173,6 +173,7 @@ export async function POST(
         requesting_player_id: requestingPlayer.id,
         requested_player_id: requestedPlayerId,
         message: message || null,
+        preferred_date: preferredDate ? new Date(preferredDate).toISOString() : null,
         status: 'pending'
       })
       .select(`
