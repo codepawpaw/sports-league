@@ -212,6 +212,35 @@ export default function MyMatchesPage() {
     )
   }
 
+  const getScheduleRequestStatusBadge = (status: 'pending' | 'approved' | 'rejected') => {
+    switch (status) {
+      case 'pending':
+        return (
+          <span className="inline-block px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800 border border-yellow-200">
+            Pending
+          </span>
+        )
+      case 'approved':
+        return (
+          <span className="inline-block px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 border border-green-200">
+            Approved
+          </span>
+        )
+      case 'rejected':
+        return (
+          <span className="inline-block px-2 py-1 rounded-full text-xs bg-red-100 text-red-800 border border-red-200">
+            Rejected
+          </span>
+        )
+      default:
+        return (
+          <span className="inline-block px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800 border border-gray-200">
+            {status}
+          </span>
+        )
+    }
+  }
+
   const handleRegisterSuccess = () => {
     // Refresh the data after successful registration
     fetchMyMatches()
@@ -466,6 +495,169 @@ export default function MyMatchesPage() {
                   </table>
                 </div>
               )}
+            </div>
+
+            {/* Schedule Requests */}
+            <div className="space-y-6">
+              {/* Received Schedule Requests */}
+              <div className="card">
+                <div className="p-6 border-b border-gray-200">
+                  <div className="flex items-center">
+                    <CalendarPlus className="h-6 w-6 text-orange-600 mr-2" />
+                    <h2 className="text-xl font-bold text-black">
+                      Schedule Requests Received ({scheduleRequests.received.length})
+                    </h2>
+                  </div>
+                </div>
+                {scheduleRequests.received.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <CalendarPlus className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No requests received</h3>
+                    <p className="text-gray-500">
+                      You haven't received any schedule requests yet.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-full">
+                      <thead>
+                        <tr>
+                          <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
+                            From
+                          </th>
+                          <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
+                            Match
+                          </th>
+                          <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
+                            Requested Date
+                          </th>
+                          <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
+                            Message
+                          </th>
+                          <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
+                            Status
+                          </th>
+                          <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
+                            Requested
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {scheduleRequests.received.map((request) => (
+                          <tr key={request.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 border-b border-gray-200">
+                              <div className="font-medium text-gray-900">
+                                {request.requester.name}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 border-b border-gray-200">
+                              <div className="text-sm text-gray-900">
+                                {request.match.player1.name} vs {request.match.player2.name}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 border-b border-gray-200">
+                              <div className="text-sm text-gray-900">
+                                {formatDate(request.requested_date)}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 border-b border-gray-200">
+                              <div className="text-sm text-gray-500 max-w-xs truncate">
+                                {request.message || <span className="italic">No message</span>}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 border-b border-gray-200">
+                              {getScheduleRequestStatusBadge(request.status)}
+                            </td>
+                            <td className="px-6 py-4 border-b border-gray-200 text-sm text-gray-500">
+                              {formatDate(request.requested_at)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Sent Schedule Requests */}
+              <div className="card">
+                <div className="p-6 border-b border-gray-200">
+                  <div className="flex items-center">
+                    <Calendar className="h-6 w-6 text-blue-600 mr-2" />
+                    <h2 className="text-xl font-bold text-black">
+                      Schedule Requests Sent ({scheduleRequests.sent.length})
+                    </h2>
+                  </div>
+                </div>
+                {scheduleRequests.sent.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No requests sent</h3>
+                    <p className="text-gray-500">
+                      You haven't sent any schedule requests yet.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-full">
+                      <thead>
+                        <tr>
+                          <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
+                            To
+                          </th>
+                          <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
+                            Match
+                          </th>
+                          <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
+                            Requested Date
+                          </th>
+                          <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
+                            Message
+                          </th>
+                          <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
+                            Status
+                          </th>
+                          <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
+                            Requested
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {scheduleRequests.sent.map((request) => (
+                          <tr key={request.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 border-b border-gray-200">
+                              <div className="font-medium text-gray-900">
+                                {request.opponent.name}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 border-b border-gray-200">
+                              <div className="text-sm text-gray-900">
+                                {request.match.player1.name} vs {request.match.player2.name}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 border-b border-gray-200">
+                              <div className="text-sm text-gray-900">
+                                {formatDate(request.requested_date)}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 border-b border-gray-200">
+                              <div className="text-sm text-gray-500 max-w-xs truncate">
+                                {request.message || <span className="italic">No message</span>}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 border-b border-gray-200">
+                              {getScheduleRequestStatusBadge(request.status)}
+                            </td>
+                            <td className="px-6 py-4 border-b border-gray-200 text-sm text-gray-500">
+                              {formatDate(request.requested_at)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Completed Matches */}
