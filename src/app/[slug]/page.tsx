@@ -94,6 +94,16 @@ export default function LeaguePage() {
     }
   }, [slug])
 
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut()
+      // Refresh the page to update the UI state
+      window.location.reload()
+    } catch (error) {
+      console.error('Error logging out:', error)
+    }
+  }
+
   const fetchLeagueData = async () => {
     try {
       setLoading(true)
@@ -327,6 +337,11 @@ export default function LeaguePage() {
                 <Link href={`/${slug}/admin`} className="btn-outline">
                   Admin Panel
                 </Link>
+              )}
+              {currentUser && (
+                <button onClick={handleLogout} className="btn-compact">
+                  Log Out
+                </button>
               )}
             </div>
           </div>
