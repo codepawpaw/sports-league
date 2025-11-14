@@ -1,20 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase'
 
-interface PlayerData {
-  id: string
-  name: string
-}
-
-interface UserClaim {
-  id: string
-  player_id: string
-  status: string
-  requested_at: string
-  reviewed_at: string | null
-  player: PlayerData | PlayerData[] | null
-}
-
 interface UserMatch {
   id: string
   opponent: {
@@ -36,14 +22,7 @@ interface MyMatchesResponse {
   } | null
   upcoming_matches: UserMatch[]
   completed_matches: UserMatch[]
-  has_claim: boolean
-  claim_status: 'none' | 'pending' | 'approved' | 'rejected'
-  claim_details: {
-    id: string
-    player_name: string
-    requested_at: string
-    reviewed_at: string | null
-  } | null
+  is_registered: boolean
   league: {
     id: string
     name: string
@@ -77,74 +56,33 @@ export async function GET(
       return NextResponse.json({ error: 'League not found' }, { status: 404 })
     }
 
-    // Check if user has any claim for this league
-    const { data: userClaim, error: claimError } = await supabase
-      .from('player_claims')
-      .select(`
-        id,
-        player_id,
-        status,
-        requested_at,
-        reviewed_at,
-        player:participants(id, name)
-      `)
+    // Check if user's email is associated with any participant in this league
+    const { data: participant, error: participantError } = await supabase
+      .from('participants')
+      .select('id, name, email')
       .eq('league_id', league.id)
-      .eq('claimer_email', user.email)
+      .eq('email', user.email)
       .maybeSingle()
-
-    const typedUserClaim = userClaim as UserClaim | null
-
-    // Helper function to safely get player name
-    const getPlayerName = (player: PlayerData | PlayerData[] | null): string => {
-      if (!player) return 'Unknown Player'
-      if (Array.isArray(player)) {
-        return player[0]?.name || 'Unknown Player'
-      }
-      return player.name || 'Unknown Player'
-    }
-
-    // Helper function to safely get player data
-    const getPlayerData = (player: PlayerData | PlayerData[] | null): PlayerData | null => {
-      if (!player) return null
-      if (Array.isArray(player)) {
-        return player[0] || null
-      }
-      return player
-    }
 
     const response: MyMatchesResponse = {
       user_player: null,
       upcoming_matches: [],
       completed_matches: [],
-      has_claim: !!typedUserClaim && typedUserClaim.status === 'approved',
-      claim_status: typedUserClaim ? typedUserClaim.status as 'none' | 'pending' | 'approved' | 'rejected' : 'none',
-      claim_details: typedUserClaim ? {
-        id: typedUserClaim.id,
-        player_name: getPlayerName(typedUserClaim.player),
-        requested_at: typedUserClaim.requested_at,
-        reviewed_at: typedUserClaim.reviewed_at
-      } : null,
+      is_registered: !!participant,
       league: {
         id: league.id,
         name: league.name
       }
     }
 
-    // If no claim or claim not approved, return response with claim status
-    if (!typedUserClaim || typedUserClaim.status !== 'approved' || !typedUserClaim.player) {
-      return NextResponse.json(response)
-    }
-
-    // User has an approved claim, get their matches
-    const playerData = getPlayerData(typedUserClaim.player)
-    
-    if (!playerData) {
+    // If user is not registered as a player, return empty response
+    if (!participant) {
       return NextResponse.json(response)
     }
 
     response.user_player = {
-      id: playerData.id,
-      name: playerData.name
+      id: participant.id,
+      name: participant.name
     }
 
     // Get all matches for this player
@@ -163,7 +101,7 @@ export async function GET(
         player2:participants!matches_player2_id_fkey(id, name)
       `)
       .eq('league_id', league.id)
-      .or(`player1_id.eq.${playerData.id},player2_id.eq.${playerData.id}`)
+      .or(`player1_id.eq.${participant.id},player2_id.eq.${participant.id}`)
       .order('completed_at', { ascending: false, nullsFirst: false })
       .order('scheduled_at', { ascending: false, nullsFirst: false })
 
@@ -174,7 +112,7 @@ export async function GET(
 
     // Transform matches into UserMatch format
     const transformedMatches: UserMatch[] = (matches || []).map((match: any) => {
-      const isPlayer1 = match.player1_id === playerData.id
+      const isPlayer1 = match.player1_id === participant.id
       
       // Handle the case where Supabase returns player data as arrays or objects
       const player1Data = Array.isArray(match.player1) ? match.player1[0] : match.player1

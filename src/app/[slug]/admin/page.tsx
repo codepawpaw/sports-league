@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Trophy, ArrowLeft, Users, Calendar, Plus, Edit, Trash2, Save, X, Shuffle, Eye, Clock, Shield, CheckCircle, XCircle, MessageSquare } from 'lucide-react'
+import { Trophy, ArrowLeft, Users, Calendar, Plus, Edit, Trash2, Save, X, Shuffle, Eye, Clock, Shield, CheckCircle, XCircle, MessageSquare, UserPlus } from 'lucide-react'
 import { createSupabaseComponentClient } from '@/lib/supabase'
 
 interface League {
@@ -48,6 +48,20 @@ interface Season {
   created_at: string
 }
 
+interface RegistrationRequest {
+  id: string
+  player_id: string
+  claimer_email: string
+  status: 'pending' | 'approved' | 'rejected'
+  requested_at: string
+  reviewed_at: string | null
+  reviewed_by: string | null
+  player: {
+    id: string
+    name: string
+  }
+}
+
 
 
 export default function AdminPage() {
@@ -62,6 +76,7 @@ export default function AdminPage() {
   const [admins, setAdmins] = useState<Admin[]>([])
   const [seasons, setSeasons] = useState<Season[]>([])
   const [activeSeason, setActiveSeason] = useState<Season | null>(null)
+  const [registrationRequests, setRegistrationRequests] = useState<RegistrationRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('participants')
   const [currentUserEmail, setCurrentUserEmail] = useState<string>('')
@@ -731,6 +746,17 @@ export default function AdminPage() {
             >
               <Calendar className="h-4 w-4 inline mr-2" />
               Seasons
+            </button>
+            <button
+              onClick={() => setActiveTab('registration-requests')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'registration-requests'
+                  ? 'border-black text-black'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <UserPlus className="h-4 w-4 inline mr-2" />
+              Player Requests
             </button>
             <button
               onClick={() => setActiveTab('admins')}

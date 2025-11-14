@@ -224,11 +224,45 @@ alter table public.participants alter column season_id set not null;
 alter table public.matches alter column season_id set not null;
 
 
+-- Create player_registration_requests table
+create table public.player_registration_requests (
+  id uuid default uuid_generate_v4() primary key,
+  league_id uuid references public.leagues(id) on delete cascade not null,
+  player_id uuid references public.participants(id) on delete cascade not null,
+  claimer_email varchar(255) not null,
+  status varchar(20) default 'pending' check (status in ('pending', 'approved', 'rejected')),
+  requested_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  reviewed_at timestamp with time zone,
+  reviewed_by varchar(255),
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  unique(league_id, player_id),
+  unique(league_id, claimer_email)
+);
+
+-- Create trigger for player_registration_requests updated_at
+create trigger update_player_registration_requests_updated_at before update on public.player_registration_requests
+  for each row execute function public.update_updated_at_column();
+
+-- Enable RLS for player_registration_requests
+alter table public.player_registration_requests enable row level security;
+
+-- RLS Policies for player_registration_requests
+create policy "Anyone can view registration requests" on public.player_registration_requests for select using (true);
+create policy "Authenticated users can create registration requests" on public.player_registration_requests for insert with check (auth.role() = 'authenticated');
+create policy "League admins can manage registration requests" on public.player_registration_requests for update using (
+  exists (
+    select 1 from public.league_admins 
+    where league_id = player_registration_requests.league_id 
+    and email = auth.jwt() ->> 'email'
+  )
+);
+
 -- Create indexes for performance
 create index idx_leagues_slug on public.leagues(slug);
 create index idx_league_admins_league_email on public.league_admins(league_id, email);
 create index idx_participants_league on public.participants(league_id);
 create index idx_participants_season on public.participants(season_id);
+create index idx_participants_email on public.participants(email);
 create index idx_matches_league on public.matches(league_id);
 create index idx_matches_season on public.matches(season_id);
 create index idx_matches_players on public.matches(player1_id, player2_id);
@@ -236,3 +270,6 @@ create index idx_matches_status on public.matches(status);
 create index idx_match_sets_match on public.match_sets(match_id);
 create index idx_seasons_league on public.seasons(league_id);
 create index idx_seasons_active on public.seasons(league_id, is_active);
+create index idx_player_registration_requests_league on public.player_registration_requests(league_id);
+create index idx_player_registration_requests_status on public.player_registration_requests(status);
+create index idx_player_registration_requests_email on public.player_registration_requests(claimer_email);

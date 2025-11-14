@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Users, ArrowLeft, Trophy } from 'lucide-react'
 import { createSupabaseComponentClient } from '@/lib/supabase'
 import PlayerMatchHistoryModal from '@/components/PlayerMatchHistoryModal'
+import RegisterAsPlayerModal from '@/components/RegisterAsPlayerModal'
 
 interface League {
   id: string
@@ -40,6 +41,7 @@ export default function PlayersPage() {
   const [error, setError] = useState<string | null>(null)
   const [selectedPlayer, setSelectedPlayer] = useState<{ id: string; name: string } | null>(null)
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
+  const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
 
   useEffect(() => {
@@ -132,13 +134,24 @@ export default function PlayersPage() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <div className="mb-6">
-          <div className="flex items-center mb-2">
-            <Users className="h-6 w-6 text-black mr-2" />
-            <h2 className="text-2xl font-bold text-black">Players</h2>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <div className="flex items-center mb-2">
+                <Users className="h-6 w-6 text-black mr-2" />
+                <h2 className="text-2xl font-bold text-black">Players</h2>
+              </div>
+              <p className="text-gray-600">
+                {data.total} player{data.total !== 1 ? 's' : ''} in this league
+              </p>
+            </div>
+            <button
+              onClick={() => setIsRegisterModalOpen(true)}
+              className="btn-primary flex items-center"
+            >
+              <Users className="h-4 w-4 mr-2" />
+              Register as Player
+            </button>
           </div>
-          <p className="text-gray-600">
-            {data.total} player{data.total !== 1 ? 's' : ''} in this league
-          </p>
         </div>
 
 
@@ -229,6 +242,17 @@ export default function PlayersPage() {
         }}
         player={selectedPlayer}
         slug={slug}
+      />
+
+      {/* Register as Player Modal */}
+      <RegisterAsPlayerModal
+        isOpen={isRegisterModalOpen}
+        onClose={() => setIsRegisterModalOpen(false)}
+        slug={slug}
+        onSuccess={() => {
+          // Optionally refresh the players list
+          fetchPlayers()
+        }}
       />
 
     </div>

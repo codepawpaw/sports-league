@@ -205,6 +205,41 @@ export type Database = {
           updated_at?: string
         }
       }
+      player_registration_requests: {
+        Row: {
+          id: string
+          league_id: string
+          player_id: string
+          claimer_email: string
+          status: 'pending' | 'approved' | 'rejected'
+          requested_at: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          league_id: string
+          player_id: string
+          claimer_email: string
+          status?: 'pending' | 'approved' | 'rejected'
+          requested_at?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          league_id?: string
+          player_id?: string
+          claimer_email?: string
+          status?: 'pending' | 'approved' | 'rejected'
+          requested_at?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          created_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
