@@ -223,6 +223,56 @@ set season_id = (
 alter table public.participants alter column season_id set not null;
 alter table public.matches alter column season_id set not null;
 
+-- Create match_requests table
+create table public.match_requests (
+  id uuid default uuid_generate_v4() primary key,
+  league_id uuid references public.leagues(id) on delete cascade not null,
+  season_id uuid references public.seasons(id) on delete cascade not null,
+  requesting_player_id uuid references public.participants(id) on delete cascade not null,
+  requested_player_id uuid references public.participants(id) on delete cascade not null,
+  status varchar(20) default 'pending' check (status in ('pending', 'approved', 'rejected')),
+  message text,
+  requested_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  reviewed_by_admin_id uuid references public.league_admins(id) on delete set null,
+  reviewed_at timestamp with time zone,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  constraint different_players_request check (requesting_player_id != requested_player_id),
+  unique(league_id, season_id, requesting_player_id, requested_player_id, status) deferrable initially deferred
+);
+
+-- Create trigger for match_requests updated_at
+create trigger update_match_requests_updated_at before update on public.match_requests
+  for each row execute function public.update_updated_at_column();
+
+-- Enable RLS for match_requests
+alter table public.match_requests enable row level security;
+
+-- RLS Policies for match_requests
+create policy "Anyone can view match requests" on public.match_requests for select using (true);
+create policy "Authenticated users can create match requests" on public.match_requests for insert with check (
+  auth.role() = 'authenticated' and
+  exists (
+    select 1 from public.participants 
+    where id = match_requests.requesting_player_id 
+    and email = auth.jwt() ->> 'email'
+  )
+);
+create policy "League admins can manage match requests" on public.match_requests for update using (
+  exists (
+    select 1 from public.league_admins 
+    where league_id = match_requests.league_id 
+    and email = auth.jwt() ->> 'email'
+  )
+);
+create policy "League admins can delete match requests" on public.match_requests for delete using (
+  exists (
+    select 1 from public.league_admins 
+    where league_id = match_requests.league_id 
+    and email = auth.jwt() ->> 'email'
+  )
+);
+
 -- Create indexes for performance
 create index idx_leagues_slug on public.leagues(slug);
 create index idx_league_admins_league_email on public.league_admins(league_id, email);
@@ -235,3 +285,7 @@ create index idx_matches_status on public.matches(status);
 create index idx_match_sets_match on public.match_sets(match_id);
 create index idx_seasons_league on public.seasons(league_id);
 create index idx_seasons_active on public.seasons(league_id, is_active);
+create index idx_match_requests_league on public.match_requests(league_id);
+create index idx_match_requests_season on public.match_requests(season_id);
+create index idx_match_requests_status on public.match_requests(status);
+create index idx_match_requests_players on public.match_requests(requesting_player_id, requested_player_id);

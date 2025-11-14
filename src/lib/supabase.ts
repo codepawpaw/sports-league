@@ -164,6 +164,91 @@ export type Database = {
           created_at?: string
         }
       }
+      match_requests: {
+        Row: {
+          id: string
+          league_id: string
+          season_id: string
+          requesting_player_id: string
+          requested_player_id: string
+          status: 'pending' | 'approved' | 'rejected'
+          message: string | null
+          requested_at: string
+          reviewed_by_admin_id: string | null
+          reviewed_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          league_id: string
+          season_id: string
+          requesting_player_id: string
+          requested_player_id: string
+          status?: 'pending' | 'approved' | 'rejected'
+          message?: string | null
+          requested_at?: string
+          reviewed_by_admin_id?: string | null
+          reviewed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          league_id?: string
+          season_id?: string
+          requesting_player_id?: string
+          requested_player_id?: string
+          status?: 'pending' | 'approved' | 'rejected'
+          message?: string | null
+          requested_at?: string
+          reviewed_by_admin_id?: string | null
+          reviewed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      seasons: {
+        Row: {
+          id: string
+          league_id: string
+          name: string
+          slug: string
+          description: string | null
+          is_active: boolean
+          is_finished: boolean
+          start_date: string | null
+          end_date: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          league_id: string
+          name: string
+          slug: string
+          description?: string | null
+          is_active?: boolean
+          is_finished?: boolean
+          start_date?: string | null
+          end_date?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          league_id?: string
+          name?: string
+          slug?: string
+          description?: string | null
+          is_active?: boolean
+          is_finished?: boolean
+          start_date?: string | null
+          end_date?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never

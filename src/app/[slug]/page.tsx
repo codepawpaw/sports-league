@@ -3,11 +3,13 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { Trophy, Calendar, Users, Settings, LogIn } from 'lucide-react'
+import { Trophy, Calendar, Users, Settings, LogIn, Plus } from 'lucide-react'
 import { createSupabaseComponentClient } from '@/lib/supabase'
 import HeadToHeadComparison from '@/components/HeadToHeadComparison'
 import PlayerMatchHistoryModal from '@/components/PlayerMatchHistoryModal'
 import TopPlayersBanner from '@/components/TopPlayersBanner'
+import MatchRequestModal from '@/components/MatchRequestModal'
+import MatchRequestsDisplay from '@/components/MatchRequestsDisplay'
 
 interface League {
   id: string
@@ -81,6 +83,10 @@ export default function LeaguePage() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [selectedPlayer, setSelectedPlayer] = useState<{ id: string; name: string } | null>(null)
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
+  const [currentUser, setCurrentUser] = useState<any>(null)
+  const [isMatchRequestModalOpen, setIsMatchRequestModalOpen] = useState(false)
+  const [matchRequestRefreshTrigger, setMatchRequestRefreshTrigger] = useState(0)
+  const [isParticipant, setIsParticipant] = useState(false)
 
   useEffect(() => {
     if (slug) {
@@ -118,8 +124,10 @@ export default function LeaguePage() {
         console.error('Error fetching season data:', error)
       }
 
-      // Check if current user is admin
+      // Check if current user is admin and participant
       const { data: { user } } = await supabase.auth.getUser()
+      setCurrentUser(user)
+      
       if (user) {
         const { data: adminData } = await supabase
           .from('league_admins')
@@ -129,6 +137,16 @@ export default function LeaguePage() {
           .single()
 
         setIsAdmin(!!adminData)
+
+        // Check if user is a participant
+        const { data: participantData } = await supabase
+          .from('participants')
+          .select('id')
+          .eq('league_id', leagueData.id)
+          .eq('email', user.email)
+          .single()
+
+        setIsParticipant(!!participantData)
       }
 
       // Fetch participants with calculated stats
@@ -352,6 +370,49 @@ export default function LeaguePage() {
           </div>
         )}
 
+        {/* Authentication and Match Request Section */}
+        {currentUser ? (
+          isParticipant ? (
+            <div className="mb-8">
+              <div className="flex justify-center">
+                <button
+                  onClick={() => setIsMatchRequestModalOpen(true)}
+                  className="bg-black text-white px-6 py-3 rounded-md hover:bg-gray-800 transition-colors flex items-center"
+                >
+                  <Plus className="h-5 w-5 mr-2" />
+                  Request a Match
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="mb-8 p-4 bg-gray-50 rounded-lg border text-center">
+              <p className="text-gray-600">
+                You need to be a participant in this league to request matches. Contact the league admin to join.
+              </p>
+            </div>
+          )
+        ) : (
+          <div className="mb-8 p-4 bg-gray-50 rounded-lg border text-center">
+            <p className="text-gray-600 mb-4">
+              Sign in with Google to request matches with other players
+            </p>
+            <Link
+              href={`/${slug}/auth`}
+              className="bg-black text-white px-6 py-3 rounded-md hover:bg-gray-800 transition-colors inline-flex items-center"
+            >
+              <LogIn className="h-5 w-5 mr-2" />
+              Sign In with Google
+            </Link>
+          </div>
+        )}
+
+        {/* Match Requests Display */}
+        <MatchRequestsDisplay 
+          slug={slug}
+          currentUserEmail={currentUser?.email || null}
+          refreshTrigger={matchRequestRefreshTrigger}
+        />
+
         {/* Top Players Banner */}
         <TopPlayersBanner 
           participants={participants}
@@ -535,6 +596,17 @@ export default function LeaguePage() {
           </div>
         </div>
       </main>
+
+      {/* Match Request Modal */}
+      <MatchRequestModal
+        isOpen={isMatchRequestModalOpen}
+        onClose={() => setIsMatchRequestModalOpen(false)}
+        slug={slug}
+        currentUserEmail={currentUser?.email || null}
+        onRequestCreated={() => {
+          setMatchRequestRefreshTrigger(prev => prev + 1)
+        }}
+      />
 
       {/* Player Match History Modal */}
       <PlayerMatchHistoryModal
