@@ -128,7 +128,7 @@ export default function AuthPage() {
               }
             }}
             providers={['google']}
-            redirectTo={`${window.location.origin}/${slug}/auth`}
+            redirectTo={`${window.location.origin}/${slug}/auth/callback`}
             onlyThirdPartyProviders
             showLinks={false}
           />
