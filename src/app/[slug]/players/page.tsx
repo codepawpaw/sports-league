@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { Users, ArrowLeft, Trophy } from 'lucide-react'
+import { Users, ArrowLeft, Trophy, Check } from 'lucide-react'
 import { createSupabaseComponentClient } from '@/lib/supabase'
 import PlayerMatchHistoryModal from '@/components/PlayerMatchHistoryModal'
 import PlayerClaimModal from '@/components/PlayerClaimModal'
@@ -46,6 +46,7 @@ export default function PlayersPage() {
   const [selectedClaimPlayer, setSelectedClaimPlayer] = useState<{ id: string; name: string } | null>(null)
   const [isClaimModalOpen, setIsClaimModalOpen] = useState(false)
   const [claimRefreshTrigger, setClaimRefreshTrigger] = useState(0)
+  const [userClaimInfo, setUserClaimInfo] = useState<any>(null)
 
   useEffect(() => {
     if (slug) {
@@ -54,9 +55,34 @@ export default function PlayersPage() {
     }
   }, [slug])
 
+  useEffect(() => {
+    if (currentUser) {
+      fetchUserClaimInfo()
+    } else {
+      setUserClaimInfo(null)
+    }
+  }, [currentUser, slug, claimRefreshTrigger])
+
   const getCurrentUser = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     setCurrentUser(user)
+  }
+
+  const fetchUserClaimInfo = async () => {
+    if (!currentUser) return
+
+    try {
+      const response = await fetch(`/api/leagues/${slug}/user-claims`)
+      if (response.ok) {
+        const claimInfo = await response.json()
+        setUserClaimInfo(claimInfo)
+      } else {
+        setUserClaimInfo(null)
+      }
+    } catch (error) {
+      console.error('Error fetching user claim info:', error)
+      setUserClaimInfo(null)
+    }
   }
 
   const fetchPlayers = async () => {
@@ -146,6 +172,32 @@ export default function PlayersPage() {
           </p>
         </div>
 
+        {/* User Claim Status Banner */}
+        {userClaimInfo?.hasClaim && (
+          <div className="mb-6">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center">
+                <Check className="h-5 w-5 text-blue-600 mr-2" />
+                <div>
+                  <h3 className="font-medium text-blue-900">
+                    You have claimed: {userClaimInfo.claim?.player.name}
+                  </h3>
+                  <p className="text-sm text-blue-700 mt-1">
+                    {userClaimInfo.claim?.status === 'pending' && 'Your claim is pending admin approval.'}
+                    {userClaimInfo.claim?.status === 'approved' && 'Your claim has been approved! This is your player in the league.'}
+                    {userClaimInfo.claim?.status === 'rejected' && 'Your claim was rejected. You can claim another player.'}
+                  </p>
+                  {userClaimInfo.claim?.status !== 'rejected' && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      You can only claim one player per league.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {data.players.length === 0 ? (
           <div className="card">
             <div className="p-8 text-center">
@@ -215,6 +267,7 @@ export default function PlayersPage() {
                             setIsClaimModalOpen(true)
                           }}
                           refreshTrigger={claimRefreshTrigger}
+                          userClaimInfo={userClaimInfo}
                         />
                       </td>
                       <td className="px-4 py-4 border-b border-gray-200 text-sm text-gray-900">

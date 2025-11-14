@@ -9,6 +9,20 @@ interface ClaimStatus {
   canClaim: boolean
 }
 
+interface UserClaimInfo {
+  hasClaim: boolean
+  claim?: {
+    id: string
+    player_id: string
+    status: string
+    player: {
+      id: string
+      name: string
+      email?: string
+    }
+  } | null
+}
+
 interface PlayerClaimButtonProps {
   player: {
     id: string
@@ -19,6 +33,7 @@ interface PlayerClaimButtonProps {
   currentUserEmail: string | null
   onClaimClick: (player: { id: string; name: string }) => void
   refreshTrigger?: number
+  userClaimInfo?: UserClaimInfo | null
 }
 
 export default function PlayerClaimButton({
@@ -26,7 +41,8 @@ export default function PlayerClaimButton({
   slug,
   currentUserEmail,
   onClaimClick,
-  refreshTrigger = 0
+  refreshTrigger = 0,
+  userClaimInfo = null
 }: PlayerClaimButtonProps) {
   const [claimStatus, setClaimStatus] = useState<ClaimStatus>({
     status: 'none',
@@ -49,18 +65,10 @@ export default function PlayerClaimButton({
       return
     }
 
-    setLoading(true)
-
-    try {
-      // For now, we'll assume no pending claims unless we implement a public endpoint
-      // to check claim status. This keeps it simple for the initial implementation.
-      setClaimStatus({ status: 'none', canClaim: true })
-    } catch (error) {
-      console.error('Error checking claim status:', error)
-      setClaimStatus({ status: 'none', canClaim: true })
-    } finally {
-      setLoading(false)
-    }
+    // Check if this specific player has a pending claim
+    // For now, we'll assume no pending claims unless we implement a public endpoint
+    // to check claim status. This keeps it simple for the initial implementation.
+    setClaimStatus({ status: 'none', canClaim: true })
   }
 
   const handleClaimClick = () => {
@@ -111,6 +119,37 @@ export default function PlayerClaimButton({
         <span>Sign In</span>
       </Link>
     )
+  }
+
+  // Check if user already has a claim in this league
+  if (userClaimInfo?.hasClaim) {
+    const userClaim = userClaimInfo.claim
+    
+    // If this is the player the user has claimed
+    if (userClaim && userClaim.player_id === player.id) {
+      if (userClaim.status === 'pending') {
+        return (
+          <div className="flex items-center text-yellow-700 bg-yellow-50 px-3 py-1 rounded-md text-xs border border-yellow-200">
+            <Clock className="h-3 w-3 mr-1" />
+            <span>Pending</span>
+          </div>
+        )
+      } else if (userClaim.status === 'approved') {
+        return (
+          <div className="flex items-center text-green-700 bg-green-50 px-3 py-1 rounded-md text-xs border border-green-200">
+            <Check className="h-3 w-3 mr-1" />
+            <span>Your Player</span>
+          </div>
+        )
+      }
+    } else {
+      // User has claimed a different player, so they can't claim this one
+      return (
+        <div className="flex items-center text-gray-500 bg-gray-100 px-3 py-1 rounded-md text-xs border border-gray-300">
+          <span>Already Claimed {userClaim?.player.name}</span>
+        </div>
+      )
+    }
   }
 
   // Available to claim
