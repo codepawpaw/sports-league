@@ -1,6 +1,98 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase'
 
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { slug: string; id: string } }
+) {
+  try {
+    const { slug, id } = params
+    const supabase = createSupabaseServerClient()
+
+    // Get current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    
+    if (userError || !user) {
+      return NextResponse.json({ error: 'User not authenticated' }, { status: 401 })
+    }
+
+    // Get league info
+    const { data: league, error: leagueError } = await supabase
+      .from('leagues')
+      .select('id')
+      .eq('slug', slug)
+      .single()
+
+    if (leagueError || !league) {
+      return NextResponse.json({ error: 'League not found' }, { status: 404 })
+    }
+
+    // Get user's participant record
+    const { data: participant, error: participantError } = await supabase
+      .from('participants')
+      .select('id')
+      .eq('league_id', league.id)
+      .eq('email', user.email)
+      .single()
+
+    if (participantError || !participant) {
+      return NextResponse.json({ error: 'You are not a participant in this league' }, { status: 403 })
+    }
+
+    // Get schedule request and verify user is the requester
+    const { data: scheduleRequest, error: requestError } = await supabase
+      .from('match_schedule_requests')
+      .select(`
+        *,
+        match:matches(id, league_id)
+      `)
+      .eq('id', id)
+      .single()
+
+    if (requestError || !scheduleRequest) {
+      return NextResponse.json({ error: 'Schedule request not found' }, { status: 404 })
+    }
+
+    // Verify the request is for this league
+    if (scheduleRequest.match?.league_id !== league.id) {
+      return NextResponse.json({ error: 'Schedule request not found in this league' }, { status: 404 })
+    }
+
+    // Verify user is the requester (can only delete their own requests)
+    if (scheduleRequest.requester_id !== participant.id) {
+      return NextResponse.json({ error: 'You can only delete your own schedule requests' }, { status: 403 })
+    }
+
+    // Verify request is still pending (can only delete pending requests)
+    if (scheduleRequest.status !== 'pending') {
+      return NextResponse.json({ error: 'You can only delete pending schedule requests' }, { status: 400 })
+    }
+
+    // Delete the request
+    const { error: deleteError } = await supabase
+      .from('match_schedule_requests')
+      .delete()
+      .eq('id', id)
+
+    if (deleteError) {
+      console.error('Error deleting schedule request:', deleteError)
+      return NextResponse.json({ error: 'Failed to delete schedule request' }, { status: 500 })
+    }
+
+    return NextResponse.json({ 
+      success: true,
+      message: 'Schedule request deleted successfully'
+    })
+
+  } catch (error) {
+    console.error('Schedule request delete API error:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: { slug: string; id: string } }

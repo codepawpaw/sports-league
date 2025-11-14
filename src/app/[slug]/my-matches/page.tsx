@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { Trophy, Calendar, ArrowLeft, Clock, User, CalendarPlus, Bell, Check, X } from 'lucide-react'
+import { Trophy, Calendar, ArrowLeft, Clock, User, CalendarPlus, Bell, Check, X, Trash2 } from 'lucide-react'
 import { createSupabaseComponentClient } from '@/lib/supabase'
 import RegisterAsPlayerModal from '@/components/RegisterAsPlayerModal'
 import ScheduleRequestModal from '@/components/ScheduleRequestModal'
@@ -217,6 +217,26 @@ export default function MyMatchesPage() {
     } catch (err) {
       console.error('Error responding to schedule request:', err)
       setError(err instanceof Error ? err.message : 'Failed to respond to request')
+    }
+  }
+
+  const handleDeleteScheduleRequest = async (requestId: string) => {
+    try {
+      const response = await fetch(`/api/leagues/${slug}/schedule-requests/${requestId}`, {
+        method: 'DELETE',
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to delete request')
+      }
+
+      // Refresh the requests after successful deletion
+      fetchScheduleRequests()
+    } catch (err) {
+      console.error('Error deleting schedule request:', err)
+      setError(err instanceof Error ? err.message : 'Failed to delete request')
     }
   }
 
@@ -628,16 +648,16 @@ export default function MyMatchesPage() {
                   <div className="flex items-center">
                     <Calendar className="h-6 w-6 text-blue-600 mr-2" />
                     <h2 className="text-xl font-bold text-black">
-                      Schedule Requests Sent ({scheduleRequests.sent.length})
+                      Pending Schedule Requests Sent ({scheduleRequests.sent.filter(r => r.status === 'pending').length})
                     </h2>
                   </div>
                 </div>
-                {scheduleRequests.sent.length === 0 ? (
+                {scheduleRequests.sent.filter(r => r.status === 'pending').length === 0 ? (
                   <div className="p-8 text-center">
                     <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No requests sent</h3>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No pending requests</h3>
                     <p className="text-gray-500">
-                      You haven't sent any schedule requests yet.
+                      You haven't sent any pending schedule requests.
                     </p>
                   </div>
                 ) : (
@@ -658,15 +678,15 @@ export default function MyMatchesPage() {
                             Message
                           </th>
                           <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
-                            Status
+                            Requested
                           </th>
                           <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
-                            Requested
+                            Actions
                           </th>
                         </tr>
                       </thead>
                       <tbody>
-                        {scheduleRequests.sent.map((request) => (
+                        {scheduleRequests.sent.filter(r => r.status === 'pending').map((request) => (
                           <tr key={request.id} className="hover:bg-gray-50">
                             <td className="px-6 py-4 border-b border-gray-200">
                               <div className="font-medium text-gray-900">
@@ -688,11 +708,18 @@ export default function MyMatchesPage() {
                                 {request.message || <span className="italic">No message</span>}
                               </div>
                             </td>
-                            <td className="px-6 py-4 border-b border-gray-200">
-                              {getScheduleRequestStatusBadge(request.status)}
-                            </td>
                             <td className="px-6 py-4 border-b border-gray-200 text-sm text-gray-500">
                               {formatDate(request.requested_at)}
+                            </td>
+                            <td className="px-6 py-4 border-b border-gray-200">
+                              <button
+                                onClick={() => handleDeleteScheduleRequest(request.id)}
+                                className="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded-md text-xs font-medium transition-colors border border-red-200 hover:border-red-300 flex items-center"
+                                title="Delete request"
+                              >
+                                <Trash2 className="h-3 w-3 mr-1" />
+                                Delete
+                              </button>
                             </td>
                           </tr>
                         ))}
