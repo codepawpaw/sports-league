@@ -7,6 +7,7 @@ import { Trophy, Calendar, ArrowLeft, Clock, User, CalendarPlus, Bell, Check, X,
 import { createSupabaseComponentClient } from '@/lib/supabase'
 import RegisterAsPlayerModal from '@/components/RegisterAsPlayerModal'
 import ScheduleRequestModal from '@/components/ScheduleRequestModal'
+import ScoreRequestModal from '@/components/ScoreRequestModal'
 
 interface UserMatch {
   id: string
@@ -74,10 +75,16 @@ export default function MyMatchesPage() {
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [showRegisterModal, setShowRegisterModal] = useState(false)
   const [showScheduleModal, setShowScheduleModal] = useState(false)
+  const [showScoreModal, setShowScoreModal] = useState(false)
   const [selectedMatch, setSelectedMatch] = useState<UserMatch | null>(null)
+  const [selectedScoreMatch, setSelectedScoreMatch] = useState<any>(null)
   const [scheduleRequests, setScheduleRequests] = useState<{
     sent: ScheduleRequest[]
     received: ScheduleRequest[]
+  }>({ sent: [], received: [] })
+  const [scoreRequests, setScoreRequests] = useState<{
+    sent: any[]
+    received: any[]
   }>({ sent: [], received: [] })
 
   useEffect(() => {
@@ -125,8 +132,9 @@ export default function MyMatchesPage() {
       const matchData = await response.json()
       setData(matchData)
       
-      // Also fetch schedule requests
+      // Also fetch schedule and score requests
       await fetchScheduleRequests()
+      await fetchScoreRequests()
     } catch (err) {
       console.error('Error fetching my matches:', err)
       setError('Failed to load my matches')
@@ -158,6 +166,32 @@ export default function MyMatchesPage() {
       console.error('Error fetching schedule requests:', err)
       // Don't show error for schedule requests, just keep them empty
       setScheduleRequests({ sent: [], received: [] })
+    }
+  }
+
+  const fetchScoreRequests = async () => {
+    try {
+      const response = await fetch(`/api/leagues/${slug}/score-requests`)
+      
+      if (response.status === 401) {
+        // User not authenticated or not a participant
+        setScoreRequests({ sent: [], received: [] })
+        return
+      }
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch score requests')
+      }
+
+      const data = await response.json()
+      setScoreRequests({
+        sent: data.sent_requests || [],
+        received: data.received_requests || []
+      })
+    } catch (err) {
+      console.error('Error fetching score requests:', err)
+      // Don't show error for score requests, just keep them empty
+      setScoreRequests({ sent: [], received: [] })
     }
   }
 
@@ -336,6 +370,92 @@ export default function MyMatchesPage() {
   const handleScheduleRequestSuccess = () => {
     // Refresh the data after successful schedule request
     fetchMyMatches()
+  }
+
+  const handleScoreRequestResponse = async (requestId: string, action: 'approve' | 'reject') => {
+    try {
+      const response = await fetch(`/api/leagues/${slug}/score-requests/${requestId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ action }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to respond to request')
+      }
+
+      // Refresh the requests and matches after successful response
+      fetchScoreRequests()
+      fetchMyMatches()
+    } catch (err) {
+      console.error('Error responding to score request:', err)
+      setError(err instanceof Error ? err.message : 'Failed to respond to request')
+    }
+  }
+
+  const handleDeleteScoreRequest = async (requestId: string) => {
+    try {
+      const response = await fetch(`/api/leagues/${slug}/score-requests/${requestId}`, {
+        method: 'DELETE',
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to delete request')
+      }
+
+      // Refresh the requests after successful deletion
+      fetchScoreRequests()
+    } catch (err) {
+      console.error('Error deleting score request:', err)
+      setError(err instanceof Error ? err.message : 'Failed to delete request')
+    }
+  }
+
+  const handleOpenScoreModal = (match: any) => {
+    // Create a compatible match object for the ScoreRequestModal
+    const scoreMatch = {
+      id: match.id,
+      opponent: match.opponent,
+      player1: {
+        id: data?.user_player?.id || '',
+        name: data?.user_player?.name || ''
+      },
+      player2: {
+        id: match.opponent.id,
+        name: match.opponent.name
+      }
+    }
+    setSelectedScoreMatch(scoreMatch)
+    setShowScoreModal(true)
+  }
+
+  const handleCloseScoreModal = () => {
+    setShowScoreModal(false)
+    setSelectedScoreMatch(null)
+  }
+
+  const handleScoreRequestSuccess = () => {
+    // Refresh the data after successful score request
+    fetchMyMatches()
+  }
+
+  const isMatchScheduledForToday = (scheduledAt: string | null): boolean => {
+    if (!scheduledAt) return false
+    
+    const matchDate = new Date(scheduledAt)
+    const today = new Date()
+    
+    return (
+      matchDate.getFullYear() === today.getFullYear() &&
+      matchDate.getMonth() === today.getMonth() &&
+      matchDate.getDate() === today.getDate()
+    )
   }
 
   if (loading) {
@@ -548,15 +668,26 @@ export default function MyMatchesPage() {
                             )}
                           </td>
                           <td className="px-6 py-4 border-b border-gray-200">
-                            {match.status === 'scheduled' && (
-                              <button
-                                onClick={() => handleOpenScheduleModal(match)}
-                                className="text-sm bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-2 rounded-md font-medium transition-colors border border-blue-200 hover:border-blue-300 flex items-center"
-                              >
-                                <CalendarPlus className="h-4 w-4 mr-1" />
-                                Request Schedule
-                              </button>
-                            )}
+                            <div className="flex flex-col gap-2">
+                              {match.status === 'scheduled' && (
+                                <button
+                                  onClick={() => handleOpenScheduleModal(match)}
+                                  className="text-sm bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-2 rounded-md font-medium transition-colors border border-blue-200 hover:border-blue-300 flex items-center"
+                                >
+                                  <CalendarPlus className="h-4 w-4 mr-1" />
+                                  Request Schedule
+                                </button>
+                              )}
+                              {match.status === 'scheduled' && isMatchScheduledForToday(match.scheduled_at) && (
+                                <button
+                                  onClick={() => handleOpenScoreModal(match)}
+                                  className="text-sm bg-green-100 hover:bg-green-200 text-green-800 px-3 py-2 rounded-md font-medium transition-colors border border-green-200 hover:border-green-300 flex items-center"
+                                >
+                                  <Trophy className="h-4 w-4 mr-1" />
+                                  Set Score
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -566,8 +697,174 @@ export default function MyMatchesPage() {
               )}
             </div>
 
-            {/* Schedule Requests */}
+            {/* Score and Schedule Requests */}
             <div className="space-y-6">
+              {/* Received Score Requests */}
+              <div className="card">
+                <div className="p-4 border-b border-gray-200">
+                  <div className="flex items-center">
+                    <Bell className="h-5 w-5 text-green-600 mr-2" />
+                    <h3 className="font-semibold text-black">Score Requests</h3>
+                    <span className="ml-2 bg-green-100 text-green-800 text-xs font-medium px-2 py-1 rounded-full">
+                      {scoreRequests.received.filter(r => r.status === 'pending').length}
+                    </span>
+                  </div>
+                </div>
+                {scoreRequests.received.filter(r => r.status === 'pending').length === 0 ? (
+                  <div className="p-8 text-center">
+                    <Bell className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No pending requests</h3>
+                    <p className="text-gray-500">
+                      You haven't received any pending score requests.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-100">
+                    {scoreRequests.received.filter(r => r.status === 'pending').map((request) => (
+                      <div key={request.id} className="p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center mb-2">
+                              <Trophy className="h-4 w-4 text-gray-400 mr-2" />
+                              <span className="text-sm font-medium text-gray-900">
+                                Score Request from {request.requester.name}
+                              </span>
+                              <span className="ml-2 text-xs text-gray-500">
+                                {getTimeAgo(request.requested_at)}
+                              </span>
+                            </div>
+                            
+                            <p className="text-sm text-gray-600 mb-2">
+                              Match: {request.match.player1.name} vs {request.match.player2.name}
+                            </p>
+                            
+                            <div className="flex items-center text-sm text-gray-600 mb-2">
+                              <Trophy className="h-4 w-4 text-gray-400 mr-1" />
+                              Proposed result: {request.match.player1.name} {request.player1_score} - {request.player2_score} {request.match.player2.name}
+                              {request.player1_score !== request.player2_score && (
+                                <span className="ml-1 text-green-600 font-medium">
+                                  ({request.player1_score > request.player2_score ? request.match.player1.name : request.match.player2.name} wins)
+                                </span>
+                              )}
+                            </div>
+                            
+                            {request.message && (
+                              <p className="text-sm text-gray-600 mb-3 italic">
+                                "{request.message}"
+                              </p>
+                            )}
+                          </div>
+                          
+                          <div className="flex space-x-2 ml-4">
+                            <button
+                              onClick={() => handleScoreRequestResponse(request.id, 'approve')}
+                              className="bg-green-100 hover:bg-green-200 text-green-800 px-3 py-1 rounded-md text-xs font-medium transition-colors border border-green-200 hover:border-green-300 flex items-center"
+                            >
+                              <Check className="h-3 w-3 mr-1" />
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => handleScoreRequestResponse(request.id, 'reject')}
+                              className="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded-md text-xs font-medium transition-colors border border-red-200 hover:border-red-300 flex items-center"
+                            >
+                              <X className="h-3 w-3 mr-1" />
+                              Reject
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Sent Score Requests */}
+              <div className="card">
+                <div className="p-6 border-b border-gray-200">
+                  <div className="flex items-center">
+                    <Trophy className="h-6 w-6 text-green-600 mr-2" />
+                    <h2 className="text-xl font-bold text-black">
+                      Pending Score Requests Sent ({scoreRequests.sent.filter(r => r.status === 'pending').length})
+                    </h2>
+                  </div>
+                </div>
+                {scoreRequests.sent.filter(r => r.status === 'pending').length === 0 ? (
+                  <div className="p-8 text-center">
+                    <Trophy className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No pending requests</h3>
+                    <p className="text-gray-500">
+                      You haven't sent any pending score requests.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-full">
+                      <thead>
+                        <tr>
+                          <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
+                            To
+                          </th>
+                          <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
+                            Match
+                          </th>
+                          <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
+                            Proposed Score
+                          </th>
+                          <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
+                            Message
+                          </th>
+                          <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
+                            Requested
+                          </th>
+                          <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
+                            Actions
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {scoreRequests.sent.filter(r => r.status === 'pending').map((request) => (
+                          <tr key={request.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 border-b border-gray-200">
+                              <div className="font-medium text-gray-900">
+                                {request.opponent.name}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 border-b border-gray-200">
+                              <div className="text-sm text-gray-900">
+                                {request.match.player1.name} vs {request.match.player2.name}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 border-b border-gray-200">
+                              <div className="text-sm text-gray-900 font-medium">
+                                {request.player1_score} - {request.player2_score}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 border-b border-gray-200">
+                              <div className="text-sm text-gray-500 max-w-xs truncate">
+                                {request.message || <span className="italic">No message</span>}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 border-b border-gray-200 text-sm text-gray-500">
+                              {getTimeAgo(request.requested_at)}
+                            </td>
+                            <td className="px-6 py-4 border-b border-gray-200">
+                              <button
+                                onClick={() => handleDeleteScoreRequest(request.id)}
+                                className="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded-md text-xs font-medium transition-colors border border-red-200 hover:border-red-300 flex items-center"
+                                title="Delete request"
+                              >
+                                <Trash2 className="h-3 w-3 mr-1" />
+                                Delete
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
               {/* Received Schedule Requests */}
               <div className="card">
                 <div className="p-4 border-b border-gray-200">
@@ -813,6 +1110,18 @@ export default function MyMatchesPage() {
           match={selectedMatch}
           slug={slug}
           onSuccess={handleScheduleRequestSuccess}
+        />
+      )}
+
+      {/* Score Request Modal */}
+      {selectedScoreMatch && data?.user_player && (
+        <ScoreRequestModal
+          isOpen={showScoreModal}
+          onClose={handleCloseScoreModal}
+          match={selectedScoreMatch}
+          currentPlayerId={data.user_player.id}
+          slug={slug}
+          onSuccess={handleScoreRequestSuccess}
         />
       )}
     </div>

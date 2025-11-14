@@ -9,6 +9,7 @@ import HeadToHeadComparison from '@/components/HeadToHeadComparison'
 import PlayerMatchHistoryModal from '@/components/PlayerMatchHistoryModal'
 import TopPlayersBanner from '@/components/TopPlayersBanner'
 import ScheduleRequestNotifications from '@/components/ScheduleRequestNotifications'
+import ScoreRequestNotifications from '@/components/ScoreRequestNotifications'
 
 interface League {
   id: string
@@ -398,6 +399,9 @@ export default function LeaguePage() {
             <p className="text-lg text-gray-600">{league.description}</p>
           </div>
         )}
+
+        {/* Score Request Notifications */}
+        <ScoreRequestNotifications slug={slug} />
 
         {/* Schedule Request Notifications */}
         <ScheduleRequestNotifications slug={slug} />
