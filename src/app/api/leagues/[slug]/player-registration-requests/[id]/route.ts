@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase'
 
-export async function PUT(
+async function handleRegistrationRequest(
   request: NextRequest,
   { params }: { params: { slug: string; id: string } }
 ) {
@@ -157,3 +157,6 @@ export async function PUT(
     )
   }
 }
+
+export const PUT = handleRegistrationRequest
+export const PATCH = handleRegistrationRequest

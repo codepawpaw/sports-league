@@ -176,6 +176,7 @@ export default function AdminPage() {
       await fetchData(leagueData.id)
       await fetchAdmins()
       await fetchSeasons()
+      await fetchRegistrationRequests()
     } catch (error) {
       console.error('Error checking admin access:', error)
       router.push(`/${slug}`)
@@ -249,6 +250,18 @@ export default function AdminPage() {
       }
     } catch (error) {
       console.error('Error fetching seasons:', error)
+    }
+  }
+
+  const fetchRegistrationRequests = async () => {
+    try {
+      const response = await fetch(`/api/leagues/${slug}/player-registration-requests`)
+      if (response.ok) {
+        const data = await response.json()
+        setRegistrationRequests(data.requests)
+      }
+    } catch (error) {
+      console.error('Error fetching registration requests:', error)
     }
   }
 
@@ -670,6 +683,56 @@ export default function AdminPage() {
     } catch (error) {
       console.error('Error removing admin:', error)
       alert('Failed to remove administrator')
+    }
+  }
+
+  // Registration request management functions
+  const handleApproveRequest = async (requestId: string) => {
+    try {
+      const response = await fetch(`/api/leagues/${slug}/player-registration-requests/${requestId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'approve' })
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        await fetchRegistrationRequests()
+        await fetchData(league!.id) // Refresh participants list
+        alert('Registration request approved successfully!')
+      } else {
+        alert(data.error || 'Failed to approve request')
+      }
+    } catch (error) {
+      console.error('Error approving request:', error)
+      alert('Failed to approve request')
+    }
+  }
+
+  const handleRejectRequest = async (requestId: string) => {
+    if (!confirm('Are you sure you want to reject this registration request?')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/leagues/${slug}/player-registration-requests/${requestId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reject' })
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        await fetchRegistrationRequests()
+        alert('Registration request rejected')
+      } else {
+        alert(data.error || 'Failed to reject request')
+      }
+    } catch (error) {
+      console.error('Error rejecting request:', error)
+      alert('Failed to reject request')
     }
   }
 
@@ -1623,6 +1686,158 @@ export default function AdminPage() {
                   </table>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'registration-requests' && (
+          <div>
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-black mb-4">Player Registration Requests</h2>
+              <p className="text-gray-600 mb-6">
+                Review and manage player registration requests. Users can request to claim a player profile by registering with their email.
+              </p>
+              
+              {/* Registration Requests List */}
+              <div className="card">
+                <div className="p-6 border-b border-gray-200">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-lg font-semibold text-black">Pending Requests</h3>
+                    <span className="text-sm text-gray-500">
+                      {registrationRequests.filter(r => r.status === 'pending').length} pending requests
+                    </span>
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr>
+                        <th className="table-header">Player</th>
+                        <th className="table-header">Requesting User</th>
+                        <th className="table-header">Status</th>
+                        <th className="table-header">Requested</th>
+                        <th className="table-header">Reviewed</th>
+                        <th className="table-header">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {registrationRequests.map((request) => (
+                        <tr key={request.id}>
+                          <td className="table-cell">
+                            <div className="font-medium text-black">{request.player.name}</div>
+                          </td>
+                          <td className="table-cell">
+                            <div className="text-sm">{request.claimer_email}</div>
+                          </td>
+                          <td className="table-cell">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                              request.status === 'approved' ? 'bg-green-100 text-green-800' :
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                            </span>
+                          </td>
+                          <td className="table-cell">
+                            <div className="text-sm text-gray-600">
+                              {new Date(request.requested_at).toLocaleDateString()}
+                              <div className="text-xs text-gray-400">
+                                {new Date(request.requested_at).toLocaleTimeString()}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="table-cell">
+                            {request.reviewed_at ? (
+                              <div className="text-sm text-gray-600">
+                                {new Date(request.reviewed_at).toLocaleDateString()}
+                                <div className="text-xs text-gray-400">
+                                  {new Date(request.reviewed_at).toLocaleTimeString()}
+                                </div>
+                                {request.reviewed_by && (
+                                  <div className="text-xs text-gray-400">
+                                    by {request.reviewed_by}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </td>
+                          <td className="table-cell">
+                            {request.status === 'pending' ? (
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleApproveRequest(request.id)}
+                                  className="inline-flex items-center px-3 py-2 text-sm font-medium text-green-700 bg-green-100 border border-green-300 rounded-md hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                                  title="Approve request"
+                                >
+                                  <CheckCircle className="h-4 w-4 mr-1" />
+                                  Approve
+                                </button>
+                                <button
+                                  onClick={() => handleRejectRequest(request.id)}
+                                  className="inline-flex items-center px-3 py-2 text-sm font-medium text-red-700 bg-red-100 border border-red-300 rounded-md hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                                  title="Reject request"
+                                >
+                                  <XCircle className="h-4 w-4 mr-1" />
+                                  Reject
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-gray-500 text-sm">
+                                {request.status === 'approved' ? 'Approved' : 'Rejected'}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                      {registrationRequests.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="table-cell text-center text-gray-500">
+                            <div className="py-8">
+                              <UserPlus className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+                              <p className="text-lg font-medium text-gray-900 mb-2">No registration requests</p>
+                              <p className="text-gray-500">
+                                When users request to claim a player profile, they will appear here for review.
+                              </p>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Summary Statistics */}
+              {registrationRequests.length > 0 && (
+                <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="card p-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-yellow-600">
+                        {registrationRequests.filter(r => r.status === 'pending').length}
+                      </div>
+                      <div className="text-sm text-gray-600">Pending</div>
+                    </div>
+                  </div>
+                  <div className="card p-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-600">
+                        {registrationRequests.filter(r => r.status === 'approved').length}
+                      </div>
+                      <div className="text-sm text-gray-600">Approved</div>
+                    </div>
+                  </div>
+                  <div className="card p-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-red-600">
+                        {registrationRequests.filter(r => r.status === 'rejected').length}
+                      </div>
+                      <div className="text-sm text-gray-600">Rejected</div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
