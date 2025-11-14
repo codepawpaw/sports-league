@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { Trophy, Calendar, ArrowLeft, Clock, User } from 'lucide-react'
 import { createSupabaseComponentClient } from '@/lib/supabase'
+import RegisterAsPlayerModal from '@/components/RegisterAsPlayerModal'
 
 interface UserMatch {
   id: string
@@ -42,6 +43,7 @@ export default function MyMatchesPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [currentUser, setCurrentUser] = useState<any>(null)
+  const [showRegisterModal, setShowRegisterModal] = useState(false)
 
   useEffect(() => {
     if (slug) {
@@ -144,6 +146,19 @@ export default function MyMatchesPage() {
         L
       </span>
     )
+  }
+
+  const handleRegisterSuccess = () => {
+    // Refresh the data after successful registration
+    fetchMyMatches()
+  }
+
+  const handleOpenRegisterModal = () => {
+    setShowRegisterModal(true)
+  }
+
+  const handleCloseRegisterModal = () => {
+    setShowRegisterModal(false)
   }
 
   if (loading) {
@@ -257,12 +272,21 @@ export default function MyMatchesPage() {
             <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No Player Associated</h3>
             <p className="text-gray-500 mb-6">
-              Your email is not associated with any player in this league. Please contact a league admin to be added as a player.
+              Your email is not associated with any player in this league. You can request to register as a player or contact a league admin.
             </p>
-            <div className="bg-blue-50 border border-blue-200 rounded-md p-4 max-w-md mx-auto">
-              <p className="text-blue-700 text-sm">
-                League admins can manually add your email to a player profile so you can view your matches here.
-              </p>
+            <div className="space-y-4">
+              <button
+                onClick={handleOpenRegisterModal}
+                className="bg-black text-white px-6 py-3 rounded-md hover:bg-gray-800 transition-colors inline-flex items-center"
+              >
+                <User className="h-4 w-4 mr-2" />
+                Register as Player
+              </button>
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-4 max-w-md mx-auto">
+                <p className="text-blue-700 text-sm">
+                  You can also ask league admins to manually add your email to a player profile.
+                </p>
+              </div>
             </div>
           </div>
         ) : (
@@ -418,6 +442,13 @@ export default function MyMatchesPage() {
         )}
       </main>
 
+      {/* Register as Player Modal */}
+      <RegisterAsPlayerModal
+        isOpen={showRegisterModal}
+        onClose={handleCloseRegisterModal}
+        slug={slug}
+        onSuccess={handleRegisterSuccess}
+      />
     </div>
   )
 }
