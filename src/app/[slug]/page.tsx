@@ -175,58 +175,60 @@ export default function LeaguePage() {
         .eq('league_id', leagueData.id)
 
       if (participantsData) {
-        const participantsWithStats = (participantsData as SupabaseParticipantData[]).map((p: SupabaseParticipantData) => {
-          const completedMatches1 = p.player1_matches?.filter((m: SupabaseMatchData) => m.status === 'completed') || []
-          const completedMatches2 = p.player2_matches?.filter((m: SupabaseMatchData) => m.status === 'completed') || []
-          
-          let wins = 0
-          let losses = 0
-          let sets_won = 0
-          let sets_lost = 0
+        const participantsWithStats = (participantsData as SupabaseParticipantData[])
+          .filter((p: SupabaseParticipantData) => p && p.id && p.name) // Filter out invalid entries
+          .map((p: SupabaseParticipantData) => {
+            const completedMatches1 = p.player1_matches?.filter((m: SupabaseMatchData) => m.status === 'completed') || []
+            const completedMatches2 = p.player2_matches?.filter((m: SupabaseMatchData) => m.status === 'completed') || []
+            
+            let wins = 0
+            let losses = 0
+            let sets_won = 0
+            let sets_lost = 0
 
-          completedMatches1.forEach((m: SupabaseMatchData) => {
-            const player1_sets = m.player1_score || 0
-            const player2_sets = m.player2_score || 0
-            
-            sets_won += player1_sets // Add sets won by this player in this match
-            sets_lost += player2_sets // Add sets lost by this player in this match
-            
-            if (player1_sets > player2_sets) wins++
-            else losses++
+            completedMatches1.forEach((m: SupabaseMatchData) => {
+              const player1_sets = m.player1_score || 0
+              const player2_sets = m.player2_score || 0
+              
+              sets_won += player1_sets // Add sets won by this player in this match
+              sets_lost += player2_sets // Add sets lost by this player in this match
+              
+              if (player1_sets > player2_sets) wins++
+              else losses++
+            })
+
+            completedMatches2.forEach((m: SupabaseMatchData) => {
+              const player1_sets = m.player1_score || 0
+              const player2_sets = m.player2_score || 0
+              
+              sets_won += player2_sets // Add sets won by this player in this match
+              sets_lost += player1_sets // Add sets lost by this player in this match
+              
+              if (player2_sets > player1_sets) wins++
+              else losses++
+            })
+
+            const set_diff = sets_won - sets_lost // Calculate set difference
+            const points = wins * 2 // 2 points for win, 0 for loss
+
+            return {
+              id: p.id,
+              name: p.name || 'Unknown Player',
+              email: p.email,
+              wins,
+              losses,
+              sets_won,
+              sets_lost,
+              set_diff,
+              points
+            }
           })
-
-          completedMatches2.forEach((m: SupabaseMatchData) => {
-            const player1_sets = m.player1_score || 0
-            const player2_sets = m.player2_score || 0
-            
-            sets_won += player2_sets // Add sets won by this player in this match
-            sets_lost += player1_sets // Add sets lost by this player in this match
-            
-            if (player2_sets > player1_sets) wins++
-            else losses++
-          })
-
-          const set_diff = sets_won - sets_lost // Calculate set difference
-          const points = wins * 2 // 2 points for win, 0 for loss
-
-          return {
-            id: p.id,
-            name: p.name,
-            email: p.email,
-            wins,
-            losses,
-            sets_won,
-            sets_lost,
-            set_diff,
-            points
-          }
-        })
 
         // Sort by points (descending), then by set diff (descending), then alphabetically by name (ascending)
         participantsWithStats.sort((a, b) => {
           if (a.points !== b.points) return b.points - a.points
           if (a.set_diff !== b.set_diff) return b.set_diff - a.set_diff
-          return a.name.localeCompare(b.name) // Alphabetical tiebreaker
+          return (a.name || '').localeCompare(b.name || '') // Alphabetical tiebreaker with null safety
         })
 
         setParticipants(participantsWithStats)
@@ -246,16 +248,18 @@ export default function LeaguePage() {
         .limit(5)
 
       if (upcomingData) {
-        setUpcomingMatches(upcomingData.map(m => ({
-          id: m.id,
-          player1: m.player1,
-          player2: m.player2,
-          player1_score: m.player1_score,
-          player2_score: m.player2_score,
-          status: m.status,
-          scheduled_at: m.scheduled_at,
-          completed_at: m.completed_at
-        })))
+        setUpcomingMatches(upcomingData
+          .filter(m => m && m.player1 && m.player2 && m.player1.name && m.player2.name) // Filter out invalid matches
+          .map(m => ({
+            id: m.id,
+            player1: { id: m.player1.id, name: m.player1.name || 'Unknown Player' },
+            player2: { id: m.player2.id, name: m.player2.name || 'Unknown Player' },
+            player1_score: m.player1_score,
+            player2_score: m.player2_score,
+            status: m.status,
+            scheduled_at: m.scheduled_at,
+            completed_at: m.completed_at
+          })))
       }
 
       // Fetch recent completed matches
@@ -272,16 +276,18 @@ export default function LeaguePage() {
         .limit(5)
 
       if (recentData) {
-        setRecentMatches(recentData.map(m => ({
-          id: m.id,
-          player1: m.player1,
-          player2: m.player2,
-          player1_score: m.player1_score,
-          player2_score: m.player2_score,
-          status: m.status,
-          scheduled_at: m.scheduled_at,
-          completed_at: m.completed_at
-        })))
+        setRecentMatches(recentData
+          .filter(m => m && m.player1 && m.player2 && m.player1.name && m.player2.name) // Filter out invalid matches
+          .map(m => ({
+            id: m.id,
+            player1: { id: m.player1.id, name: m.player1.name || 'Unknown Player' },
+            player2: { id: m.player2.id, name: m.player2.name || 'Unknown Player' },
+            player1_score: m.player1_score,
+            player2_score: m.player2_score,
+            status: m.status,
+            scheduled_at: m.scheduled_at,
+            completed_at: m.completed_at
+          })))
       }
 
     } catch (err) {

@@ -14,7 +14,7 @@ interface PlayerClaimButtonProps {
     id: string
     name: string
     email?: string | null
-  }
+  } | null
   slug: string
   currentUserEmail: string | null
   onClaimClick: (player: { id: string; name: string }) => void
@@ -35,10 +35,14 @@ export default function PlayerClaimButton({
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    checkClaimStatus()
-  }, [player.id, slug, refreshTrigger])
+    if (player?.id) {
+      checkClaimStatus()
+    }
+  }, [player?.id, slug, refreshTrigger])
 
   const checkClaimStatus = async () => {
+    if (!player) return
+    
     // If player already has an email, they're claimed
     if (player.email) {
       setClaimStatus({ status: 'claimed', canClaim: false })
@@ -60,15 +64,15 @@ export default function PlayerClaimButton({
   }
 
   const handleClaimClick = () => {
-    if (!currentUserEmail) {
-      // User not logged in - this will be handled by the UI showing login link
+    if (!currentUserEmail || !player) {
+      // User not logged in or player not loaded - this will be handled by the UI showing login link
       return
     }
     
     onClaimClick({ id: player.id, name: player.name })
   }
 
-  if (loading) {
+  if (loading || !player) {
     return (
       <div className="flex items-center justify-center w-20 h-8">
         <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-300 border-t-gray-600"></div>

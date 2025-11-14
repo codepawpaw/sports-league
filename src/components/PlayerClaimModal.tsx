@@ -35,6 +35,11 @@ export default function PlayerClaimModal({
       return
     }
 
+    if (!player?.id) {
+      setError('Player information is not available')
+      return
+    }
+
     setIsSubmitting(true)
     setError(null)
 
@@ -87,7 +92,7 @@ export default function PlayerClaimModal({
               <User className="h-5 w-5 text-gray-600 mr-2" />
               <span className="text-sm font-medium text-gray-700">Player to Claim</span>
             </div>
-            <p className="text-lg font-semibold text-black">{player.name}</p>
+            <p className="text-lg font-semibold text-black">{player?.name || 'Unknown Player'}</p>
           </div>
 
           {/* Email Info */}
