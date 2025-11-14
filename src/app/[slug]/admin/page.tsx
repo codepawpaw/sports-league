@@ -271,11 +271,17 @@ export default function AdminPage() {
     e.preventDefault()
     if (!league || !newParticipant.name.trim()) return
 
+    if (!activeSeason) {
+      alert('No active season found. Please create and activate a season first.')
+      return
+    }
+
     try {
       const { error } = await supabase
         .from('participants')
         .insert({
           league_id: league.id,
+          season_id: activeSeason.id,
           name: newParticipant.name.trim(),
           email: newParticipant.email.trim() || null
         })
@@ -370,11 +376,17 @@ export default function AdminPage() {
       return
     }
 
+    if (!activeSeason) {
+      alert('No active season found. Please create and activate a season first.')
+      return
+    }
+
     try {
       const { error } = await supabase
         .from('matches')
         .insert({
           league_id: league.id,
+          season_id: activeSeason.id,
           player1_id: newMatch.player1Id,
           player2_id: newMatch.player2Id,
           scheduled_at: newMatch.scheduledAt ? new Date(newMatch.scheduledAt).toISOString() : null,

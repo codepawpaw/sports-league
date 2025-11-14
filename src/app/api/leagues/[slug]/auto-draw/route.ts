@@ -57,6 +57,21 @@ export async function POST(
 
     const config: AutoDrawConfig = await request.json()
 
+    // Get active season for this league
+    const { data: activeSeason } = await supabase
+      .from('seasons')
+      .select('id, name')
+      .eq('league_id', leagueData.id)
+      .eq('is_active', true)
+      .single()
+
+    if (!activeSeason) {
+      return NextResponse.json(
+        { error: 'No active season found. Please create and activate a season first.' },
+        { status: 400 }
+      )
+    }
+
     // Get all participants for this league
     const { data: participants } = await supabase
       .from('participants')
@@ -115,6 +130,7 @@ export async function POST(
     // Insert matches into database
     const matchInserts = scheduledMatches.map(match => ({
       league_id: leagueData.id,
+      season_id: activeSeason.id,
       player1_id: match.player1_id,
       player2_id: match.player2_id,
       scheduled_at: match.scheduled_at,
