@@ -75,13 +75,22 @@ export async function POST(
     // Check if there's already a pending schedule request for this match
     const { data: existingRequest } = await supabase
       .from('match_schedule_requests')
-      .select('id, status')
+      .select('id, status, requester_id')
       .eq('match_id', matchId)
       .eq('status', 'pending')
       .single()
 
+    // If there's an existing pending request, delete it first
     if (existingRequest) {
-      return NextResponse.json({ error: 'There is already a pending schedule request for this match' }, { status: 409 })
+      const { error: deleteError } = await supabase
+        .from('match_schedule_requests')
+        .delete()
+        .eq('id', existingRequest.id)
+
+      if (deleteError) {
+        console.error('Error deleting existing schedule request:', deleteError)
+        return NextResponse.json({ error: 'Failed to replace existing schedule request' }, { status: 500 })
+      }
     }
 
     // Create the schedule request
