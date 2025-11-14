@@ -340,10 +340,15 @@ export default function LeaguePage() {
                   Admin Panel
                 </Link>
               )}
-              {currentUser && (
+              {currentUser ? (
                 <button onClick={handleLogout} className="btn-compact">
                   Log Out
                 </button>
+              ) : (
+                <Link href={`/${slug}/auth`} className="btn-primary flex items-center gap-2">
+                  <LogIn className="h-4 w-4" />
+                  Log In
+                </Link>
               )}
             </div>
           </div>
