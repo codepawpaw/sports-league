@@ -1,6 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase'
 
+interface PlayerData {
+  id: string
+  name: string
+}
+
+interface UserClaim {
+  id: string
+  player_id: string
+  status: string
+  requested_at: string
+  reviewed_at: string | null
+  player: PlayerData | PlayerData[] | null
+}
+
 interface UserMatch {
   id: string
   opponent: {
@@ -78,17 +92,37 @@ export async function GET(
       .eq('claimer_email', user.email)
       .maybeSingle()
 
+    const typedUserClaim = userClaim as UserClaim | null
+
+    // Helper function to safely get player name
+    const getPlayerName = (player: PlayerData | PlayerData[] | null): string => {
+      if (!player) return 'Unknown Player'
+      if (Array.isArray(player)) {
+        return player[0]?.name || 'Unknown Player'
+      }
+      return player.name || 'Unknown Player'
+    }
+
+    // Helper function to safely get player data
+    const getPlayerData = (player: PlayerData | PlayerData[] | null): PlayerData | null => {
+      if (!player) return null
+      if (Array.isArray(player)) {
+        return player[0] || null
+      }
+      return player
+    }
+
     const response: MyMatchesResponse = {
       user_player: null,
       upcoming_matches: [],
       completed_matches: [],
-      has_claim: !!userClaim && userClaim.status === 'approved',
-      claim_status: userClaim ? userClaim.status : 'none',
-      claim_details: userClaim ? {
-        id: userClaim.id,
-        player_name: Array.isArray(userClaim.player) ? userClaim.player[0]?.name || 'Unknown Player' : userClaim.player?.name || 'Unknown Player',
-        requested_at: userClaim.requested_at,
-        reviewed_at: userClaim.reviewed_at
+      has_claim: !!typedUserClaim && typedUserClaim.status === 'approved',
+      claim_status: typedUserClaim ? typedUserClaim.status as 'none' | 'pending' | 'approved' | 'rejected' : 'none',
+      claim_details: typedUserClaim ? {
+        id: typedUserClaim.id,
+        player_name: getPlayerName(typedUserClaim.player),
+        requested_at: typedUserClaim.requested_at,
+        reviewed_at: typedUserClaim.reviewed_at
       } : null,
       league: {
         id: league.id,
@@ -97,12 +131,12 @@ export async function GET(
     }
 
     // If no claim or claim not approved, return response with claim status
-    if (!userClaim || userClaim.status !== 'approved' || !userClaim.player) {
+    if (!typedUserClaim || typedUserClaim.status !== 'approved' || !typedUserClaim.player) {
       return NextResponse.json(response)
     }
 
     // User has an approved claim, get their matches
-    const playerData = Array.isArray(userClaim.player) ? userClaim.player[0] : userClaim.player
+    const playerData = getPlayerData(typedUserClaim.player)
     
     if (!playerData) {
       return NextResponse.json(response)
