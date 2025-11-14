@@ -381,6 +381,11 @@ export default function LeaguePage() {
               <Link href={`/${slug}/results`} className="btn-compact">
                 All Results
               </Link>
+              {currentUser && (
+                <Link href={`/${slug}/my-matches`} className="btn-compact">
+                  My Matches
+                </Link>
+              )}
             </div>
           </div>
         </div>
