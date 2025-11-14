@@ -4,7 +4,10 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { Users, ArrowLeft, Trophy } from 'lucide-react'
+import { createSupabaseComponentClient } from '@/lib/supabase'
 import PlayerMatchHistoryModal from '@/components/PlayerMatchHistoryModal'
+import PlayerClaimModal from '@/components/PlayerClaimModal'
+import PlayerClaimButton from '@/components/PlayerClaimButton'
 
 interface League {
   id: string
@@ -32,18 +35,29 @@ interface PlayersData {
 export default function PlayersPage() {
   const params = useParams()
   const slug = params.slug as string
+  const supabase = createSupabaseComponentClient()
   
   const [data, setData] = useState<PlayersData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedPlayer, setSelectedPlayer] = useState<{ id: string; name: string } | null>(null)
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
+  const [currentUser, setCurrentUser] = useState<any>(null)
+  const [selectedClaimPlayer, setSelectedClaimPlayer] = useState<{ id: string; name: string } | null>(null)
+  const [isClaimModalOpen, setIsClaimModalOpen] = useState(false)
+  const [claimRefreshTrigger, setClaimRefreshTrigger] = useState(0)
 
   useEffect(() => {
     if (slug) {
       fetchPlayers()
+      getCurrentUser()
     }
   }, [slug])
+
+  const getCurrentUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    setCurrentUser(user)
+  }
 
   const fetchPlayers = async () => {
     try {
@@ -163,6 +177,7 @@ export default function PlayersPage() {
                     <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Sets L</th>
                     <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Set Diff</th>
                     <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Points</th>
+                    <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Claim</th>
                     <th className="bg-gray-50 border-b border-gray-200 px-4 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
@@ -189,6 +204,18 @@ export default function PlayersPage() {
                       </td>
                       <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">
                         <span className="font-semibold">{player.points}</span>
+                      </td>
+                      <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">
+                        <PlayerClaimButton
+                          player={player}
+                          slug={slug}
+                          currentUserEmail={currentUser?.email || null}
+                          onClaimClick={(player) => {
+                            setSelectedClaimPlayer(player)
+                            setIsClaimModalOpen(true)
+                          }}
+                          refreshTrigger={claimRefreshTrigger}
+                        />
                       </td>
                       <td className="px-4 py-4 border-b border-gray-200 text-sm text-gray-900">
                         <button
@@ -219,6 +246,22 @@ export default function PlayersPage() {
         }}
         player={selectedPlayer}
         slug={slug}
+      />
+
+      {/* Player Claim Modal */}
+      <PlayerClaimModal
+        isOpen={isClaimModalOpen}
+        onClose={() => {
+          setIsClaimModalOpen(false)
+          setSelectedClaimPlayer(null)
+        }}
+        player={selectedClaimPlayer}
+        slug={slug}
+        currentUserEmail={currentUser?.email || null}
+        onClaimSuccess={() => {
+          setClaimRefreshTrigger(prev => prev + 1)
+          fetchPlayers() // Refresh players data to show updated claim status
+        }}
       />
     </div>
   )

@@ -10,6 +10,8 @@ import PlayerMatchHistoryModal from '@/components/PlayerMatchHistoryModal'
 import TopPlayersBanner from '@/components/TopPlayersBanner'
 import MatchRequestModal from '@/components/MatchRequestModal'
 import MatchRequestsDisplay from '@/components/MatchRequestsDisplay'
+import PlayerClaimModal from '@/components/PlayerClaimModal'
+import PlayerClaimButton from '@/components/PlayerClaimButton'
 
 interface League {
   id: string
@@ -87,6 +89,9 @@ export default function LeaguePage() {
   const [isMatchRequestModalOpen, setIsMatchRequestModalOpen] = useState(false)
   const [matchRequestRefreshTrigger, setMatchRequestRefreshTrigger] = useState(0)
   const [isParticipant, setIsParticipant] = useState(false)
+  const [selectedClaimPlayer, setSelectedClaimPlayer] = useState<{ id: string; name: string } | null>(null)
+  const [isClaimModalOpen, setIsClaimModalOpen] = useState(false)
+  const [claimRefreshTrigger, setClaimRefreshTrigger] = useState(0)
 
   useEffect(() => {
     if (slug) {
@@ -459,6 +464,7 @@ export default function LeaguePage() {
                     <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Sets L</th>
                     <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Set Diff</th>
                     <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Points</th>
+                    <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Claim</th>
                     <th className="bg-gray-50 border-b border-gray-200 px-4 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
@@ -486,6 +492,18 @@ export default function LeaguePage() {
                       <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">
                         <span className="font-semibold">{participant.points}</span>
                       </td>
+                      <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">
+                        <PlayerClaimButton
+                          player={participant}
+                          slug={slug}
+                          currentUserEmail={currentUser?.email || null}
+                          onClaimClick={(player) => {
+                            setSelectedClaimPlayer(player)
+                            setIsClaimModalOpen(true)
+                          }}
+                          refreshTrigger={claimRefreshTrigger}
+                        />
+                      </td>
                       <td className="px-4 py-4 border-b border-gray-200 text-sm text-gray-900">
                         <button
                           onClick={() => {
@@ -501,7 +519,7 @@ export default function LeaguePage() {
                   ))}
                   {participants.length === 0 && (
                     <tr>
-                      <td colSpan={10} className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900 text-center text-gray-500">
+                      <td colSpan={11} className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900 text-center text-gray-500">
                         No participants yet
                       </td>
                     </tr>
@@ -635,6 +653,22 @@ export default function LeaguePage() {
         }}
         player={selectedPlayer}
         slug={slug}
+      />
+
+      {/* Player Claim Modal */}
+      <PlayerClaimModal
+        isOpen={isClaimModalOpen}
+        onClose={() => {
+          setIsClaimModalOpen(false)
+          setSelectedClaimPlayer(null)
+        }}
+        player={selectedClaimPlayer}
+        slug={slug}
+        currentUserEmail={currentUser?.email || null}
+        onClaimSuccess={() => {
+          setClaimRefreshTrigger(prev => prev + 1)
+          fetchLeagueData() // Refresh participants data to show updated claim status
+        }}
       />
     </div>
   )
