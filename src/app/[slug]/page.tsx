@@ -8,6 +8,7 @@ import { createSupabaseComponentClient } from '@/lib/supabase'
 import HeadToHeadComparison from '@/components/HeadToHeadComparison'
 import PlayerMatchHistoryModal from '@/components/PlayerMatchHistoryModal'
 import TopPlayersBanner from '@/components/TopPlayersBanner'
+import ScheduleRequestNotifications from '@/components/ScheduleRequestNotifications'
 
 interface League {
   id: string
@@ -398,6 +399,8 @@ export default function LeaguePage() {
           </div>
         )}
 
+        {/* Schedule Request Notifications */}
+        <ScheduleRequestNotifications slug={slug} />
 
         {/* Top Players Banner */}
         <TopPlayersBanner 

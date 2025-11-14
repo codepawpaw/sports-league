@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { Trophy, Calendar, ArrowLeft, Clock, User } from 'lucide-react'
+import { Trophy, Calendar, ArrowLeft, Clock, User, CalendarPlus } from 'lucide-react'
 import { createSupabaseComponentClient } from '@/lib/supabase'
 import RegisterAsPlayerModal from '@/components/RegisterAsPlayerModal'
+import ScheduleRequestModal from '@/components/ScheduleRequestModal'
 
 interface UserMatch {
   id: string
@@ -19,6 +20,34 @@ interface UserMatch {
   status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled'
   scheduled_at: string | null
   completed_at: string | null
+}
+
+interface ScheduleRequest {
+  id: string
+  requested_date: string
+  message?: string
+  status: 'pending' | 'approved' | 'rejected'
+  requested_at: string
+  reviewed_at?: string
+  requester: {
+    id: string
+    name: string
+  }
+  opponent: {
+    id: string
+    name: string
+  }
+  match: {
+    id: string
+    player1: {
+      id: string
+      name: string
+    }
+    player2: {
+      id: string
+      name: string
+    }
+  }
 }
 
 interface MyMatchesData {
@@ -44,6 +73,12 @@ export default function MyMatchesPage() {
   const [error, setError] = useState<string | null>(null)
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [showRegisterModal, setShowRegisterModal] = useState(false)
+  const [showScheduleModal, setShowScheduleModal] = useState(false)
+  const [selectedMatch, setSelectedMatch] = useState<UserMatch | null>(null)
+  const [scheduleRequests, setScheduleRequests] = useState<{
+    sent: ScheduleRequest[]
+    received: ScheduleRequest[]
+  }>({ sent: [], received: [] })
 
   useEffect(() => {
     if (slug) {
@@ -89,11 +124,40 @@ export default function MyMatchesPage() {
 
       const matchData = await response.json()
       setData(matchData)
+      
+      // Also fetch schedule requests
+      await fetchScheduleRequests()
     } catch (err) {
       console.error('Error fetching my matches:', err)
       setError('Failed to load my matches')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchScheduleRequests = async () => {
+    try {
+      const response = await fetch(`/api/leagues/${slug}/schedule-requests`)
+      
+      if (response.status === 401) {
+        // User not authenticated or not a participant
+        setScheduleRequests({ sent: [], received: [] })
+        return
+      }
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch schedule requests')
+      }
+
+      const data = await response.json()
+      setScheduleRequests({
+        sent: data.sent_requests || [],
+        received: data.received_requests || []
+      })
+    } catch (err) {
+      console.error('Error fetching schedule requests:', err)
+      // Don't show error for schedule requests, just keep them empty
+      setScheduleRequests({ sent: [], received: [] })
     }
   }
 
@@ -159,6 +223,21 @@ export default function MyMatchesPage() {
 
   const handleCloseRegisterModal = () => {
     setShowRegisterModal(false)
+  }
+
+  const handleOpenScheduleModal = (match: UserMatch) => {
+    setSelectedMatch(match)
+    setShowScheduleModal(true)
+  }
+
+  const handleCloseScheduleModal = () => {
+    setShowScheduleModal(false)
+    setSelectedMatch(null)
+  }
+
+  const handleScheduleRequestSuccess = () => {
+    // Refresh the data after successful schedule request
+    fetchMyMatches()
   }
 
   if (loading) {
@@ -336,6 +415,9 @@ export default function MyMatchesPage() {
                         <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
                           Score
                         </th>
+                        <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
+                          Actions
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -365,6 +447,17 @@ export default function MyMatchesPage() {
                               <span className="text-gray-400 italic">
                                 {match.status === 'scheduled' ? 'Not started' : 'No score'}
                               </span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 border-b border-gray-200">
+                            {match.status === 'scheduled' && (
+                              <button
+                                onClick={() => handleOpenScheduleModal(match)}
+                                className="text-sm bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-2 rounded-md font-medium transition-colors border border-blue-200 hover:border-blue-300 flex items-center"
+                              >
+                                <CalendarPlus className="h-4 w-4 mr-1" />
+                                Request Schedule
+                              </button>
                             )}
                           </td>
                         </tr>
@@ -449,6 +542,17 @@ export default function MyMatchesPage() {
         slug={slug}
         onSuccess={handleRegisterSuccess}
       />
+
+      {/* Schedule Request Modal */}
+      {selectedMatch && (
+        <ScheduleRequestModal
+          isOpen={showScheduleModal}
+          onClose={handleCloseScheduleModal}
+          match={selectedMatch}
+          slug={slug}
+          onSuccess={handleScheduleRequestSuccess}
+        />
+      )}
     </div>
   )
 }
