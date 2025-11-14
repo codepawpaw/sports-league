@@ -359,6 +359,9 @@ export default function LeaguePage() {
               )}
             </div>
             <div className="flex flex-wrap gap-2">
+              <Link href={`/${slug}/players`} className="btn-compact">
+                Players
+              </Link>
               <Link href={`/${slug}/upcoming`} className="btn-compact">
                 Upcoming Matches
               </Link>
