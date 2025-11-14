@@ -72,25 +72,16 @@ export async function POST(
     // Determine opponent
     const opponentId = match.player1_id === participant.id ? match.player2_id : match.player1_id
 
-    // Check if there's already a pending schedule request for this match
-    const { data: existingRequest } = await supabase
+    // Remove ALL existing schedule requests for this match (regardless of status)
+    // This ensures only 1 row per match as requested
+    const { error: deleteError } = await supabase
       .from('match_schedule_requests')
-      .select('id, status, requester_id')
+      .delete()
       .eq('match_id', matchId)
-      .eq('status', 'pending')
-      .single()
 
-    // If there's an existing pending request, delete it first
-    if (existingRequest) {
-      const { error: deleteError } = await supabase
-        .from('match_schedule_requests')
-        .delete()
-        .eq('id', existingRequest.id)
-
-      if (deleteError) {
-        console.error('Error deleting existing schedule request:', deleteError)
-        return NextResponse.json({ error: 'Failed to replace existing schedule request' }, { status: 500 })
-      }
+    if (deleteError) {
+      console.error('Error deleting existing schedule requests:', deleteError)
+      return NextResponse.json({ error: 'Failed to clean up existing schedule requests' }, { status: 500 })
     }
 
     // Create the schedule request
