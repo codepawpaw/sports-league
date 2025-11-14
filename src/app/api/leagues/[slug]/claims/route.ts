@@ -146,7 +146,9 @@ export async function GET(
         reviewed_at,
         player_id,
         participants!inner (
-          name
+          id,
+          name,
+          email
         )
       `)
       .eq('league_id', league.id)
@@ -157,7 +159,21 @@ export async function GET(
       return NextResponse.json({ error: 'Failed to fetch claims' }, { status: 500 })
     }
 
-    return NextResponse.json({ claims })
+    // Transform the data to match frontend expectations
+    const transformedClaims = claims?.map((claim: any) => ({
+      id: claim.id,
+      email: claim.claimer_email, // Map claimer_email to email
+      status: claim.status,
+      requested_at: claim.requested_at,
+      reviewed_at: claim.reviewed_at,
+      player: {
+        id: claim.participants.id,
+        name: claim.participants.name,
+        email: claim.participants.email
+      }
+    })) || []
+
+    return NextResponse.json({ claims: transformedClaims })
 
   } catch (error) {
     console.error('Error in GET /claims:', error)
