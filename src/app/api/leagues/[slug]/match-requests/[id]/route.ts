@@ -76,12 +76,13 @@ export async function PUT(
       if (!isAdmin) {
         return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
       }
-      // Admin can only approve if opponent has already approved
+      // Admin can force reject anytime, but can only approve if opponent has already approved
       if (action === 'approve' && !matchRequest.opponent_approved) {
         return NextResponse.json({ 
           error: 'Cannot approve match until opponent has approved' 
         }, { status: 400 })
       }
+      // Admin can force reject regardless of opponent approval status
     } else {
       return NextResponse.json({ error: 'Invalid user role specified' }, { status: 400 })
     }

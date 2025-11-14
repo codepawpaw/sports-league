@@ -748,7 +748,10 @@ export default function AdminPage() {
       const response = await fetch(`/api/leagues/${slug}/match-requests/${requestId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: action })
+        body: JSON.stringify({ 
+          action: action === 'approved' ? 'approve' : 'reject',
+          userRole: 'admin'
+        })
       })
 
       const data = await response.json()
