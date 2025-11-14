@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { Trophy, Calendar, ArrowLeft, Clock, User, CalendarPlus } from 'lucide-react'
+import { Trophy, Calendar, ArrowLeft, Clock, User, CalendarPlus, Bell, Check, X } from 'lucide-react'
 import { createSupabaseComponentClient } from '@/lib/supabase'
 import RegisterAsPlayerModal from '@/components/RegisterAsPlayerModal'
 import ScheduleRequestModal from '@/components/ScheduleRequestModal'
@@ -169,6 +169,55 @@ export default function MyMatchesPage() {
       hour: 'numeric',
       minute: '2-digit'
     })
+  }
+
+  const formatNotificationDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    })
+  }
+
+  const getTimeAgo = (dateString: string) => {
+    const now = new Date()
+    const date = new Date(dateString)
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60))
+    
+    if (diffInHours < 1) {
+      return 'Just now'
+    } else if (diffInHours < 24) {
+      return `${diffInHours}h ago`
+    } else {
+      const diffInDays = Math.floor(diffInHours / 24)
+      return `${diffInDays}d ago`
+    }
+  }
+
+  const handleScheduleRequestResponse = async (requestId: string, action: 'approve' | 'reject') => {
+    try {
+      const response = await fetch(`/api/leagues/${slug}/schedule-requests/${requestId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ action }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to respond to request')
+      }
+
+      // Refresh the requests after successful response
+      fetchScheduleRequests()
+    } catch (err) {
+      console.error('Error responding to schedule request:', err)
+      setError(err instanceof Error ? err.message : 'Failed to respond to request')
+    }
   }
 
   const getStatusBadge = (status: string) => {
@@ -501,80 +550,74 @@ export default function MyMatchesPage() {
             <div className="space-y-6">
               {/* Received Schedule Requests */}
               <div className="card">
-                <div className="p-6 border-b border-gray-200">
+                <div className="p-4 border-b border-gray-200">
                   <div className="flex items-center">
-                    <CalendarPlus className="h-6 w-6 text-orange-600 mr-2" />
-                    <h2 className="text-xl font-bold text-black">
-                      Schedule Requests Received ({scheduleRequests.received.length})
-                    </h2>
+                    <Bell className="h-5 w-5 text-blue-600 mr-2" />
+                    <h3 className="font-semibold text-black">Schedule Requests</h3>
+                    <span className="ml-2 bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded-full">
+                      {scheduleRequests.received.filter(r => r.status === 'pending').length}
+                    </span>
                   </div>
                 </div>
-                {scheduleRequests.received.length === 0 ? (
+                {scheduleRequests.received.filter(r => r.status === 'pending').length === 0 ? (
                   <div className="p-8 text-center">
-                    <CalendarPlus className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No requests received</h3>
+                    <Bell className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No pending requests</h3>
                     <p className="text-gray-500">
-                      You haven't received any schedule requests yet.
+                      You haven't received any pending schedule requests.
                     </p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-full">
-                      <thead>
-                        <tr>
-                          <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
-                            From
-                          </th>
-                          <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
-                            Match
-                          </th>
-                          <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
-                            Requested Date
-                          </th>
-                          <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
-                            Message
-                          </th>
-                          <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
-                            Status
-                          </th>
-                          <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
-                            Requested
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {scheduleRequests.received.map((request) => (
-                          <tr key={request.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 border-b border-gray-200">
-                              <div className="font-medium text-gray-900">
-                                {request.requester.name}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 border-b border-gray-200">
-                              <div className="text-sm text-gray-900">
-                                {request.match.player1.name} vs {request.match.player2.name}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 border-b border-gray-200">
-                              <div className="text-sm text-gray-900">
-                                {formatDate(request.requested_date)}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 border-b border-gray-200">
-                              <div className="text-sm text-gray-500 max-w-xs truncate">
-                                {request.message || <span className="italic">No message</span>}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 border-b border-gray-200">
-                              {getScheduleRequestStatusBadge(request.status)}
-                            </td>
-                            <td className="px-6 py-4 border-b border-gray-200 text-sm text-gray-500">
-                              {formatDate(request.requested_at)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="divide-y divide-gray-100">
+                    {scheduleRequests.received.filter(r => r.status === 'pending').map((request) => (
+                      <div key={request.id} className="p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center mb-2">
+                              <Calendar className="h-4 w-4 text-gray-400 mr-2" />
+                              <span className="text-sm font-medium text-gray-900">
+                                Schedule Request from {request.requester.name}
+                              </span>
+                              <span className="ml-2 text-xs text-gray-500">
+                                {getTimeAgo(request.requested_at)}
+                              </span>
+                            </div>
+                            
+                            <p className="text-sm text-gray-600 mb-2">
+                              Match: {request.match.player1.name} vs {request.match.player2.name}
+                            </p>
+                            
+                            <div className="flex items-center text-sm text-gray-600 mb-2">
+                              <Clock className="h-4 w-4 text-gray-400 mr-1" />
+                              Proposed time: {formatNotificationDate(request.requested_date)}
+                            </div>
+                            
+                            {request.message && (
+                              <p className="text-sm text-gray-600 mb-3 italic">
+                                "{request.message}"
+                              </p>
+                            )}
+                          </div>
+                          
+                          <div className="flex space-x-2 ml-4">
+                            <button
+                              onClick={() => handleScheduleRequestResponse(request.id, 'approve')}
+                              className="bg-green-100 hover:bg-green-200 text-green-800 px-3 py-1 rounded-md text-xs font-medium transition-colors border border-green-200 hover:border-green-300 flex items-center"
+                            >
+                              <Check className="h-3 w-3 mr-1" />
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => handleScheduleRequestResponse(request.id, 'reject')}
+                              className="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded-md text-xs font-medium transition-colors border border-red-200 hover:border-red-300 flex items-center"
+                            >
+                              <X className="h-3 w-3 mr-1" />
+                              Reject
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
