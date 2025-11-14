@@ -265,47 +265,47 @@ export default function MyMatchesPage() {
         {data?.claim_status === 'none' ? (
           <div className="text-center py-16">
             <UserPlus className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Claim a Player</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Register as Player</h3>
             <p className="text-gray-500 mb-6">
-              You need to claim a player in this league to view your matches.
+              You need to register as a player in this league to view your matches.
             </p>
             <button
               onClick={() => setIsClaimDropdownModalOpen(true)}
               className="bg-gray-700 text-white px-6 py-3 rounded-md hover:bg-gray-600 transition-colors inline-flex items-center"
             >
               <UserPlus className="h-5 w-5 mr-2" />
-              Claim Player
+              Register as Player
             </button>
           </div>
         ) : data?.claim_status === 'pending' ? (
           <div className="text-center py-16">
             <Clock className="h-12 w-12 text-amber-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Claim Pending Approval</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Registration Pending Approval</h3>
             <p className="text-gray-500 mb-4">
-              Your claim for <span className="font-medium text-gray-700">{data.claim_details?.player_name}</span> is awaiting admin approval.
+              Your registration as <span className="font-medium text-gray-700">{data.claim_details?.player_name}</span> is awaiting admin approval.
             </p>
             <p className="text-sm text-gray-400 mb-6">
               Submitted on {data.claim_details?.requested_at ? formatDate(data.claim_details.requested_at) : 'Unknown date'}
             </p>
             <div className="bg-amber-50 border border-amber-200 rounded-md p-4 max-w-md mx-auto">
               <p className="text-amber-700 text-sm">
-                Please wait for a league admin to review and approve your claim. You'll be able to view your matches once approved.
+                Please wait for a league admin to review and approve your registration. You'll be able to view your matches once approved.
               </p>
             </div>
           </div>
         ) : data?.claim_status === 'rejected' ? (
           <div className="text-center py-16">
             <UserPlus className="h-12 w-12 text-red-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Claim Rejected</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Registration Rejected</h3>
             <p className="text-gray-500 mb-4">
-              Your claim for <span className="font-medium text-gray-700">{data.claim_details?.player_name}</span> was rejected by a league admin.
+              Your registration as <span className="font-medium text-gray-700">{data.claim_details?.player_name}</span> was rejected by a league admin.
             </p>
             <p className="text-sm text-gray-400 mb-6">
               Reviewed on {data.claim_details?.reviewed_at ? formatDate(data.claim_details.reviewed_at) : 'Unknown date'}
             </p>
             <div className="bg-red-50 border border-red-200 rounded-md p-4 max-w-md mx-auto mb-6">
               <p className="text-red-700 text-sm">
-                Please contact a league admin for more information or try claiming a different player.
+                Please contact a league admin for more information or try registering as a different player.
               </p>
             </div>
             <button
@@ -313,7 +313,7 @@ export default function MyMatchesPage() {
               className="bg-gray-700 text-white px-6 py-3 rounded-md hover:bg-gray-600 transition-colors inline-flex items-center"
             >
               <UserPlus className="h-5 w-5 mr-2" />
-              Claim Another Player
+              Register as Another Player
             </button>
           </div>
         ) : data?.claim_status === 'approved' && data?.user_player ? (

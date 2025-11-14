@@ -115,7 +115,7 @@ export default function ClaimPlayerDropdownModal({
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-black">Claim a Player</h2>
+          <h2 className="text-xl font-semibold text-black">Register as Player</h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -134,7 +134,7 @@ export default function ClaimPlayerDropdownModal({
                 <LogIn className="h-12 w-12 text-blue-600 mx-auto mb-3" />
                 <p className="text-blue-900 font-medium mb-2">Sign in Required</p>
                 <p className="text-sm text-blue-700 mb-4">
-                  You need to sign in with Google to claim a player in this league.
+                  You need to sign in with Google to register as a player in this league.
                 </p>
                 <button
                   onClick={handleAuthRedirect}
@@ -174,7 +174,7 @@ export default function ClaimPlayerDropdownModal({
                   <UserPlus className="h-12 w-12 text-gray-400 mx-auto mb-3" />
                   <p className="text-gray-600">
                     {players.length === 0 
-                      ? 'No available players to claim' 
+                      ? 'No available players to register as' 
                       : 'No players found matching your search'
                     }
                   </p>
@@ -194,7 +194,7 @@ export default function ClaimPlayerDropdownModal({
                         }`}
                       >
                         <div className="font-medium text-black">{player.name}</div>
-                        <div className="text-sm text-gray-600">Available to claim</div>
+                        <div className="text-sm text-gray-600">Available to register as</div>
                       </div>
                     ))}
                   </div>
@@ -228,7 +228,7 @@ export default function ClaimPlayerDropdownModal({
                       {isSubmitting ? (
                         <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
                       ) : (
-                        'Claim Player'
+                        'Register as Player'
                       )}
                     </button>
                   </div>

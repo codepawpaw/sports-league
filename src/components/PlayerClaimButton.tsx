@@ -152,14 +152,14 @@ export default function PlayerClaimButton({
     }
   }
 
-  // Available to claim
+  // Available to register as
   return (
     <button
       onClick={handleClaimClick}
       className="flex items-center text-gray-700 bg-gray-50 hover:bg-gray-100 px-3 py-1 rounded-md text-xs border border-gray-200 transition-colors"
     >
       <UserPlus className="h-3 w-3 mr-1" />
-      <span>Claim</span>
+      <span>Register as Player</span>
     </button>
   )
 }
