@@ -101,9 +101,9 @@ export default function AuthPage() {
       {/* Main Content */}
       <main className="max-w-md mx-auto py-12 px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-black mb-4">Admin Login</h1>
+          <h1 className="text-3xl font-bold text-black mb-4">Sign In</h1>
           <p className="text-gray-600">
-            Sign in with Google to access the admin panel for <strong>{league?.name}</strong>
+            Sign in with Google to claim players and request matches in <strong>{league?.name}</strong>
           </p>
         </div>
 
@@ -134,8 +134,7 @@ export default function AuthPage() {
           />
           
           <div className="mt-6 text-center text-sm text-gray-500">
-            Only whitelisted email addresses can access the admin panel.
-            Contact the league organizer if you need access.
+            Your Google account email will be used to identify you in the league.
           </div>
         </div>
 

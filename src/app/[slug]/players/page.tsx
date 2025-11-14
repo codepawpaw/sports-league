@@ -229,7 +229,7 @@ export default function PlayersPage() {
                     <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Sets L</th>
                     <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Set Diff</th>
                     <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Points</th>
-                    {!userClaimInfo?.hasClaim && (
+                    {currentUser && !userClaimInfo?.hasClaim && (
                       <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Claim</th>
                     )}
                     <th className="bg-gray-50 border-b border-gray-200 px-4 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Actions</th>
@@ -259,7 +259,7 @@ export default function PlayersPage() {
                       <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">
                         <span className="font-semibold">{player.points}</span>
                       </td>
-                      {!userClaimInfo?.hasClaim && (
+                      {currentUser && !userClaimInfo?.hasClaim && (
                         <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">
                           <PlayerClaimButton
                             player={player}

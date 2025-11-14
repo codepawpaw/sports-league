@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { Trophy, Calendar, Users, Settings, LogIn, Plus } from 'lucide-react'
+import { Trophy, Calendar, Users, Settings, LogIn, Plus, UserPlus } from 'lucide-react'
 import { createSupabaseComponentClient } from '@/lib/supabase'
 import HeadToHeadComparison from '@/components/HeadToHeadComparison'
 import PlayerMatchHistoryModal from '@/components/PlayerMatchHistoryModal'
@@ -12,6 +12,7 @@ import MatchRequestModal from '@/components/MatchRequestModal'
 import MatchRequestsDisplay from '@/components/MatchRequestsDisplay'
 import PlayerClaimModal from '@/components/PlayerClaimModal'
 import PlayerClaimButton from '@/components/PlayerClaimButton'
+import ClaimPlayerDropdownModal from '@/components/ClaimPlayerDropdownModal'
 
 interface League {
   id: string
@@ -91,6 +92,7 @@ export default function LeaguePage() {
   const [isParticipant, setIsParticipant] = useState(false)
   const [selectedClaimPlayer, setSelectedClaimPlayer] = useState<{ id: string; name: string } | null>(null)
   const [isClaimModalOpen, setIsClaimModalOpen] = useState(false)
+  const [isClaimDropdownModalOpen, setIsClaimDropdownModalOpen] = useState(false)
   const [claimRefreshTrigger, setClaimRefreshTrigger] = useState(0)
 
   useEffect(() => {
@@ -399,11 +401,18 @@ export default function LeaguePage() {
           </div>
         )}
 
-        {/* Authentication and Match Request Section */}
+        {/* Authentication and Action Buttons Section */}
         {currentUser ? (
           isParticipant ? (
             <div className="mb-8">
-              <div className="flex justify-center">
+              <div className="flex justify-center gap-4">
+                <button
+                  onClick={() => setIsClaimDropdownModalOpen(true)}
+                  className="bg-gray-700 text-white px-6 py-3 rounded-md hover:bg-gray-600 transition-colors flex items-center"
+                >
+                  <UserPlus className="h-5 w-5 mr-2" />
+                  Claim Player
+                </button>
                 <button
                   onClick={() => setIsMatchRequestModalOpen(true)}
                   className="bg-black text-white px-6 py-3 rounded-md hover:bg-gray-800 transition-colors flex items-center"
@@ -414,24 +423,46 @@ export default function LeaguePage() {
               </div>
             </div>
           ) : (
-            <div className="mb-8 p-4 bg-gray-50 rounded-lg border text-center">
-              <p className="text-gray-600">
-                You need to be a participant in this league to request matches. Contact the league admin to join.
-              </p>
+            <div className="mb-8">
+              <div className="flex justify-center gap-4 mb-4">
+                <button
+                  onClick={() => setIsClaimDropdownModalOpen(true)}
+                  className="bg-gray-700 text-white px-6 py-3 rounded-md hover:bg-gray-600 transition-colors flex items-center"
+                >
+                  <UserPlus className="h-5 w-5 mr-2" />
+                  Claim Player
+                </button>
+              </div>
+              <div className="p-4 bg-gray-50 rounded-lg border text-center">
+                <p className="text-gray-600">
+                  You need to be a participant in this league to request matches. Contact the league admin to join.
+                </p>
+              </div>
             </div>
           )
         ) : (
-          <div className="mb-8 p-4 bg-gray-50 rounded-lg border text-center">
-            <p className="text-gray-600 mb-4">
-              Sign in with Google to request matches with other players
-            </p>
-            <Link
-              href={`/${slug}/auth`}
-              className="bg-black text-white px-6 py-3 rounded-md hover:bg-gray-800 transition-colors inline-flex items-center"
-            >
-              <LogIn className="h-5 w-5 mr-2" />
-              Sign In with Google
-            </Link>
+          <div className="mb-8">
+            <div className="flex justify-center gap-4 mb-4">
+              <button
+                onClick={() => setIsClaimDropdownModalOpen(true)}
+                className="bg-gray-700 text-white px-6 py-3 rounded-md hover:bg-gray-600 transition-colors flex items-center"
+              >
+                <UserPlus className="h-5 w-5 mr-2" />
+                Claim Player
+              </button>
+            </div>
+            <div className="p-4 bg-gray-50 rounded-lg border text-center">
+              <p className="text-gray-600 mb-4">
+                Sign in with Google to request matches with other players
+              </p>
+              <Link
+                href={`/${slug}/auth`}
+                className="bg-black text-white px-6 py-3 rounded-md hover:bg-gray-800 transition-colors inline-flex items-center"
+              >
+                <LogIn className="h-5 w-5 mr-2" />
+                Sign In with Google
+              </Link>
+            </div>
           </div>
         )}
 
@@ -675,6 +706,14 @@ export default function LeaguePage() {
           setClaimRefreshTrigger(prev => prev + 1)
           fetchLeagueData() // Refresh participants data to show updated claim status
         }}
+      />
+
+      {/* Claim Player Dropdown Modal */}
+      <ClaimPlayerDropdownModal
+        isOpen={isClaimDropdownModalOpen}
+        onClose={() => setIsClaimDropdownModalOpen(false)}
+        slug={slug}
+        currentUserEmail={currentUser?.email || null}
       />
     </div>
   )
