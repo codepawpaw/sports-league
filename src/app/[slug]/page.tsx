@@ -189,10 +189,11 @@ export default function LeaguePage() {
           }
         })
 
-        // Sort by points (descending), then by set diff (descending)
+        // Sort by points (descending), then by set diff (descending), then alphabetically by name (ascending)
         participantsWithStats.sort((a, b) => {
           if (a.points !== b.points) return b.points - a.points
-          return b.set_diff - a.set_diff
+          if (a.set_diff !== b.set_diff) return b.set_diff - a.set_diff
+          return a.name.localeCompare(b.name) // Alphabetical tiebreaker
         })
 
         setParticipants(participantsWithStats)
