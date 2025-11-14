@@ -103,7 +103,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Failed to update schedule request' }, { status: 500 })
     }
 
-    // If approved, update the match scheduled_at time and supersede previous requests
+    // If approved, update the match scheduled_at time and delete the request
     if (action === 'approve') {
       // Start a transaction to ensure consistency
       const { error: transactionError } = await supabase.rpc('handle_schedule_approval', {
@@ -116,23 +116,19 @@ export async function PUT(
         // Fallback to individual operations if the stored procedure doesn't exist
         console.log('Stored procedure not found, using fallback approach')
         
-        // First, mark any previous approved requests as superseded
-        const { error: supersededError } = await supabase
+        // First, delete any previous approved requests for this match
+        const { error: deleteOldError } = await supabase
           .from('match_schedule_requests')
-          .update({
-            status: 'superseded',
-            reviewed_at: new Date().toISOString(),
-            reviewed_by: user.email + ' (auto-superseded)'
-          })
+          .delete()
           .eq('match_id', scheduleRequest.match_id)
           .eq('status', 'approved')
           .neq('id', id)
 
-        if (supersededError) {
-          console.error('Error superseding previous requests:', supersededError)
+        if (deleteOldError) {
+          console.error('Error deleting previous approved requests:', deleteOldError)
         }
 
-        // Then update the match scheduled_at time
+        // Update the match scheduled_at time
         const { error: matchUpdateError } = await supabase
           .from('matches')
           .update({
@@ -146,9 +142,30 @@ export async function PUT(
             error: 'Failed to update match schedule' 
           }, { status: 500 })
         }
+
+        // Finally, delete the current approved request
+        const { error: deleteCurrentError } = await supabase
+          .from('match_schedule_requests')
+          .delete()
+          .eq('id', id)
+
+        if (deleteCurrentError) {
+          console.error('Error deleting current approved request:', deleteCurrentError)
+          return NextResponse.json({ 
+            error: 'Failed to delete approved request' 
+          }, { status: 500 })
+        }
       }
+
+      // Return success without the deleted request data for approved requests
+      return NextResponse.json({ 
+        success: true,
+        action: action,
+        message: 'Schedule request approved and match time updated'
+      })
     }
 
+    // For rejected requests, keep the current behavior of updating status
     return NextResponse.json({ 
       success: true,
       schedule_request: updatedRequest,
