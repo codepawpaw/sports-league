@@ -23,6 +23,13 @@ interface MyMatchesResponse {
   upcoming_matches: UserMatch[]
   completed_matches: UserMatch[]
   has_claim: boolean
+  claim_status: 'none' | 'pending' | 'approved' | 'rejected'
+  claim_details: {
+    id: string
+    player_name: string
+    requested_at: string
+    reviewed_at: string | null
+  } | null
   league: {
     id: string
     name: string
@@ -56,38 +63,46 @@ export async function GET(
       return NextResponse.json({ error: 'League not found' }, { status: 404 })
     }
 
-    // Check if user has an approved claim for this league
-    const { data: approvedClaim, error: claimError } = await supabase
+    // Check if user has any claim for this league
+    const { data: userClaim, error: claimError } = await supabase
       .from('player_claims')
       .select(`
         id,
         player_id,
         status,
+        requested_at,
+        reviewed_at,
         player:participants(id, name)
       `)
       .eq('league_id', league.id)
       .eq('claimer_email', user.email)
-      .eq('status', 'approved')
-      .single()
+      .maybeSingle()
 
     const response: MyMatchesResponse = {
       user_player: null,
       upcoming_matches: [],
       completed_matches: [],
-      has_claim: !!approvedClaim,
+      has_claim: !!userClaim && userClaim.status === 'approved',
+      claim_status: userClaim ? userClaim.status : 'none',
+      claim_details: userClaim ? {
+        id: userClaim.id,
+        player_name: Array.isArray(userClaim.player) ? userClaim.player[0]?.name || 'Unknown Player' : userClaim.player?.name || 'Unknown Player',
+        requested_at: userClaim.requested_at,
+        reviewed_at: userClaim.reviewed_at
+      } : null,
       league: {
         id: league.id,
         name: league.name
       }
     }
 
-    if (!approvedClaim || !approvedClaim.player) {
-      // User has no approved claim, return empty response
+    // If no claim or claim not approved, return response with claim status
+    if (!userClaim || userClaim.status !== 'approved' || !userClaim.player) {
       return NextResponse.json(response)
     }
 
     // User has an approved claim, get their matches
-    const playerData = Array.isArray(approvedClaim.player) ? approvedClaim.player[0] : approvedClaim.player
+    const playerData = Array.isArray(userClaim.player) ? userClaim.player[0] : userClaim.player
     
     if (!playerData) {
       return NextResponse.json(response)

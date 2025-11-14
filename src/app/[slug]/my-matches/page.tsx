@@ -29,6 +29,13 @@ interface MyMatchesData {
   upcoming_matches: UserMatch[]
   completed_matches: UserMatch[]
   has_claim: boolean
+  claim_status: 'none' | 'pending' | 'approved' | 'rejected'
+  claim_details: {
+    id: string
+    player_name: string
+    requested_at: string
+    reviewed_at: string | null
+  } | null
   league: {
     id: string
     name: string
@@ -254,8 +261,8 @@ export default function MyMatchesPage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        {/* User has not claimed a player */}
-        {!data?.has_claim || !data?.user_player ? (
+        {/* Handle different claim statuses */}
+        {data?.claim_status === 'none' ? (
           <div className="text-center py-16">
             <UserPlus className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">Claim a Player</h3>
@@ -270,7 +277,46 @@ export default function MyMatchesPage() {
               Claim Player
             </button>
           </div>
-        ) : (
+        ) : data?.claim_status === 'pending' ? (
+          <div className="text-center py-16">
+            <Clock className="h-12 w-12 text-amber-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Claim Pending Approval</h3>
+            <p className="text-gray-500 mb-4">
+              Your claim for <span className="font-medium text-gray-700">{data.claim_details?.player_name}</span> is awaiting admin approval.
+            </p>
+            <p className="text-sm text-gray-400 mb-6">
+              Submitted on {data.claim_details?.requested_at ? formatDate(data.claim_details.requested_at) : 'Unknown date'}
+            </p>
+            <div className="bg-amber-50 border border-amber-200 rounded-md p-4 max-w-md mx-auto">
+              <p className="text-amber-700 text-sm">
+                Please wait for a league admin to review and approve your claim. You'll be able to view your matches once approved.
+              </p>
+            </div>
+          </div>
+        ) : data?.claim_status === 'rejected' ? (
+          <div className="text-center py-16">
+            <UserPlus className="h-12 w-12 text-red-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Claim Rejected</h3>
+            <p className="text-gray-500 mb-4">
+              Your claim for <span className="font-medium text-gray-700">{data.claim_details?.player_name}</span> was rejected by a league admin.
+            </p>
+            <p className="text-sm text-gray-400 mb-6">
+              Reviewed on {data.claim_details?.reviewed_at ? formatDate(data.claim_details.reviewed_at) : 'Unknown date'}
+            </p>
+            <div className="bg-red-50 border border-red-200 rounded-md p-4 max-w-md mx-auto mb-6">
+              <p className="text-red-700 text-sm">
+                Please contact a league admin for more information or try claiming a different player.
+              </p>
+            </div>
+            <button
+              onClick={() => setIsClaimDropdownModalOpen(true)}
+              className="bg-gray-700 text-white px-6 py-3 rounded-md hover:bg-gray-600 transition-colors inline-flex items-center"
+            >
+              <UserPlus className="h-5 w-5 mr-2" />
+              Claim Another Player
+            </button>
+          </div>
+        ) : data?.claim_status === 'approved' && data?.user_player ? (
           <div className="space-y-8">
             {/* Player Info */}
             <div className="card">
@@ -419,6 +465,20 @@ export default function MyMatchesPage() {
                 </div>
               )}
             </div>
+          </div>
+        ) : (
+          <div className="text-center py-16">
+            <UserPlus className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Something went wrong</h3>
+            <p className="text-gray-500 mb-6">
+              Unable to determine your claim status. Please try refreshing the page.
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-gray-700 text-white px-6 py-3 rounded-md hover:bg-gray-600 transition-colors"
+            >
+              Refresh Page
+            </button>
           </div>
         )}
       </main>
