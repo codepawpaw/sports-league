@@ -48,32 +48,6 @@ interface Season {
   created_at: string
 }
 
-interface MatchRequest {
-  id: string
-  status: 'pending' | 'approved' | 'rejected'
-  message: string | null
-  requested_at: string
-  reviewed_at: string | null
-  requesting_player: {
-    id: string
-    name: string
-    email: string | null
-  }
-  requested_player: {
-    id: string
-    name: string
-    email: string | null
-  }
-  reviewed_by_admin?: {
-    id: string
-    email: string
-  } | null
-  season: {
-    id: string
-    name: string
-    slug: string
-  }
-}
 
 interface PlayerClaim {
   id: string
@@ -155,9 +129,6 @@ export default function AdminPage() {
   const [isGeneratingDraw, setIsGeneratingDraw] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
 
-  // Match requests state
-  const [matchRequests, setMatchRequests] = useState<MatchRequest[]>([])
-  const [processingRequest, setProcessingRequest] = useState<string | null>(null)
 
   // Player claims state
   const [playerClaims, setPlayerClaims] = useState<PlayerClaim[]>([])
@@ -209,7 +180,6 @@ export default function AdminPage() {
       await fetchData(leagueData.id)
       await fetchAdmins()
       await fetchSeasons()
-      await fetchMatchRequests()
       await fetchPlayerClaims()
     } catch (error) {
       console.error('Error checking admin access:', error)
@@ -287,17 +257,6 @@ export default function AdminPage() {
     }
   }
 
-  const fetchMatchRequests = async () => {
-    try {
-      const response = await fetch(`/api/leagues/${slug}/match-requests`)
-      if (response.ok) {
-        const data = await response.json()
-        setMatchRequests(data.matchRequests || [])
-      }
-    } catch (error) {
-      console.error('Error fetching match requests:', error)
-    }
-  }
 
   const fetchPlayerClaims = async () => {
     try {
@@ -730,48 +689,6 @@ export default function AdminPage() {
     }
   }
 
-  // Match request management functions
-  const handleMatchRequestAction = async (requestId: string, action: 'approved' | 'rejected') => {
-    if (processingRequest) return
-
-    const request = matchRequests.find(r => r.id === requestId)
-    if (!request) return
-
-    const actionText = action === 'approved' ? 'approve' : 'reject'
-    if (!confirm(`Are you sure you want to ${actionText} the match request between ${request.requesting_player.name} and ${request.requested_player.name}?`)) {
-      return
-    }
-
-    setProcessingRequest(requestId)
-
-    try {
-      const response = await fetch(`/api/leagues/${slug}/match-requests/${requestId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          action: action === 'approved' ? 'approve' : 'reject',
-          userRole: 'admin'
-        })
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        await fetchMatchRequests()
-        if (action === 'approved') {
-          await fetchData(league!.id) // Refresh matches to show new scheduled match
-        }
-        alert(`Match request ${action} successfully!`)
-      } else {
-        alert(data.error || `Failed to ${actionText} match request`)
-      }
-    } catch (error) {
-      console.error(`Error ${actionText}ing match request:`, error)
-      alert(`Failed to ${actionText} match request`)
-    } finally {
-      setProcessingRequest(null)
-    }
-  }
 
   // Player claim management functions
   const handlePlayerClaimAction = async (claimId: string, action: 'approved' | 'rejected') => {
@@ -886,22 +803,6 @@ export default function AdminPage() {
             >
               <Calendar className="h-4 w-4 inline mr-2" />
               Seasons
-            </button>
-            <button
-              onClick={() => setActiveTab('match-requests')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'match-requests'
-                  ? 'border-black text-black'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <MessageSquare className="h-4 w-4 inline mr-2" />
-              Match Requests
-              {matchRequests.filter(req => req.status === 'pending').length > 0 && (
-                <span className="ml-1 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-red-100 bg-red-600 rounded-full">
-                  {matchRequests.filter(req => req.status === 'pending').length}
-                </span>
-              )}
             </button>
             <button
               onClick={() => setActiveTab('claims')}
@@ -1788,180 +1689,6 @@ export default function AdminPage() {
           </div>
         )}
 
-        {activeTab === 'match-requests' && (
-          <div>
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-black mb-4">Manage Match Requests</h2>
-              <p className="text-gray-600 mb-6">
-                Review and manage match requests from players. When you approve a request, it will automatically create a scheduled match.
-              </p>
-
-              {/* Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="card p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Pending Requests</p>
-                      <p className="text-2xl font-bold text-black">
-                        {matchRequests.filter(req => req.status === 'pending').length}
-                      </p>
-                    </div>
-                    <div className="h-12 w-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-                      <Clock className="h-6 w-6 text-yellow-600" />
-                    </div>
-                  </div>
-                </div>
-                <div className="card p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Approved</p>
-                      <p className="text-2xl font-bold text-green-600">
-                        {matchRequests.filter(req => req.status === 'approved').length}
-                      </p>
-                    </div>
-                    <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
-                      <CheckCircle className="h-6 w-6 text-green-600" />
-                    </div>
-                  </div>
-                </div>
-                <div className="card p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Rejected</p>
-                      <p className="text-2xl font-bold text-red-600">
-                        {matchRequests.filter(req => req.status === 'rejected').length}
-                      </p>
-                    </div>
-                    <div className="h-12 w-12 bg-red-100 rounded-lg flex items-center justify-center">
-                      <XCircle className="h-6 w-6 text-red-600" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Match Requests List */}
-              <div className="card">
-                <div className="p-6 border-b border-gray-200">
-                  <h3 className="text-lg font-semibold text-black">All Match Requests</h3>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr>
-                        <th className="table-header">Requesting Player</th>
-                        <th className="table-header">Requested Player</th>
-                        <th className="table-header">Message</th>
-                        <th className="table-header">Season</th>
-                        <th className="table-header">Status</th>
-                        <th className="table-header">Requested</th>
-                        <th className="table-header">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {matchRequests.map((request) => (
-                        <tr key={request.id}>
-                          <td className="table-cell">
-                            <div>
-                              <div className="font-medium text-black">{request.requesting_player.name}</div>
-                              {request.requesting_player.email && (
-                                <div className="text-sm text-gray-500">{request.requesting_player.email}</div>
-                              )}
-                            </div>
-                          </td>
-                          <td className="table-cell">
-                            <div>
-                              <div className="font-medium text-black">{request.requested_player.name}</div>
-                              {request.requested_player.email && (
-                                <div className="text-sm text-gray-500">{request.requested_player.email}</div>
-                              )}
-                            </div>
-                          </td>
-                          <td className="table-cell">
-                            {request.message ? (
-                              <div className="max-w-xs truncate" title={request.message}>
-                                {request.message}
-                              </div>
-                            ) : (
-                              <span className="text-gray-400 italic">No message</span>
-                            )}
-                          </td>
-                          <td className="table-cell">
-                            <span className="text-sm font-medium">{request.season.name}</span>
-                          </td>
-                          <td className="table-cell">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                              request.status === 'approved' ? 'bg-green-100 text-green-800' :
-                              'bg-red-100 text-red-800'
-                            }`}>
-                              {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-                            </span>
-                          </td>
-                          <td className="table-cell">
-                            <div className="text-sm">
-                              <div>{formatDate(request.requested_at)}</div>
-                              {request.reviewed_at && (
-                                <div className="text-gray-500">
-                                  Reviewed: {formatDate(request.reviewed_at)}
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                          <td className="table-cell">
-                            {request.status === 'pending' ? (
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => handleMatchRequestAction(request.id, 'approved')}
-                                  className="bg-green-100 hover:bg-green-200 text-green-800 px-3 py-2 rounded text-sm font-medium transition-colors border border-green-200 hover:border-green-300 flex items-center"
-                                  disabled={processingRequest === request.id}
-                                >
-                                  {processingRequest === request.id ? (
-                                    <Clock className="h-4 w-4 mr-1 animate-spin" />
-                                  ) : (
-                                    <CheckCircle className="h-4 w-4 mr-1" />
-                                  )}
-                                  Approve
-                                </button>
-                                <button
-                                  onClick={() => handleMatchRequestAction(request.id, 'rejected')}
-                                  className="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-2 rounded text-sm font-medium transition-colors border border-red-200 hover:border-red-300 flex items-center"
-                                  disabled={processingRequest === request.id}
-                                >
-                                  {processingRequest === request.id ? (
-                                    <Clock className="h-4 w-4 mr-1 animate-spin" />
-                                  ) : (
-                                    <XCircle className="h-4 w-4 mr-1" />
-                                  )}
-                                  Reject
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="text-sm text-gray-500">
-                                {request.status === 'approved' ? 'Approved' : 'Rejected'}
-                                {request.reviewed_by_admin && (
-                                  <div className="text-xs">by {request.reviewed_by_admin.email}</div>
-                                )}
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                      {matchRequests.length === 0 && (
-                        <tr>
-                          <td colSpan={7} className="table-cell text-center text-gray-500 py-12">
-                            <MessageSquare className="h-12 w-12 mx-auto text-gray-300 mb-3" />
-                            <p className="text-lg font-medium">No match requests yet</p>
-                            <p className="text-sm">When players request matches, they will appear here for review.</p>
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         {activeTab === 'claims' && (
           <div>

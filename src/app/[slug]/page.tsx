@@ -8,8 +8,6 @@ import { createSupabaseComponentClient } from '@/lib/supabase'
 import HeadToHeadComparison from '@/components/HeadToHeadComparison'
 import PlayerMatchHistoryModal from '@/components/PlayerMatchHistoryModal'
 import TopPlayersBanner from '@/components/TopPlayersBanner'
-import MatchRequestModal from '@/components/MatchRequestModal'
-import MatchRequestsDisplay from '@/components/MatchRequestsDisplay'
 import PlayerClaimModal from '@/components/PlayerClaimModal'
 import PlayerClaimButton from '@/components/PlayerClaimButton'
 import ClaimPlayerDropdownModal from '@/components/ClaimPlayerDropdownModal'
@@ -87,8 +85,6 @@ export default function LeaguePage() {
   const [selectedPlayer, setSelectedPlayer] = useState<{ id: string; name: string } | null>(null)
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
-  const [isMatchRequestModalOpen, setIsMatchRequestModalOpen] = useState(false)
-  const [matchRequestRefreshTrigger, setMatchRequestRefreshTrigger] = useState(0)
   const [isParticipant, setIsParticipant] = useState(false)
   const [selectedClaimPlayer, setSelectedClaimPlayer] = useState<{ id: string; name: string } | null>(null)
   const [isClaimModalOpen, setIsClaimModalOpen] = useState(false)
@@ -418,13 +414,6 @@ export default function LeaguePage() {
                   <UserPlus className="h-5 w-5 mr-2" />
                   Claim Player
                 </button>
-                <button
-                  onClick={() => setIsMatchRequestModalOpen(true)}
-                  className="bg-black text-white px-6 py-3 rounded-md hover:bg-gray-800 transition-colors flex items-center"
-                >
-                  <Plus className="h-5 w-5 mr-2" />
-                  Request a Match
-                </button>
               </div>
             </div>
           ) : (
@@ -440,7 +429,7 @@ export default function LeaguePage() {
               </div>
               <div className="p-4 bg-gray-50 rounded-lg border text-center">
                 <p className="text-gray-600">
-                  You need to be a participant in this league to request matches. Contact the league admin to join.
+                  You are a participant in this league. You can claim additional players if needed.
                 </p>
               </div>
             </div>
@@ -458,7 +447,7 @@ export default function LeaguePage() {
             </div>
             <div className="p-4 bg-gray-50 rounded-lg border text-center">
               <p className="text-gray-600 mb-4">
-                Sign in with Google to request matches with other players
+                Sign in with Google to claim players and participate in the league
               </p>
               <Link
                 href={`/${slug}/auth`}
@@ -470,13 +459,6 @@ export default function LeaguePage() {
             </div>
           </div>
         )}
-
-        {/* Match Requests Display */}
-        <MatchRequestsDisplay 
-          slug={slug}
-          currentUserEmail={currentUser?.email || null}
-          refreshTrigger={matchRequestRefreshTrigger}
-        />
 
         {/* Top Players Banner */}
         <TopPlayersBanner 
@@ -674,17 +656,6 @@ export default function LeaguePage() {
           </div>
         </div>
       </main>
-
-      {/* Match Request Modal */}
-      <MatchRequestModal
-        isOpen={isMatchRequestModalOpen}
-        onClose={() => setIsMatchRequestModalOpen(false)}
-        slug={slug}
-        currentUserEmail={currentUser?.email || null}
-        onRequestCreated={() => {
-          setMatchRequestRefreshTrigger(prev => prev + 1)
-        }}
-      />
 
       {/* Player Match History Modal */}
       <PlayerMatchHistoryModal
