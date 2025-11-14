@@ -103,19 +103,49 @@ export async function PUT(
       return NextResponse.json({ error: 'Failed to update schedule request' }, { status: 500 })
     }
 
-    // If approved, update the match scheduled_at time
+    // If approved, update the match scheduled_at time and supersede previous requests
     if (action === 'approve') {
-      const { error: matchUpdateError } = await supabase
-        .from('matches')
-        .update({
-          scheduled_at: scheduleRequest.requested_date
-        })
-        .eq('id', scheduleRequest.match_id)
+      // Start a transaction to ensure consistency
+      const { error: transactionError } = await supabase.rpc('handle_schedule_approval', {
+        p_match_id: scheduleRequest.match_id,
+        p_request_id: id,
+        p_new_scheduled_date: scheduleRequest.requested_date
+      })
 
-      if (matchUpdateError) {
-        console.error('Error updating match schedule:', matchUpdateError)
-        // Note: We don't return an error here because the request was processed successfully
-        // The admin can manually update the match schedule if needed
+      if (transactionError) {
+        // Fallback to individual operations if the stored procedure doesn't exist
+        console.log('Stored procedure not found, using fallback approach')
+        
+        // First, mark any previous approved requests as superseded
+        const { error: supersededError } = await supabase
+          .from('match_schedule_requests')
+          .update({
+            status: 'superseded',
+            reviewed_at: new Date().toISOString(),
+            reviewed_by: user.email + ' (auto-superseded)'
+          })
+          .eq('match_id', scheduleRequest.match_id)
+          .eq('status', 'approved')
+          .neq('id', id)
+
+        if (supersededError) {
+          console.error('Error superseding previous requests:', supersededError)
+        }
+
+        // Then update the match scheduled_at time
+        const { error: matchUpdateError } = await supabase
+          .from('matches')
+          .update({
+            scheduled_at: scheduleRequest.requested_date
+          })
+          .eq('id', scheduleRequest.match_id)
+
+        if (matchUpdateError) {
+          console.error('Error updating match schedule:', matchUpdateError)
+          return NextResponse.json({ 
+            error: 'Failed to update match schedule' 
+          }, { status: 500 })
+        }
       }
     }
 
