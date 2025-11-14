@@ -223,49 +223,6 @@ set season_id = (
 alter table public.participants alter column season_id set not null;
 alter table public.matches alter column season_id set not null;
 
--- Create player_claims table for email claiming system
-create table public.player_claims (
-  id uuid default uuid_generate_v4() primary key,
-  league_id uuid references public.leagues(id) on delete cascade not null,
-  player_id uuid references public.participants(id) on delete cascade not null,
-  claimer_email varchar(255) not null,
-  status varchar(20) default 'pending' check (status in ('pending', 'approved', 'rejected')),
-  requested_at timestamp with time zone default timezone('utc'::text, now()) not null,
-  reviewed_by_admin_id uuid references public.league_admins(id) on delete set null,
-  reviewed_at timestamp with time zone,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
-  updated_at timestamp with time zone default timezone('utc'::text, now()) not null,
-  unique(league_id, player_id), -- One claim per player
-  unique(league_id, claimer_email) -- One email per league
-);
-
--- Create trigger for player_claims updated_at
-create trigger update_player_claims_updated_at before update on public.player_claims
-  for each row execute function public.update_updated_at_column();
-
--- Enable RLS for player_claims
-alter table public.player_claims enable row level security;
-
--- RLS Policies for player_claims
-create policy "Anyone can view player claims" on public.player_claims for select using (true);
-create policy "Authenticated users can create player claims" on public.player_claims for insert with check (
-  auth.role() = 'authenticated' and
-  claimer_email = auth.jwt() ->> 'email'
-);
-create policy "League admins can manage player claims" on public.player_claims for update using (
-  exists (
-    select 1 from public.league_admins 
-    where league_id = player_claims.league_id 
-    and email = auth.jwt() ->> 'email'
-  )
-);
-create policy "League admins can delete player claims" on public.player_claims for delete using (
-  exists (
-    select 1 from public.league_admins 
-    where league_id = player_claims.league_id 
-    and email = auth.jwt() ->> 'email'
-  )
-);
 
 -- Create indexes for performance
 create index idx_leagues_slug on public.leagues(slug);
@@ -279,7 +236,3 @@ create index idx_matches_status on public.matches(status);
 create index idx_match_sets_match on public.match_sets(match_id);
 create index idx_seasons_league on public.seasons(league_id);
 create index idx_seasons_active on public.seasons(league_id, is_active);
-create index idx_player_claims_league on public.player_claims(league_id);
-create index idx_player_claims_player on public.player_claims(player_id);
-create index idx_player_claims_email on public.player_claims(claimer_email);
-create index idx_player_claims_status on public.player_claims(status);

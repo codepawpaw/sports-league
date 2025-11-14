@@ -103,7 +103,7 @@ export default function AuthPage() {
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-black mb-4">Sign In</h1>
           <p className="text-gray-600">
-            Sign in with Google to claim players and participate in <strong>{league?.name}</strong>
+            Sign in with Google to access <strong>{league?.name}</strong>
           </p>
         </div>
 

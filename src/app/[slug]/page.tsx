@@ -3,14 +3,11 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { Trophy, Calendar, Users, Settings, LogIn, Plus, UserPlus } from 'lucide-react'
+import { Trophy, Calendar, Users, Settings, LogIn, Plus } from 'lucide-react'
 import { createSupabaseComponentClient } from '@/lib/supabase'
 import HeadToHeadComparison from '@/components/HeadToHeadComparison'
 import PlayerMatchHistoryModal from '@/components/PlayerMatchHistoryModal'
 import TopPlayersBanner from '@/components/TopPlayersBanner'
-import PlayerClaimModal from '@/components/PlayerClaimModal'
-import PlayerClaimButton from '@/components/PlayerClaimButton'
-import ClaimPlayerDropdownModal from '@/components/ClaimPlayerDropdownModal'
 
 interface League {
   id: string
@@ -86,10 +83,6 @@ export default function LeaguePage() {
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [isParticipant, setIsParticipant] = useState(false)
-  const [selectedClaimPlayer, setSelectedClaimPlayer] = useState<{ id: string; name: string } | null>(null)
-  const [isClaimModalOpen, setIsClaimModalOpen] = useState(false)
-  const [isClaimDropdownModalOpen, setIsClaimDropdownModalOpen] = useState(false)
-  const [claimRefreshTrigger, setClaimRefreshTrigger] = useState(0)
 
   useEffect(() => {
     if (slug) {
@@ -402,63 +395,6 @@ export default function LeaguePage() {
           </div>
         )}
 
-        {/* Authentication and Action Buttons Section */}
-        {currentUser ? (
-          isParticipant ? (
-            <div className="mb-8">
-              <div className="flex justify-center gap-4">
-                <button
-                  onClick={() => setIsClaimDropdownModalOpen(true)}
-                  className="bg-gray-700 text-white px-6 py-3 rounded-md hover:bg-gray-600 transition-colors flex items-center"
-                >
-                  <UserPlus className="h-5 w-5 mr-2" />
-                  Claim Player
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="mb-8">
-              <div className="flex justify-center gap-4 mb-4">
-                <button
-                  onClick={() => setIsClaimDropdownModalOpen(true)}
-                  className="bg-gray-700 text-white px-6 py-3 rounded-md hover:bg-gray-600 transition-colors flex items-center"
-                >
-                  <UserPlus className="h-5 w-5 mr-2" />
-                  Claim Player
-                </button>
-              </div>
-              <div className="p-4 bg-gray-50 rounded-lg border text-center">
-                <p className="text-gray-600">
-                  You are a participant in this league. You can claim additional players if needed.
-                </p>
-              </div>
-            </div>
-          )
-        ) : (
-          <div className="mb-8">
-            <div className="flex justify-center gap-4 mb-4">
-              <button
-                onClick={() => setIsClaimDropdownModalOpen(true)}
-                className="bg-gray-700 text-white px-6 py-3 rounded-md hover:bg-gray-600 transition-colors flex items-center"
-              >
-                <UserPlus className="h-5 w-5 mr-2" />
-                Claim Player
-              </button>
-            </div>
-            <div className="p-4 bg-gray-50 rounded-lg border text-center">
-              <p className="text-gray-600 mb-4">
-                Sign in with Google to claim players and participate in the league
-              </p>
-              <Link
-                href={`/${slug}/auth`}
-                className="bg-black text-white px-6 py-3 rounded-md hover:bg-gray-800 transition-colors inline-flex items-center"
-              >
-                <LogIn className="h-5 w-5 mr-2" />
-                Sign In with Google
-              </Link>
-            </div>
-          </div>
-        )}
 
         {/* Top Players Banner */}
         <TopPlayersBanner 
@@ -488,7 +424,6 @@ export default function LeaguePage() {
                     <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Sets L</th>
                     <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Set Diff</th>
                     <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Points</th>
-                    <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Claim</th>
                     <th className="bg-gray-50 border-b border-gray-200 px-4 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
@@ -516,18 +451,6 @@ export default function LeaguePage() {
                       <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">
                         <span className="font-semibold">{participant.points}</span>
                       </td>
-                      <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">
-                        <PlayerClaimButton
-                          player={participant}
-                          slug={slug}
-                          currentUserEmail={currentUser?.email || null}
-                          onClaimClick={(player) => {
-                            setSelectedClaimPlayer(player)
-                            setIsClaimModalOpen(true)
-                          }}
-                          refreshTrigger={claimRefreshTrigger}
-                        />
-                      </td>
                       <td className="px-4 py-4 border-b border-gray-200 text-sm text-gray-900">
                         <button
                           onClick={() => {
@@ -543,7 +466,7 @@ export default function LeaguePage() {
                   ))}
                   {participants.length === 0 && (
                     <tr>
-                      <td colSpan={11} className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900 text-center text-gray-500">
+                      <td colSpan={10} className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900 text-center text-gray-500">
                         No participants yet
                       </td>
                     </tr>
@@ -668,29 +591,6 @@ export default function LeaguePage() {
         slug={slug}
       />
 
-      {/* Player Claim Modal */}
-      <PlayerClaimModal
-        isOpen={isClaimModalOpen}
-        onClose={() => {
-          setIsClaimModalOpen(false)
-          setSelectedClaimPlayer(null)
-        }}
-        player={selectedClaimPlayer}
-        slug={slug}
-        currentUserEmail={currentUser?.email || null}
-        onClaimSuccess={() => {
-          setClaimRefreshTrigger(prev => prev + 1)
-          fetchLeagueData() // Refresh participants data to show updated claim status
-        }}
-      />
-
-      {/* Claim Player Dropdown Modal */}
-      <ClaimPlayerDropdownModal
-        isOpen={isClaimDropdownModalOpen}
-        onClose={() => setIsClaimDropdownModalOpen(false)}
-        slug={slug}
-        currentUserEmail={currentUser?.email || null}
-      />
     </div>
   )
 }

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Trophy, ArrowLeft, Users, Calendar, Plus, Edit, Trash2, Save, X, Shuffle, Eye, Clock, Shield, CheckCircle, XCircle, MessageSquare, UserCheck } from 'lucide-react'
+import { Trophy, ArrowLeft, Users, Calendar, Plus, Edit, Trash2, Save, X, Shuffle, Eye, Clock, Shield, CheckCircle, XCircle, MessageSquare } from 'lucide-react'
 import { createSupabaseComponentClient } from '@/lib/supabase'
 
 interface League {
@@ -49,22 +49,6 @@ interface Season {
 }
 
 
-interface PlayerClaim {
-  id: string
-  status: 'pending' | 'approved' | 'rejected'
-  email: string
-  requested_at: string
-  reviewed_at: string | null
-  player: {
-    id: string
-    name: string
-    email: string | null
-  }
-  reviewed_by_admin?: {
-    id: string
-    email: string
-  } | null
-}
 
 export default function AdminPage() {
   const params = useParams()
@@ -130,9 +114,6 @@ export default function AdminPage() {
   const [showPreview, setShowPreview] = useState(false)
 
 
-  // Player claims state
-  const [playerClaims, setPlayerClaims] = useState<PlayerClaim[]>([])
-  const [processingClaim, setProcessingClaim] = useState<string | null>(null)
 
   useEffect(() => {
     if (slug) {
@@ -180,7 +161,6 @@ export default function AdminPage() {
       await fetchData(leagueData.id)
       await fetchAdmins()
       await fetchSeasons()
-      await fetchPlayerClaims()
     } catch (error) {
       console.error('Error checking admin access:', error)
       router.push(`/${slug}`)
@@ -258,17 +238,6 @@ export default function AdminPage() {
   }
 
 
-  const fetchPlayerClaims = async () => {
-    try {
-      const response = await fetch(`/api/leagues/${slug}/claims`)
-      if (response.ok) {
-        const data = await response.json()
-        setPlayerClaims(data.claims || [])
-      }
-    } catch (error) {
-      console.error('Error fetching player claims:', error)
-    }
-  }
 
   const handleAddParticipant = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -690,47 +659,6 @@ export default function AdminPage() {
   }
 
 
-  // Player claim management functions
-  const handlePlayerClaimAction = async (claimId: string, action: 'approved' | 'rejected') => {
-    if (processingClaim) return
-
-    const claim = playerClaims.find(c => c.id === claimId)
-    if (!claim) return
-
-    const actionText = action === 'approved' ? 'approve' : 'reject'
-    const apiAction = action === 'approved' ? 'approve' : 'reject'
-    
-    if (!confirm(`Are you sure you want to ${actionText} the claim request for ${claim.player.name} by ${claim.email}?`)) {
-      return
-    }
-
-    setProcessingClaim(claimId)
-
-    try {
-      const response = await fetch(`/api/leagues/${slug}/claims/${claimId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: apiAction })
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        await fetchPlayerClaims()
-        if (action === 'approved') {
-          await fetchData(league!.id) // Refresh participants to show updated email
-        }
-        alert(`Player claim ${action} successfully!`)
-      } else {
-        alert(data.error || `Failed to ${actionText} player claim`)
-      }
-    } catch (error) {
-      console.error(`Error ${actionText}ing player claim:`, error)
-      alert(`Failed to ${actionText} player claim`)
-    } finally {
-      setProcessingClaim(null)
-    }
-  }
 
   if (loading) {
     return (
@@ -803,22 +731,6 @@ export default function AdminPage() {
             >
               <Calendar className="h-4 w-4 inline mr-2" />
               Seasons
-            </button>
-            <button
-              onClick={() => setActiveTab('claims')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'claims'
-                  ? 'border-black text-black'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <UserCheck className="h-4 w-4 inline mr-2" />
-              Player Claims
-              {playerClaims.filter(claim => claim.status === 'pending').length > 0 && (
-                <span className="ml-1 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-red-100 bg-red-600 rounded-full">
-                  {playerClaims.filter(claim => claim.status === 'pending').length}
-                </span>
-              )}
             </button>
             <button
               onClick={() => setActiveTab('admins')}
@@ -1690,164 +1602,6 @@ export default function AdminPage() {
         )}
 
 
-        {activeTab === 'claims' && (
-          <div>
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-black mb-4">Manage Player Claims</h2>
-              <p className="text-gray-600 mb-6">
-                Review and manage player claim requests. When you approve a claim, the player's email will be updated to the claimed email address.
-              </p>
-
-              {/* Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="card p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Pending Claims</p>
-                      <p className="text-2xl font-bold text-black">
-                        {playerClaims.filter(claim => claim.status === 'pending').length}
-                      </p>
-                    </div>
-                    <div className="h-12 w-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-                      <Clock className="h-6 w-6 text-yellow-600" />
-                    </div>
-                  </div>
-                </div>
-                <div className="card p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Approved</p>
-                      <p className="text-2xl font-bold text-green-600">
-                        {playerClaims.filter(claim => claim.status === 'approved').length}
-                      </p>
-                    </div>
-                    <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
-                      <CheckCircle className="h-6 w-6 text-green-600" />
-                    </div>
-                  </div>
-                </div>
-                <div className="card p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Rejected</p>
-                      <p className="text-2xl font-bold text-red-600">
-                        {playerClaims.filter(claim => claim.status === 'rejected').length}
-                      </p>
-                    </div>
-                    <div className="h-12 w-12 bg-red-100 rounded-lg flex items-center justify-center">
-                      <XCircle className="h-6 w-6 text-red-600" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Player Claims List */}
-              <div className="card">
-                <div className="p-6 border-b border-gray-200">
-                  <h3 className="text-lg font-semibold text-black">All Player Claims</h3>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr>
-                        <th className="table-header">Player</th>
-                        <th className="table-header">Current Email</th>
-                        <th className="table-header">Claimed Email</th>
-                        <th className="table-header">Status</th>
-                        <th className="table-header">Requested</th>
-                        <th className="table-header">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {playerClaims.map((claim) => (
-                        <tr key={claim.id}>
-                          <td className="table-cell">
-                            <div className="font-medium text-black">{claim.player.name}</div>
-                          </td>
-                          <td className="table-cell">
-                            {claim.player.email ? (
-                              <span className="text-gray-600">{claim.player.email}</span>
-                            ) : (
-                              <span className="text-gray-400 italic">No email</span>
-                            )}
-                          </td>
-                          <td className="table-cell">
-                            <span className="font-medium text-blue-600">{claim.email}</span>
-                          </td>
-                          <td className="table-cell">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              claim.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                              claim.status === 'approved' ? 'bg-green-100 text-green-800' :
-                              'bg-red-100 text-red-800'
-                            }`}>
-                              {claim.status.charAt(0).toUpperCase() + claim.status.slice(1)}
-                            </span>
-                          </td>
-                          <td className="table-cell">
-                            <div className="text-sm">
-                              <div>{formatDate(claim.requested_at)}</div>
-                              {claim.reviewed_at && (
-                                <div className="text-gray-500">
-                                  Reviewed: {formatDate(claim.reviewed_at)}
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                          <td className="table-cell">
-                            {claim.status === 'pending' ? (
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => handlePlayerClaimAction(claim.id, 'approved')}
-                                  className="bg-green-100 hover:bg-green-200 text-green-800 px-3 py-2 rounded text-sm font-medium transition-colors border border-green-200 hover:border-green-300 flex items-center"
-                                  disabled={processingClaim === claim.id}
-                                >
-                                  {processingClaim === claim.id ? (
-                                    <Clock className="h-4 w-4 mr-1 animate-spin" />
-                                  ) : (
-                                    <CheckCircle className="h-4 w-4 mr-1" />
-                                  )}
-                                  Approve
-                                </button>
-                                <button
-                                  onClick={() => handlePlayerClaimAction(claim.id, 'rejected')}
-                                  className="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-2 rounded text-sm font-medium transition-colors border border-red-200 hover:border-red-300 flex items-center"
-                                  disabled={processingClaim === claim.id}
-                                >
-                                  {processingClaim === claim.id ? (
-                                    <Clock className="h-4 w-4 mr-1 animate-spin" />
-                                  ) : (
-                                    <XCircle className="h-4 w-4 mr-1" />
-                                  )}
-                                  Reject
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="text-sm text-gray-500">
-                                {claim.status === 'approved' ? 'Approved' : 'Rejected'}
-                                {claim.reviewed_by_admin && (
-                                  <div className="text-xs">by {claim.reviewed_by_admin.email}</div>
-                                )}
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                      {playerClaims.length === 0 && (
-                        <tr>
-                          <td colSpan={6} className="table-cell text-center text-gray-500 py-12">
-                            <UserCheck className="h-12 w-12 mx-auto text-gray-300 mb-3" />
-                            <p className="text-lg font-medium">No player claims yet</p>
-                            <p className="text-sm">When players claim their profiles, requests will appear here for review.</p>
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </main>
     </div>
   )

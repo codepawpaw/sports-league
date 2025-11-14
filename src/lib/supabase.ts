@@ -164,44 +164,6 @@ export type Database = {
           created_at?: string
         }
       }
-      player_claims: {
-        Row: {
-          id: string
-          league_id: string
-          player_id: string
-          claimer_email: string
-          status: 'pending' | 'approved' | 'rejected'
-          requested_at: string
-          reviewed_by_admin_id: string | null
-          reviewed_at: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          league_id: string
-          player_id: string
-          claimer_email: string
-          status?: 'pending' | 'approved' | 'rejected'
-          requested_at?: string
-          reviewed_by_admin_id?: string | null
-          reviewed_at?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          league_id?: string
-          player_id?: string
-          claimer_email?: string
-          status?: 'pending' | 'approved' | 'rejected'
-          requested_at?: string
-          reviewed_by_admin_id?: string | null
-          reviewed_at?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-      }
       seasons: {
         Row: {
           id: string
