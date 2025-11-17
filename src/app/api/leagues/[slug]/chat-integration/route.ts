@@ -9,6 +9,7 @@ interface ChatIntegration {
   enabled: boolean
   notify_new_matches: boolean
   notify_approved_schedules: boolean
+  notify_match_completions: boolean
   created_at: string
   updated_at: string
 }
@@ -94,7 +95,7 @@ export async function POST(
 
     // Get request body
     const body = await request.json()
-    const { webhook_url, enabled, notify_new_matches, notify_approved_schedules } = body
+    const { webhook_url, enabled, notify_new_matches, notify_approved_schedules, notify_match_completions } = body
 
     if (!webhook_url || typeof webhook_url !== 'string') {
       return NextResponse.json({ error: 'Valid webhook URL is required' }, { status: 400 })
@@ -134,7 +135,8 @@ export async function POST(
       webhook_url: webhook_url.trim(),
       enabled: enabled !== undefined ? enabled : true,
       notify_new_matches: notify_new_matches !== undefined ? notify_new_matches : true,
-      notify_approved_schedules: notify_approved_schedules !== undefined ? notify_approved_schedules : true
+      notify_approved_schedules: notify_approved_schedules !== undefined ? notify_approved_schedules : true,
+      notify_match_completions: notify_match_completions !== undefined ? notify_match_completions : true
     }
 
     const { data: integration, error: integrationError } = await supabase

@@ -69,6 +69,7 @@ interface ChatIntegration {
   enabled: boolean
   notify_new_matches: boolean
   notify_approved_schedules: boolean
+  notify_match_completions: boolean
   created_at: string
   updated_at: string
 }
@@ -117,7 +118,8 @@ export default function AdminPage() {
     webhook_url: '',
     enabled: true,
     notify_new_matches: true,
-    notify_approved_schedules: true
+    notify_approved_schedules: true,
+    notify_match_completions: true
   })
   const [savingChatConfig, setSavingChatConfig] = useState(false)
   const [testingChat, setTestingChat] = useState(false)
@@ -299,7 +301,8 @@ export default function AdminPage() {
             webhook_url: data.integration.webhook_url,
             enabled: data.integration.enabled,
             notify_new_matches: data.integration.notify_new_matches,
-            notify_approved_schedules: data.integration.notify_approved_schedules
+            notify_approved_schedules: data.integration.notify_approved_schedules,
+            notify_match_completions: data.integration.notify_match_completions
           })
         }
       }
@@ -862,7 +865,8 @@ export default function AdminPage() {
           webhook_url: '',
           enabled: true,
           notify_new_matches: true,
-          notify_approved_schedules: true
+          notify_approved_schedules: true,
+          notify_match_completions: true
         })
         alert('Chat integration removed successfully')
       } else {
@@ -2063,6 +2067,19 @@ export default function AdminPage() {
                             <p className="text-xs text-gray-500">Notify when players confirm a match schedule</p>
                           </div>
                         </label>
+
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={chatConfig.notify_match_completions}
+                            onChange={(e) => setChatConfig(prev => ({ ...prev, notify_match_completions: e.target.checked }))}
+                            className="mr-3"
+                          />
+                          <div>
+                            <span className="text-sm font-medium text-gray-700">Match Completed</span>
+                            <p className="text-xs text-gray-500">Notify when matches are completed with final scores</p>
+                          </div>
+                        </label>
                       </div>
                     )}
                   </div>
@@ -2168,6 +2185,17 @@ export default function AdminPage() {
                             : 'bg-gray-100 text-gray-800'
                         }`}>
                           {chatIntegration.notify_approved_schedules ? 'On' : 'Off'}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-700">Match Completion Notifications</span>
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                          chatIntegration.notify_match_completions 
+                            ? 'bg-blue-100 text-blue-800' 
+                            : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {chatIntegration.notify_match_completions ? 'On' : 'Off'}
                         </span>
                       </div>
                       
