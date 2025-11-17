@@ -96,16 +96,27 @@ export async function updateRatingsForMatch(
     const calculator = new USATTRatingCalculator()
     const ratingResults = calculator.calculateLeagueRatings(matchResults, playerRatings)
 
-    // Update ratings in database
-    const ratingUpdates = ratingResults.map(result => ({
-      player_id: result.player_id,
-      league_id: leagueId,
-      current_rating: result.new_rating,
-      matches_played: result.matches_played,
-      is_provisional: result.is_provisional,
-      last_updated_at: new Date().toISOString()
-    }))
+    // Validate and prepare rating updates
+    const now = new Date().toISOString()
+    const ratingUpdates = ratingResults.map(result => {
+      // Ensure rating is a valid integer
+      const rating = Math.round(Number(result.new_rating))
+      if (!Number.isFinite(rating) || rating < 0 || rating > 4000) {
+        throw new Error(`Invalid rating calculated for player ${result.player_id}: ${result.new_rating}`)
+      }
 
+      return {
+        player_id: result.player_id,
+        league_id: leagueId,
+        current_rating: rating,
+        matches_played: Math.max(0, Math.round(Number(result.matches_played))),
+        is_provisional: Boolean(result.is_provisional),
+        last_updated_at: now,
+        created_at: now // Include created_at for new records
+      }
+    })
+
+    // Use transaction for atomic updates
     const { error: updateError } = await supabase
       .from('player_ratings')
       .upsert(ratingUpdates, {
@@ -114,7 +125,15 @@ export async function updateRatingsForMatch(
       })
 
     if (updateError) {
-      return { success: false, error: 'Failed to update ratings in database' }
+      console.error('Database update error details:', {
+        error: updateError,
+        sampleUpdate: ratingUpdates[0],
+        updateCount: ratingUpdates.length
+      })
+      return { 
+        success: false, 
+        error: `Failed to update ratings in database: ${updateError.message || 'Unknown database error'}` 
+      }
     }
 
     // Return only the ratings for the players involved in this specific match
@@ -200,16 +219,27 @@ export async function recalculateAllRatings(leagueId: string): Promise<RatingUpd
     const calculator = new USATTRatingCalculator()
     const ratingResults = calculator.calculateLeagueRatings(matchResults, playerRatings)
 
-    // Update ratings in database
-    const ratingUpdates = ratingResults.map(result => ({
-      player_id: result.player_id,
-      league_id: leagueId,
-      current_rating: result.new_rating,
-      matches_played: result.matches_played,
-      is_provisional: result.is_provisional,
-      last_updated_at: new Date().toISOString()
-    }))
+    // Validate and prepare rating updates
+    const now = new Date().toISOString()
+    const ratingUpdates = ratingResults.map(result => {
+      // Ensure rating is a valid integer
+      const rating = Math.round(Number(result.new_rating))
+      if (!Number.isFinite(rating) || rating < 0 || rating > 4000) {
+        throw new Error(`Invalid rating calculated for player ${result.player_id}: ${result.new_rating}`)
+      }
 
+      return {
+        player_id: result.player_id,
+        league_id: leagueId,
+        current_rating: rating,
+        matches_played: Math.max(0, Math.round(Number(result.matches_played))),
+        is_provisional: Boolean(result.is_provisional),
+        last_updated_at: now,
+        created_at: now // Include created_at for new records
+      }
+    })
+
+    // Use transaction for atomic updates
     const { error: updateError } = await supabase
       .from('player_ratings')
       .upsert(ratingUpdates, {
@@ -218,7 +248,15 @@ export async function recalculateAllRatings(leagueId: string): Promise<RatingUpd
       })
 
     if (updateError) {
-      return { success: false, error: 'Failed to update ratings in database' }
+      console.error('Database update error details:', {
+        error: updateError,
+        sampleUpdate: ratingUpdates[0],
+        updateCount: ratingUpdates.length
+      })
+      return { 
+        success: false, 
+        error: `Failed to update ratings in database: ${updateError.message || 'Unknown database error'}` 
+      }
     }
 
     return {
