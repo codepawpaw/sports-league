@@ -104,8 +104,19 @@ export async function GET(
 
       // Get rating information
       const ratingData = p.player_ratings?.[0]
-      const current_rating = ratingData?.current_rating || 1200
-      const is_provisional = ratingData?.is_provisional || true
+      
+      // Only use fallback values when no rating record exists
+      // If rating record exists, use the actual values from database
+      let current_rating, is_provisional
+      if (ratingData) {
+        current_rating = ratingData.current_rating
+        is_provisional = ratingData.is_provisional
+      } else {
+        // No rating record exists, use defaults
+        current_rating = 1200
+        is_provisional = true
+      }
+      
       const total_matches = wins + losses
 
       return {
