@@ -68,6 +68,8 @@ export async function GET(
       )
     }
 
+    console.log("participantsData = ", participantsData)
+
     const participants = (participantsData as SupabaseParticipantData[]).map((p: SupabaseParticipantData) => {
       const completedMatches1 = p.player1_matches?.filter((m: SupabaseMatchData) => m.status === 'completed') || []
       const completedMatches2 = p.player2_matches?.filter((m: SupabaseMatchData) => m.status === 'completed') || []
@@ -137,11 +139,6 @@ export async function GET(
 
     // Sort by rating (descending), then by points (descending), then by set diff (descending), then alphabetically by name (ascending)
     participants.sort((a, b) => {
-      // Show non-provisional ratings first, then by rating value
-      if (a.is_provisional !== b.is_provisional) {
-        return a.is_provisional ? 1 : -1
-      }
-      if (a.current_rating !== b.current_rating) return b.current_rating - a.current_rating
       if (a.points !== b.points) return b.points - a.points
       if (a.set_diff !== b.set_diff) return b.set_diff - a.set_diff
       return a.name.localeCompare(b.name)
