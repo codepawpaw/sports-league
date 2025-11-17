@@ -311,7 +311,7 @@ export default function LeaguePage() {
             </div>
             <div className="flex items-center gap-4">
               {isAdmin && (
-                <Link href={`/${slug}/admin`} className="btn-outline">
+                <Link href={`/${slug}/admin`} className="btn-compact">
                   Admin Panel
                 </Link>
               )}
