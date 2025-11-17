@@ -10,6 +10,7 @@ interface SupabaseMatchData {
   player1_score: number | null
   player2_score: number | null
   status: string
+  completed_at: string | null
 }
 
 interface SupabaseRatingData {
@@ -96,8 +97,8 @@ export async function GET(
       .from('participants')
       .select(`
         *,
-        player1_matches:matches!matches_player1_id_fkey(id, player1_score, player2_score, status),
-        player2_matches:matches!matches_player2_id_fkey(id, player1_score, player2_score, status),
+        player1_matches:matches!matches_player1_id_fkey(id, player1_score, player2_score, status, completed_at),
+        player2_matches:matches!matches_player2_id_fkey(id, player1_score, player2_score, status, completed_at),
         player_ratings!player_ratings_player_id_fkey(current_rating, matches_played, is_provisional)
       `)
       .eq('league_id', league.id)
@@ -109,6 +110,51 @@ export async function GET(
         { error: 'Failed to fetch participants' },
         { status: 500 }
       )
+    }
+
+    // Helper function to calculate current winning streak
+    const calculateWinningStreak = (player1Matches: SupabaseMatchData[], player2Matches: SupabaseMatchData[], playerId: string) => {
+      // Combine all completed matches with their results
+      const allMatches: { completed_at: string, isWin: boolean }[] = []
+
+      // Process matches where player was player1
+      player1Matches.forEach(m => {
+        if (m.status === 'completed' && m.completed_at) {
+          const player1_sets = m.player1_score || 0
+          const player2_sets = m.player2_score || 0
+          allMatches.push({
+            completed_at: m.completed_at,
+            isWin: player1_sets > player2_sets
+          })
+        }
+      })
+
+      // Process matches where player was player2
+      player2Matches.forEach(m => {
+        if (m.status === 'completed' && m.completed_at) {
+          const player1_sets = m.player1_score || 0
+          const player2_sets = m.player2_score || 0
+          allMatches.push({
+            completed_at: m.completed_at,
+            isWin: player2_sets > player1_sets
+          })
+        }
+      })
+
+      // Sort by completion date (most recent first)
+      allMatches.sort((a, b) => new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime())
+
+      // Count consecutive wins from most recent matches
+      let streak = 0
+      for (const match of allMatches) {
+        if (match.isWin) {
+          streak++
+        } else {
+          break // Stop at first loss
+        }
+      }
+
+      return streak
     }
 
     const participants = (participantsData as SupabaseParticipantData[]).map((p: SupabaseParticipantData) => {
@@ -142,6 +188,9 @@ export async function GET(
         else losses++
       })
 
+      // Calculate current winning streak
+      const winning_streak = calculateWinningStreak(p.player1_matches || [], p.player2_matches || [], p.id)
+
       const set_diff = sets_won - sets_lost
       const points = wins * 2
 
@@ -174,7 +223,8 @@ export async function GET(
         points,
         current_rating,
         is_provisional,
-        total_matches
+        total_matches,
+        winning_streak
       }
     })
 

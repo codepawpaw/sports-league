@@ -8,6 +8,7 @@ import { createSupabaseComponentClient } from '@/lib/supabase'
 import HeadToHeadComparison from '@/components/HeadToHeadComparison'
 import PlayerMatchHistoryModal from '@/components/PlayerMatchHistoryModal'
 import TopPlayersBanner from '@/components/TopPlayersBanner'
+import WinningStreakChampions from '@/components/WinningStreakChampions'
 import ScheduleRequestNotifications from '@/components/ScheduleRequestNotifications'
 import ScoreRequestNotifications from '@/components/ScoreRequestNotifications'
 import RegisterAsPlayerModal from '@/components/RegisterAsPlayerModal'
@@ -43,6 +44,7 @@ interface Participant {
   current_rating?: number
   is_provisional?: boolean
   total_matches?: number
+  winning_streak: number
 }
 
 interface Match {
@@ -393,6 +395,9 @@ export default function LeaguePage() {
           participants={participants}
           upcomingMatches={upcomingMatches}
         />
+
+        {/* Winning Streak Champions */}
+        <WinningStreakChampions participants={participants} />
 
         {/* Rankings - Full Width */}
         <div className="space-y-8">
