@@ -10,6 +10,9 @@ interface Participant {
   sets_lost: number
   set_diff: number
   points: number
+  current_rating?: number
+  is_provisional?: boolean
+  total_matches?: number
 }
 
 interface Match {
@@ -73,7 +76,7 @@ export default function TopPlayersBanner({ participants, upcomingMatches }: TopP
           {/* Left side - Top 3 Players */}
           <div className="lg:col-span-3">
             <div className="flex items-center mb-4">
-              <h2 className="text-xl font-bold">Top Players This Week</h2>
+              <h2 className="text-xl font-bold">Top Rated Players</h2>
             </div>
             
             {top3Players.length > 0 ? (
@@ -94,18 +97,16 @@ export default function TopPlayersBanner({ participants, upcomingMatches }: TopP
                     </div>
                     <div className="space-y-1 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Points:</span>
-                        <span className="font-semibold">{player.points}</span>
+                        <span className="text-gray-600">Rating:</span>
+                        <span className="font-semibold text-lg">{player.current_rating || 1200}{player.is_provisional ? '*' : ''}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-600">Record:</span>
                         <span className="font-semibold">{player.wins}W-{player.losses}L</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Set Diff:</span>
-                        <span className={`font-semibold ${player.set_diff >= 0 ? 'text-black' : 'text-gray-600'}`}>
-                          {player.set_diff >= 0 ? '+' : ''}{player.set_diff}
-                        </span>
+                        <span className="text-gray-600">Points:</span>
+                        <span className="font-semibold">{player.points}</span>
                       </div>
                     </div>
                   </div>

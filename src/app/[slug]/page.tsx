@@ -40,6 +40,9 @@ interface Participant {
   sets_lost: number
   set_diff: number
   points: number
+  current_rating?: number
+  is_provisional?: boolean
+  total_matches?: number
 }
 
 interface Match {
@@ -165,74 +168,17 @@ export default function LeaguePage() {
         setIsParticipant(!!participantData)
       }
 
-      // Fetch participants with calculated stats
-      const { data: participantsData } = await supabase
-        .from('participants')
-        .select(`
-          *,
-          player1_matches:matches!matches_player1_id_fkey(id, player1_score, player2_score, status),
-          player2_matches:matches!matches_player2_id_fkey(id, player1_score, player2_score, status)
-        `)
-        .eq('league_id', leagueData.id)
-
-      if (participantsData) {
-        const participantsWithStats = (participantsData as SupabaseParticipantData[])
-          .filter((p: SupabaseParticipantData) => p && p.id && p.name) // Filter out invalid entries
-          .map((p: SupabaseParticipantData) => {
-            const completedMatches1 = p.player1_matches?.filter((m: SupabaseMatchData) => m.status === 'completed') || []
-            const completedMatches2 = p.player2_matches?.filter((m: SupabaseMatchData) => m.status === 'completed') || []
-            
-            let wins = 0
-            let losses = 0
-            let sets_won = 0
-            let sets_lost = 0
-
-            completedMatches1.forEach((m: SupabaseMatchData) => {
-              const player1_sets = m.player1_score || 0
-              const player2_sets = m.player2_score || 0
-              
-              sets_won += player1_sets // Add sets won by this player in this match
-              sets_lost += player2_sets // Add sets lost by this player in this match
-              
-              if (player1_sets > player2_sets) wins++
-              else losses++
-            })
-
-            completedMatches2.forEach((m: SupabaseMatchData) => {
-              const player1_sets = m.player1_score || 0
-              const player2_sets = m.player2_score || 0
-              
-              sets_won += player2_sets // Add sets won by this player in this match
-              sets_lost += player1_sets // Add sets lost by this player in this match
-              
-              if (player2_sets > player1_sets) wins++
-              else losses++
-            })
-
-            const set_diff = sets_won - sets_lost // Calculate set difference
-            const points = wins * 2 // 2 points for win, 0 for loss
-
-            return {
-              id: p.id,
-              name: p.name || 'Unknown Player',
-              email: p.email,
-              wins,
-              losses,
-              sets_won,
-              sets_lost,
-              set_diff,
-              points
-            }
-          })
-
-        // Sort by points (descending), then by set diff (descending), then alphabetically by name (ascending)
-        participantsWithStats.sort((a, b) => {
-          if (a.points !== b.points) return b.points - a.points
-          if (a.set_diff !== b.set_diff) return b.set_diff - a.set_diff
-          return (a.name || '').localeCompare(b.name || '') // Alphabetical tiebreaker with null safety
-        })
-
-        setParticipants(participantsWithStats)
+      // Fetch participants with ratings from API
+      try {
+        const playersResponse = await fetch(`/api/leagues/${slug}/players`)
+        if (playersResponse.ok) {
+          const playersData = await playersResponse.json()
+          setParticipants(playersData.players)
+        }
+      } catch (error) {
+        console.error('Error fetching players:', error)
+        // Fallback to empty array
+        setParticipants([])
       }
 
       // Fetch upcoming matches
@@ -445,6 +391,7 @@ export default function LeaguePage() {
                   <tr>
                     <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Rank</th>
                     <th className="bg-gray-50 border-b border-gray-200 px-4 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Player</th>
+                    <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Rating</th>
                     <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Total Matches</th>
                     <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">W</th>
                     <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">L</th>
@@ -463,6 +410,14 @@ export default function LeaguePage() {
                       </td>
                       <td className="px-4 py-4 border-b border-gray-200 text-sm text-gray-900">
                         <span className="font-medium">{participant.name}</span>
+                      </td>
+                      <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-lg">{participant.current_rating || 1200}</span>
+                          {participant.is_provisional && (
+                            <span className="text-xs text-gray-500">Provisional</span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">
                         <span className="font-medium">{participant.wins + participant.losses}</span>
@@ -494,7 +449,7 @@ export default function LeaguePage() {
                   ))}
                   {participants.length === 0 && (
                     <tr>
-                      <td colSpan={10} className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900 text-center text-gray-500">
+                      <td colSpan={11} className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900 text-center text-gray-500">
                         No participants yet
                       </td>
                     </tr>
