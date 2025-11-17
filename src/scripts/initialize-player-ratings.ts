@@ -69,7 +69,7 @@ async function initializePlayerRatings() {
           current_rating: 1200,
           matches_played: 0,
           is_provisional: true,
-          last_updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString()
         }))
 
         const { error: insertError } = await supabase
@@ -132,7 +132,7 @@ async function initializePlayerRatings() {
         current_rating: result.new_rating,
         matches_played: result.matches_played,
         is_provisional: result.is_provisional,
-        last_updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString()
       }))
 
       // Also create default ratings for participants who haven't played any matches
@@ -144,7 +144,7 @@ async function initializePlayerRatings() {
           current_rating: 1200,
           matches_played: 0,
           is_provisional: true,
-          last_updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString()
         })
       })
 

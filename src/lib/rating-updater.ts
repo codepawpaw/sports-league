@@ -111,7 +111,7 @@ export async function updateRatingsForMatch(
         current_rating: rating,
         matches_played: Math.max(0, Math.round(Number(result.matches_played))),
         is_provisional: Boolean(result.is_provisional),
-        last_updated_at: now,
+        updated_at: now,
         created_at: now // Include created_at for new records
       }
     })
@@ -234,7 +234,7 @@ export async function recalculateAllRatings(leagueId: string): Promise<RatingUpd
         current_rating: rating,
         matches_played: Math.max(0, Math.round(Number(result.matches_played))),
         is_provisional: Boolean(result.is_provisional),
-        last_updated_at: now,
+        updated_at: now,
         created_at: now // Include created_at for new records
       }
     })

@@ -6,7 +6,7 @@ create table public.player_ratings (
   current_rating integer not null default 1200,
   matches_played integer not null default 0,
   is_provisional boolean not null default true,
-  last_updated_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   unique(player_id, league_id)
 );
