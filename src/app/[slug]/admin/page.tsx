@@ -501,14 +501,17 @@ export default function AdminPage() {
         scheduled_at: editMatchData.scheduled_at ? new Date(editMatchData.scheduled_at).toISOString() : null
       }
 
-      if (editMatchData.status === 'completed') {
+      const completedAt = new Date().toISOString()
+      const wasBeingCompleted = editMatchData.status === 'completed'
+
+      if (wasBeingCompleted) {
         if (!editMatchData.player1_score || !editMatchData.player2_score) {
           alert('Please enter scores for both players')
           return
         }
         updateData.player1_score = parseInt(editMatchData.player1_score)
         updateData.player2_score = parseInt(editMatchData.player2_score)
-        updateData.completed_at = new Date().toISOString()
+        updateData.completed_at = completedAt
       }
 
       const { error } = await supabase
@@ -516,12 +519,134 @@ export default function AdminPage() {
         .update(updateData)
         .eq('id', matchId)
 
-      if (!error) {
-        setEditingMatch(null)
-        await fetchData(league.id)
-      } else {
+      if (error) {
         alert('Error updating match: ' + error.message)
+        return
       }
+
+      // If match was just completed, handle rating updates and notifications
+      if (wasBeingCompleted) {
+        try {
+          // Update player ratings using the rating updater
+          const response = await fetch(`/api/leagues/${slug}/ratings/recalculate`, {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+              'Content-Type': 'application/json'
+            }
+          })
+
+          if (!response.ok) {
+            console.error('Rating update failed after admin match completion')
+          } else {
+            console.log('Successfully updated ratings after admin match completion')
+          }
+        } catch (error) {
+          console.error('Error updating ratings after admin match completion:', error)
+          // Don't fail the match update if rating update fails
+        }
+
+        // Send Google Chat notification for match completion
+        try {
+          // Get match details with player names and league info
+          const { data: matchDetails, error: matchDetailsError } = await supabase
+            .from('matches')
+            .select(`
+              id,
+              player1_score,
+              player2_score,
+              player1_id,
+              player2_id,
+              league_id,
+              season_id
+            `)
+            .eq('id', matchId)
+            .single()
+
+          if (!matchDetailsError && matchDetails) {
+            // Get player names
+            const { data: playersData, error: playersError } = await supabase
+              .from('participants')
+              .select('id, name')
+              .in('id', [matchDetails.player1_id, matchDetails.player2_id])
+
+            // Get league info
+            const { data: leagueData, error: leagueDataError } = await supabase
+              .from('leagues')
+              .select('id, name, slug')
+              .eq('id', matchDetails.league_id)
+              .single()
+
+            // Get season info if exists
+            let seasonData = null
+            if (matchDetails.season_id) {
+              const { data: seasonResult, error: seasonError } = await supabase
+                .from('seasons')
+                .select('id, name')
+                .eq('id', matchDetails.season_id)
+                .single()
+              
+              if (!seasonError) seasonData = seasonResult
+            }
+
+            // Get chat integration settings
+            const { data: chatIntegration, error: chatError } = await supabase
+              .from('league_chat_integrations')
+              .select('webhook_url, enabled, notify_match_completions')
+              .eq('league_id', league.id)
+              .eq('enabled', true)
+              .eq('notify_match_completions', true)
+              .single()
+
+            if (!playersError && playersData && !leagueDataError && leagueData && !chatError && chatIntegration) {
+              // Map players by ID
+              const playersMap = playersData.reduce((acc, player) => {
+                acc[player.id] = player
+                return acc
+              }, {} as Record<string, { id: string; name: string }>)
+
+              // Determine winner
+              const player1Score = parseInt(editMatchData.player1_score!)
+              const player2Score = parseInt(editMatchData.player2_score!)
+              const player1Name = playersMap[matchDetails.player1_id]?.name || 'Player 1'
+              const player2Name = playersMap[matchDetails.player2_id]?.name || 'Player 2'
+              
+              let winnerName = 'Draw'
+              if (player1Score > player2Score) {
+                winnerName = player1Name
+              } else if (player2Score > player1Score) {
+                winnerName = player2Name
+              }
+
+              const notificationData = {
+                leagueName: leagueData.name,
+                seasonName: seasonData?.name,
+                player1Name: player1Name,
+                player2Name: player2Name,
+                player1Score: player1Score,
+                player2Score: player2Score,
+                winnerName: winnerName,
+                completedAt: completedAt,
+                leagueSlug: slug,
+                appUrl: process.env.NEXT_PUBLIC_APP_URL || 'https://app.example.com'
+              }
+
+              // Send notification via fetch to avoid importing GoogleChatNotifier in client component
+              fetch(`/api/leagues/${slug}/chat-integration/notify-completion`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(notificationData)
+              }).catch(error => console.error('Failed to send match completion notification:', error))
+            }
+          }
+        } catch (error) {
+          console.error('Error sending Google Chat notification:', error)
+          // Don't fail the match update if notification fails
+        }
+      }
+
+      setEditingMatch(null)
+      await fetchData(league.id)
     } catch (error) {
       console.error('Error updating match:', error)
       alert('Failed to update match')
