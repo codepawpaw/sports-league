@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Trophy, ArrowLeft, Users, Calendar, Plus, Edit, Trash2, Save, X, Shuffle, Eye, Clock, Shield, CheckCircle, XCircle, MessageSquare, UserPlus, Settings } from 'lucide-react'
+import { Trophy, ArrowLeft, Users, Calendar, Plus, Edit, Trash2, Save, X, Shuffle, Eye, Clock, Shield, CheckCircle, XCircle, MessageSquare, UserPlus, Settings, Calculator } from 'lucide-react'
 import { createSupabaseComponentClient } from '@/lib/supabase'
 
 interface League {
@@ -123,6 +123,7 @@ export default function AdminPage() {
   })
   const [savingChatConfig, setSavingChatConfig] = useState(false)
   const [testingChat, setTestingChat] = useState(false)
+  const [recalculatingRatings, setRecalculatingRatings] = useState(false)
   
   const [newMatch, setNewMatch] = useState({
     player1Id: '',
@@ -878,6 +879,58 @@ export default function AdminPage() {
     }
   }
 
+  // Player rating recalculation function
+  const handleRecalculateRatings = async () => {
+    if (!league) return
+    
+    const completedMatches = matches.filter(m => m.status === 'completed').length
+    
+    if (completedMatches === 0) {
+      alert('No completed matches found. Player ratings can only be calculated after matches are completed.')
+      return
+    }
+
+    if (!confirm(`This will recalculate ratings for all players based on ${completedMatches} completed match(es). Continue?`)) {
+      return
+    }
+
+    setRecalculatingRatings(true)
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+
+      if (!token) {
+        alert('Authentication error. Please refresh the page and try again.')
+        return
+      }
+
+      const response = await fetch(`/api/leagues/${slug}/ratings/recalculate`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        alert(`✅ Ratings recalculated successfully!\n\n` +
+              `• Updated players: ${data.updated_players}\n` +
+              `• Matches processed: ${data.total_matches_processed}\n\n` +
+              `Player ratings have been updated based on all completed matches.`)
+      } else {
+        alert(`❌ Failed to recalculate ratings:\n\n${data.error || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('Error recalculating ratings:', error)
+      alert('❌ Failed to recalculate ratings. Please check your internet connection and try again.')
+    } finally {
+      setRecalculatingRatings(false)
+    }
+  }
+
 
 
   if (loading) {
@@ -1110,6 +1163,47 @@ export default function AdminPage() {
                     </tbody>
                   </table>
                 </div>
+              </div>
+
+              {/* Rating Management Section */}
+              <div className="card p-6">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="text-lg font-semibold text-black mb-2">Player Ratings</h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Player ratings are automatically updated when matches are completed. Use this button to manually recalculate all ratings if needed.
+                    </p>
+                    <div className="flex items-center gap-4 text-sm text-gray-500">
+                      <span>• Completed matches: {matches.filter(m => m.status === 'completed').length}</span>
+                      <span>• Active participants: {participants.length}</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleRecalculateRatings}
+                    disabled={recalculatingRatings || matches.filter(m => m.status === 'completed').length === 0}
+                    className="btn-primary"
+                    title={matches.filter(m => m.status === 'completed').length === 0 ? 'No completed matches to calculate ratings from' : 'Recalculate all player ratings'}
+                  >
+                    {recalculatingRatings ? (
+                      <>
+                        <Clock className="h-4 w-4 mr-2 animate-spin" />
+                        Recalculating...
+                      </>
+                    ) : (
+                      <>
+                        <Calculator className="h-4 w-4 mr-2" />
+                        Recalculate Player Ratings
+                      </>
+                    )}
+                  </button>
+                </div>
+                {matches.filter(m => m.status === 'completed').length === 0 && (
+                  <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p className="text-sm text-yellow-800">
+                      <strong>Note:</strong> Player ratings can only be calculated after matches are completed. Complete some matches first to enable rating calculations.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
