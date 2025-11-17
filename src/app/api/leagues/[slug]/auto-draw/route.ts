@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase'
 import { NextRequest, NextResponse } from 'next/server'
+import { GoogleChatNotifier } from '@/lib/googleChat'
 
 interface AutoDrawConfig {
   clearExisting: boolean
@@ -148,6 +149,44 @@ export async function POST(
         { error: 'Failed to create matches' },
         { status: 500 }
       )
+    }
+
+    // Send Google Chat notifications for new matches created
+    try {
+      const { data: chatIntegration, error: chatError } = await supabase
+        .from('league_chat_integrations')
+        .select('*')
+        .eq('league_id', leagueData.id)
+        .single()
+
+      if (!chatError && chatIntegration?.enabled && chatIntegration?.notify_new_matches && scheduledMatches.length > 0) {
+        // Get app URL from environment or construct it
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || `${new URL(request.url).origin}`
+        
+        // Send notification for each new match
+        const notifications = scheduledMatches.map(match => 
+          GoogleChatNotifier.notifyNewMatch(chatIntegration.webhook_url, {
+            leagueName: leagueData.name,
+            seasonName: activeSeason.name,
+            player1Name: match.player1_name,
+            player2Name: match.player2_name,
+            scheduledAt: match.scheduled_at || undefined,
+            leagueSlug: slug,
+            appUrl: appUrl
+          })
+        )
+
+        // Send notifications (don't wait for all to complete)
+        Promise.allSettled(notifications).then(results => {
+          const failed = results.filter(r => r.status === 'rejected').length
+          if (failed > 0) {
+            console.error(`Failed to send ${failed}/${results.length} Google Chat notifications`)
+          }
+        })
+      }
+    } catch (error) {
+      // Log error but don't fail the request
+      console.error('Failed to send Google Chat notifications:', error)
     }
 
     return NextResponse.json({

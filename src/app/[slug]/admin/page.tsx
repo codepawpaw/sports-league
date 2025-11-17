@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Trophy, ArrowLeft, Users, Calendar, Plus, Edit, Trash2, Save, X, Shuffle, Eye, Clock, Shield, CheckCircle, XCircle, MessageSquare, UserPlus } from 'lucide-react'
+import { Trophy, ArrowLeft, Users, Calendar, Plus, Edit, Trash2, Save, X, Shuffle, Eye, Clock, Shield, CheckCircle, XCircle, MessageSquare, UserPlus, Settings } from 'lucide-react'
 import { createSupabaseComponentClient } from '@/lib/supabase'
 
 interface League {
@@ -62,6 +62,17 @@ interface RegistrationRequest {
   }
 }
 
+interface ChatIntegration {
+  id: string
+  league_id: string
+  webhook_url: string
+  enabled: boolean
+  notify_new_matches: boolean
+  notify_approved_schedules: boolean
+  created_at: string
+  updated_at: string
+}
+
 
 
 export default function AdminPage() {
@@ -77,6 +88,7 @@ export default function AdminPage() {
   const [seasons, setSeasons] = useState<Season[]>([])
   const [activeSeason, setActiveSeason] = useState<Season | null>(null)
   const [registrationRequests, setRegistrationRequests] = useState<RegistrationRequest[]>([])
+  const [chatIntegration, setChatIntegration] = useState<ChatIntegration | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('participants')
   const [currentUserEmail, setCurrentUserEmail] = useState<string>('')
@@ -99,6 +111,16 @@ export default function AdminPage() {
     convertExisting: false
   })
   const [addingSeason, setAddingSeason] = useState(false)
+  
+  // Chat integration forms state
+  const [chatConfig, setChatConfig] = useState({
+    webhook_url: '',
+    enabled: true,
+    notify_new_matches: true,
+    notify_approved_schedules: true
+  })
+  const [savingChatConfig, setSavingChatConfig] = useState(false)
+  const [testingChat, setTestingChat] = useState(false)
   
   const [newMatch, setNewMatch] = useState({
     player1Id: '',
@@ -177,6 +199,7 @@ export default function AdminPage() {
       await fetchAdmins()
       await fetchSeasons()
       await fetchRegistrationRequests()
+      await fetchChatIntegration()
     } catch (error) {
       console.error('Error checking admin access:', error)
       router.push(`/${slug}`)
@@ -262,6 +285,26 @@ export default function AdminPage() {
       }
     } catch (error) {
       console.error('Error fetching registration requests:', error)
+    }
+  }
+
+  const fetchChatIntegration = async () => {
+    try {
+      const response = await fetch(`/api/leagues/${slug}/chat-integration`)
+      if (response.ok) {
+        const data = await response.json()
+        setChatIntegration(data.integration)
+        if (data.integration) {
+          setChatConfig({
+            webhook_url: data.integration.webhook_url,
+            enabled: data.integration.enabled,
+            notify_new_matches: data.integration.notify_new_matches,
+            notify_approved_schedules: data.integration.notify_approved_schedules
+          })
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching chat integration:', error)
     }
   }
 
@@ -376,28 +419,25 @@ export default function AdminPage() {
       return
     }
 
-    if (!activeSeason) {
-      alert('No active season found. Please create and activate a season first.')
-      return
-    }
-
     try {
-      const { error } = await supabase
-        .from('matches')
-        .insert({
-          league_id: league.id,
-          season_id: activeSeason.id,
+      const response = await fetch(`/api/leagues/${slug}/matches`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           player1_id: newMatch.player1Id,
           player2_id: newMatch.player2Id,
-          scheduled_at: newMatch.scheduledAt ? new Date(newMatch.scheduledAt).toISOString() : null,
-          status: 'scheduled'
+          scheduled_at: newMatch.scheduledAt || undefined
         })
+      })
 
-      if (!error) {
+      const data = await response.json()
+
+      if (response.ok) {
         setNewMatch({ player1Id: '', player2Id: '', scheduledAt: '' })
         await fetchData(league.id)
+        alert('Match created successfully!')
       } else {
-        alert('Error creating match: ' + error.message)
+        alert(data.error || 'Failed to create match')
       }
     } catch (error) {
       console.error('Error creating match:', error)
@@ -748,6 +788,92 @@ export default function AdminPage() {
     }
   }
 
+  // Chat integration functions
+  const handleSaveChatConfig = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!chatConfig.webhook_url.trim()) {
+      alert('Please enter a webhook URL')
+      return
+    }
+
+    setSavingChatConfig(true)
+
+    try {
+      const response = await fetch(`/api/leagues/${slug}/chat-integration`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(chatConfig)
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        await fetchChatIntegration()
+        alert('Chat integration settings saved successfully!')
+      } else {
+        alert(data.error || 'Failed to save chat integration settings')
+      }
+    } catch (error) {
+      console.error('Error saving chat integration:', error)
+      alert('Failed to save chat integration settings')
+    } finally {
+      setSavingChatConfig(false)
+    }
+  }
+
+  const handleTestChat = async () => {
+    setTestingChat(true)
+
+    try {
+      const response = await fetch(`/api/leagues/${slug}/chat-integration/test`, {
+        method: 'POST'
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        alert('✅ Test notification sent successfully! Check your Google Chat space.')
+      } else {
+        alert(data.error || 'Failed to send test notification')
+      }
+    } catch (error) {
+      console.error('Error testing chat integration:', error)
+      alert('Failed to send test notification')
+    } finally {
+      setTestingChat(false)
+    }
+  }
+
+  const handleRemoveChatIntegration = async () => {
+    if (!confirm('Are you sure you want to remove Google Chat integration? This will delete all configuration.')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/leagues/${slug}/chat-integration`, {
+        method: 'DELETE'
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        await fetchChatIntegration()
+        setChatConfig({
+          webhook_url: '',
+          enabled: true,
+          notify_new_matches: true,
+          notify_approved_schedules: true
+        })
+        alert('Chat integration removed successfully')
+      } else {
+        alert(data.error || 'Failed to remove chat integration')
+      }
+    } catch (error) {
+      console.error('Error removing chat integration:', error)
+      alert('Failed to remove chat integration')
+    }
+  }
+
 
 
   if (loading) {
@@ -843,6 +969,17 @@ export default function AdminPage() {
             >
               <Shield className="h-4 w-4 inline mr-2" />
               Administrators
+            </button>
+            <button
+              onClick={() => setActiveTab('integrations')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'integrations'
+                  ? 'border-black text-black'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <Settings className="h-4 w-4 inline mr-2" />
+              Integrations
             </button>
           </nav>
         </div>
@@ -1850,6 +1987,213 @@ export default function AdminPage() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'integrations' && (
+          <div>
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-black mb-4">Google Chat Integration</h2>
+              <p className="text-gray-600 mb-6">
+                Configure Google Chat notifications to automatically post updates about new matches and schedule confirmations to your Google Chat space.
+              </p>
+              
+              {/* Chat Integration Form */}
+              <div className="card p-6 mb-6">
+                <h3 className="text-lg font-semibold text-black mb-4">Configuration</h3>
+                <form onSubmit={handleSaveChatConfig} className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Google Chat Webhook URL *
+                    </label>
+                    <input
+                      type="url"
+                      placeholder="https://chat.googleapis.com/v1/spaces/..."
+                      value={chatConfig.webhook_url}
+                      onChange={(e) => setChatConfig(prev => ({ ...prev, webhook_url: e.target.value }))}
+                      className="input-field"
+                      required
+                    />
+                    <p className="text-sm text-gray-500 mt-1">
+                      Create a webhook in your Google Chat space and paste the URL here.
+                    </p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h4 className="font-medium text-gray-900">Notification Settings</h4>
+                    
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={chatConfig.enabled}
+                        onChange={(e) => setChatConfig(prev => ({ ...prev, enabled: e.target.checked }))}
+                        className="mr-3"
+                      />
+                      <div>
+                        <span className="text-sm font-medium text-gray-700">Enable Google Chat Integration</span>
+                        <p className="text-xs text-gray-500">Master switch for all notifications</p>
+                      </div>
+                    </label>
+
+                    {chatConfig.enabled && (
+                      <div className="ml-6 space-y-3 border-l-2 border-gray-200 pl-4">
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={chatConfig.notify_new_matches}
+                            onChange={(e) => setChatConfig(prev => ({ ...prev, notify_new_matches: e.target.checked }))}
+                            className="mr-3"
+                          />
+                          <div>
+                            <span className="text-sm font-medium text-gray-700">New Match Created</span>
+                            <p className="text-xs text-gray-500">Notify when new matches are created (auto-draw or manual)</p>
+                          </div>
+                        </label>
+
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={chatConfig.notify_approved_schedules}
+                            onChange={(e) => setChatConfig(prev => ({ ...prev, notify_approved_schedules: e.target.checked }))}
+                            className="mr-3"
+                          />
+                          <div>
+                            <span className="text-sm font-medium text-gray-700">Schedule Confirmed</span>
+                            <p className="text-xs text-gray-500">Notify when players confirm a match schedule</p>
+                          </div>
+                        </label>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button 
+                      type="submit" 
+                      className="btn-primary"
+                      disabled={savingChatConfig}
+                    >
+                      {savingChatConfig ? (
+                        <>
+                          <Clock className="h-4 w-4 mr-2 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-4 w-4 mr-2" />
+                          Save Configuration
+                        </>
+                      )}
+                    </button>
+                    
+                    {chatIntegration && (
+                      <>
+                        <button 
+                          type="button"
+                          onClick={handleTestChat}
+                          className="btn-outline"
+                          disabled={testingChat || !chatConfig.enabled}
+                        >
+                          {testingChat ? (
+                            <>
+                              <Clock className="h-4 w-4 mr-2 animate-spin" />
+                              Testing...
+                            </>
+                          ) : (
+                            <>
+                              <MessageSquare className="h-4 w-4 mr-2" />
+                              Send Test
+                            </>
+                          )}
+                        </button>
+                        
+                        <button
+                          type="button"
+                          onClick={handleRemoveChatIntegration}
+                          className="btn-outline text-red-600 border-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Remove Integration
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </form>
+              </div>
+
+              {/* Integration Status */}
+              <div className="card p-6">
+                <h3 className="text-lg font-semibold text-black mb-4">Integration Status</h3>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-700">Configuration Status</span>
+                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                      chatIntegration 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {chatIntegration ? 'Configured' : 'Not Configured'}
+                    </span>
+                  </div>
+                  
+                  {chatIntegration && (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-700">Integration Status</span>
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                          chatIntegration.enabled 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {chatIntegration.enabled ? 'Enabled' : 'Disabled'}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-700">New Match Notifications</span>
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                          chatIntegration.notify_new_matches 
+                            ? 'bg-blue-100 text-blue-800' 
+                            : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {chatIntegration.notify_new_matches ? 'On' : 'Off'}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-700">Schedule Confirmation Notifications</span>
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                          chatIntegration.notify_approved_schedules 
+                            ? 'bg-blue-100 text-blue-800' 
+                            : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {chatIntegration.notify_approved_schedules ? 'On' : 'Off'}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-700">Last Updated</span>
+                        <span className="text-xs text-gray-500">
+                          {new Date(chatIntegration.updated_at).toLocaleString()}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </div>
+                
+                {!chatIntegration && (
+                  <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+                    <h4 className="text-sm font-medium text-blue-900 mb-2">Getting Started</h4>
+                    <ol className="text-sm text-blue-700 space-y-1 list-decimal list-inside">
+                      <li>Create a Google Chat space or use an existing one</li>
+                      <li>Add a webhook to the space (Chat settings → Webhooks)</li>
+                      <li>Copy the webhook URL and paste it above</li>
+                      <li>Configure your notification preferences</li>
+                      <li>Save and test the configuration</li>
+                    </ol>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}

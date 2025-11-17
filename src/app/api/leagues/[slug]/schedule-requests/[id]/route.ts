@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase'
+import { GoogleChatNotifier } from '@/lib/googleChat'
 
 export async function DELETE(
   request: NextRequest,
@@ -19,7 +20,7 @@ export async function DELETE(
     // Get league info
     const { data: league, error: leagueError } = await supabase
       .from('leagues')
-      .select('id')
+      .select('id, name')
       .eq('slug', slug)
       .single()
 
@@ -119,7 +120,7 @@ export async function PUT(
     // Get league info
     const { data: league, error: leagueError } = await supabase
       .from('leagues')
-      .select('id')
+      .select('id, name')
       .eq('slug', slug)
       .single()
 
@@ -247,6 +248,32 @@ export async function PUT(
             error: 'Failed to delete approved request' 
           }, { status: 500 })
         }
+      }
+
+      // Send Google Chat notification for schedule approval
+      try {
+        const { data: chatIntegration, error: chatError } = await supabase
+          .from('league_chat_integrations')
+          .select('*')
+          .eq('league_id', scheduleRequest.match?.league_id)
+          .single()
+
+        if (!chatError && chatIntegration?.enabled && chatIntegration?.notify_approved_schedules) {
+          // Get app URL from environment or construct it
+          const appUrl = process.env.NEXT_PUBLIC_APP_URL || `${new URL(request.url).origin}`
+          
+          await GoogleChatNotifier.notifyScheduleApproved(chatIntegration.webhook_url, {
+            leagueName: league.name,
+            player1Name: updatedRequest.match?.player1?.name || '',
+            player2Name: updatedRequest.match?.player2?.name || '',
+            scheduledAt: scheduleRequest.requested_date,
+            leagueSlug: slug,
+            appUrl: appUrl
+          })
+        }
+      } catch (error) {
+        // Log error but don't fail the request
+        console.error('Failed to send Google Chat notification:', error)
       }
 
       // Return success without the deleted request data for approved requests
