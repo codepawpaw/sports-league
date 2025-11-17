@@ -137,6 +137,9 @@ export default function AdminPage() {
   const [testingChat, setTestingChat] = useState(false)
   const [sendingDailySummary, setSendingDailySummary] = useState(false)
   const [recalculatingRatings, setRecalculatingRatings] = useState(false)
+  const [previewingDailySummary, setPreviewingDailySummary] = useState(false)
+  const [showPreviewModal, setShowPreviewModal] = useState(false)
+  const [dailySummaryPreview, setDailySummaryPreview] = useState<any>(null)
   
   const [newMatch, setNewMatch] = useState({
     player1Id: '',
@@ -1096,6 +1099,31 @@ export default function AdminPage() {
       alert('Failed to send daily summary')
     } finally {
       setSendingDailySummary(false)
+    }
+  }
+
+  const handlePreviewDailySummary = async () => {
+    setPreviewingDailySummary(true)
+
+    try {
+      const response = await fetch(`/api/leagues/${slug}/chat-integration/daily-summary/preview`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setDailySummaryPreview(data.preview)
+        setShowPreviewModal(true)
+      } else {
+        alert(data.error || 'Failed to generate preview')
+      }
+    } catch (error) {
+      console.error('Error generating preview:', error)
+      alert('Failed to generate preview')
+    } finally {
+      setPreviewingDailySummary(false)
     }
   }
 
@@ -2572,24 +2600,44 @@ export default function AdminPage() {
 
                           {chatIntegration && (
                             <div className="mt-4">
-                              <button
-                                type="button"
-                                onClick={handleSendDailySummary}
-                                className="btn-outline"
-                                disabled={sendingDailySummary}
-                              >
-                                {sendingDailySummary ? (
-                                  <>
-                                    <Clock className="h-4 w-4 mr-2 animate-spin" />
-                                    Sending...
-                                  </>
-                                ) : (
-                                  <>
-                                    <MessageSquare className="h-4 w-4 mr-2" />
-                                    Send Summary Now
-                                  </>
-                                )}
-                              </button>
+                              <div className="flex gap-3">
+                                <button
+                                  type="button"
+                                  onClick={handlePreviewDailySummary}
+                                  className="btn-outline"
+                                  disabled={previewingDailySummary}
+                                >
+                                  {previewingDailySummary ? (
+                                    <>
+                                      <Clock className="h-4 w-4 mr-2 animate-spin" />
+                                      Generating...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Eye className="h-4 w-4 mr-2" />
+                                      Preview Summary
+                                    </>
+                                  )}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={handleSendDailySummary}
+                                  className="btn-outline"
+                                  disabled={sendingDailySummary}
+                                >
+                                  {sendingDailySummary ? (
+                                    <>
+                                      <Clock className="h-4 w-4 mr-2 animate-spin" />
+                                      Sending...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <MessageSquare className="h-4 w-4 mr-2" />
+                                      Send Summary Now
+                                    </>
+                                  )}
+                                </button>
+                              </div>
                               {chatIntegration.last_summary_sent && (
                                 <p className="text-xs text-gray-500 mt-2">
                                   Last sent: {new Date(chatIntegration.last_summary_sent).toLocaleString('en-US', { timeZone: 'Asia/Jakarta' })} WIB
@@ -2746,6 +2794,104 @@ export default function AdminPage() {
 
 
       </main>
+      
+      {/* Daily Summary Preview Modal */}
+      {showPreviewModal && dailySummaryPreview && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full m-4 max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-black">Daily Summary Preview</h3>
+                <button
+                  onClick={() => {
+                    setShowPreviewModal(false)
+                    setDailySummaryPreview(null)
+                  }}
+                  className="p-2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <p className="text-sm text-gray-600 mt-1">
+                This is how the notification will appear in Google Chat
+              </p>
+            </div>
+            
+            <div className="p-6 overflow-y-auto max-h-[60vh]">
+              {/* Mock Google Chat Card UI */}
+              <div className="border border-gray-200 rounded-lg bg-gray-50 p-4 max-w-md">
+                <div className="border-b border-gray-200 pb-3 mb-4">
+                  <h4 className="font-semibold text-gray-900 text-lg">
+                    {dailySummaryPreview.title}
+                  </h4>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {dailySummaryPreview.subtitle}
+                  </p>
+                </div>
+                
+                <div className="space-y-4">
+                  {dailySummaryPreview.sections.map((section: any, index: number) => (
+                    <div key={index} className="space-y-2">
+                      <h5 className="font-medium text-gray-900 text-base">
+                        {section.title}
+                      </h5>
+                      <div className="text-sm text-gray-700 whitespace-pre-line bg-white rounded border p-3">
+                        {section.content}
+                      </div>
+                    </div>
+                  ))}
+                  
+                  <div className="border-t border-gray-200 pt-3 mt-4">
+                    <button className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700">
+                      View League
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-6 border-t border-gray-200 bg-gray-50">
+              <div className="flex justify-between items-center">
+                <p className="text-sm text-gray-600">
+                  Ready to send this notification?
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowPreviewModal(false)
+                      setDailySummaryPreview(null)
+                    }}
+                    className="btn-outline"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowPreviewModal(false)
+                      setDailySummaryPreview(null)
+                      handleSendDailySummary()
+                    }}
+                    className="btn-primary"
+                    disabled={sendingDailySummary}
+                  >
+                    {sendingDailySummary ? (
+                      <>
+                        <Clock className="h-4 w-4 mr-2 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <MessageSquare className="h-4 w-4 mr-2" />
+                        Send Now
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
