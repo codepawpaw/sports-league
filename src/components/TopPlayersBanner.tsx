@@ -13,6 +13,7 @@ interface Participant {
   current_rating?: number
   is_provisional?: boolean
   total_matches?: number
+  winning_streak: number
 }
 
 interface Match {
@@ -34,6 +35,11 @@ interface TopPlayersBannerProps {
 export default function TopPlayersBanner({ participants, upcomingMatches }: TopPlayersBannerProps) {
   const top3Players = participants.slice(0, 3)
 
+  // Find the player with the highest winning streak (minimum 3 wins)
+  const winningStreakMonster = participants
+    .filter(player => player.winning_streak >= 3)
+    .sort((a, b) => b.winning_streak - a.winning_streak)[0]
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       month: 'short',
@@ -41,6 +47,12 @@ export default function TopPlayersBanner({ participants, upcomingMatches }: TopP
       hour: 'numeric',
       minute: '2-digit'
     })
+  }
+
+  const getWinRate = (wins: number, losses: number) => {
+    const total = wins + losses
+    if (total === 0) return 0
+    return Math.round((wins / total) * 100)
   }
 
   const getRankIcon = (rank: number) => {
@@ -116,6 +128,39 @@ export default function TopPlayersBanner({ participants, upcomingMatches }: TopP
               <div className="text-center py-8">
                 <Trophy className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p className="text-lg opacity-75">No players yet</p>
+              </div>
+            )}
+            
+            {/* Winning Streak Monster Card */}
+            {winningStreakMonster && (
+              <div className="mt-6">
+                <div className="flex items-center mb-3">
+                  <h3 className="text-lg font-bold">Winning Streak Monster</h3>
+                </div>
+                <div className="bg-gradient-to-r from-orange-500 to-red-600 rounded-lg p-4 text-white">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-bold text-lg truncate" title={winningStreakMonster.name}>
+                      {winningStreakMonster.name}
+                    </h4>
+                    <div className="bg-white/20 px-2 py-1 rounded-lg text-sm font-semibold">
+                      {winningStreakMonster.winning_streak} Streak
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 text-center text-sm">
+                    <div>
+                      <div className="font-semibold text-xs opacity-75 mb-1">TOTAL MATCHES</div>
+                      <div className="text-lg font-bold">{winningStreakMonster.wins + winningStreakMonster.losses}</div>
+                    </div>
+                    <div>
+                      <div className="font-semibold text-xs opacity-75 mb-1">WIN RATE</div>
+                      <div className="text-lg font-bold">{getWinRate(winningStreakMonster.wins, winningStreakMonster.losses)}%</div>
+                    </div>
+                    <div>
+                      <div className="font-semibold text-xs opacity-75 mb-1">STREAK</div>
+                      <div className="text-lg font-bold">{winningStreakMonster.winning_streak}</div>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>

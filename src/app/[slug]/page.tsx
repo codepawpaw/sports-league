@@ -8,7 +8,6 @@ import { createSupabaseComponentClient } from '@/lib/supabase'
 import HeadToHeadComparison from '@/components/HeadToHeadComparison'
 import PlayerMatchHistoryModal from '@/components/PlayerMatchHistoryModal'
 import TopPlayersBanner from '@/components/TopPlayersBanner'
-import WinningStreakChampions from '@/components/WinningStreakChampions'
 import ScheduleRequestNotifications from '@/components/ScheduleRequestNotifications'
 import ScoreRequestNotifications from '@/components/ScoreRequestNotifications'
 import RegisterAsPlayerModal from '@/components/RegisterAsPlayerModal'
@@ -396,8 +395,6 @@ export default function LeaguePage() {
           upcomingMatches={upcomingMatches}
         />
 
-        {/* Winning Streak Champions */}
-        <WinningStreakChampions participants={participants} />
 
         {/* Rankings - Full Width */}
         <div className="space-y-8">

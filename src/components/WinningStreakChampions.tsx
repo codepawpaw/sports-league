@@ -1,4 +1,3 @@
-import { Zap } from 'lucide-react'
 
 interface Participant {
   id: string
@@ -25,160 +24,126 @@ export default function WinningStreakChampions({ participants }: WinningStreakCh
   const streakChampions = participants
     .filter(player => player.winning_streak >= 3)
     .sort((a, b) => b.winning_streak - a.winning_streak) // Sort by highest streak first
-    .slice(0, 5) // Show top 5 streak holders
+    .slice(0, 3) // Show top 3 streak holders
 
   if (streakChampions.length === 0) {
     return null // Don't render component if no one has a streak >= 3
   }
 
-  const getStreakIntensity = (streak: number) => {
-    if (streak >= 10) return 'legendary'
-    if (streak >= 7) return 'epic'
-    if (streak >= 5) return 'amazing'
-    return 'great'
+  const getPlayerInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(word => word.charAt(0))
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
   }
 
-  const getStreakColors = (streak: number) => {
-    if (streak >= 10) {
-      return {
-        background: 'bg-gradient-to-r from-purple-900 via-blue-900 to-purple-900',
-        border: 'border-purple-300',
-        text: 'text-purple-100',
-        accent: 'text-purple-200'
-      }
-    }
-    if (streak >= 7) {
-      return {
-        background: 'bg-gradient-to-r from-blue-800 via-indigo-800 to-blue-800',
-        border: 'border-blue-300',
-        text: 'text-blue-100',
-        accent: 'text-blue-200'
-      }
-    }
-    if (streak >= 5) {
-      return {
-        background: 'bg-gradient-to-r from-indigo-700 via-purple-700 to-indigo-700',
-        border: 'border-indigo-300',
-        text: 'text-indigo-100',
-        accent: 'text-indigo-200'
-      }
-    }
-    return {
-      background: 'bg-gradient-to-r from-blue-600 via-cyan-600 to-blue-600',
-      border: 'border-cyan-300',
-      text: 'text-cyan-100',
-      accent: 'text-cyan-200'
-    }
-  }
-
-  const getStreakTitle = (streak: number) => {
-    if (streak >= 10) return 'LEGENDARY DOMINATION'
-    if (streak >= 7) return 'EPIC DESTROYER'
-    if (streak >= 5) return 'AMAZING FORCE'
-    return 'UNSTOPPABLE'
+  const getWinPercentage = (wins: number, totalMatches: number) => {
+    if (!totalMatches || totalMatches === 0) return 0
+    return Math.round((wins / totalMatches) * 100)
   }
 
   return (
-    <div className="card mb-8">
-      <div className="bg-gradient-to-r from-gray-900 via-black to-gray-900 text-white p-6">
-        <div className="text-center mb-6">
-          <div className="flex items-center justify-center mb-2">
-            <Zap className="h-8 w-8 text-yellow-400 mr-2 animate-pulse" />
-            <h2 className="text-3xl font-black tracking-wide">STREAK LEGENDS</h2>
-            <Zap className="h-8 w-8 text-yellow-400 ml-2 animate-pulse" />
-          </div>
-          <p className="text-gray-300 text-lg font-semibold">
-            UNSTOPPABLE FORCES ON THE RAMPAGE
-          </p>
-        </div>
+    <div className="mb-8">
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold text-gray-800 text-center">Streak Legends</h2>
+        <p className="text-gray-600 text-center text-sm">Players on winning streaks</p>
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {streakChampions.map((player, index) => {
-            const colors = getStreakColors(player.winning_streak)
-            const intensity = getStreakIntensity(player.winning_streak)
-            const title = getStreakTitle(player.winning_streak)
-            
-            return (
-              <div
-                key={player.id}
-                className={`${colors.background} ${colors.border} border-2 rounded-lg p-4 relative overflow-hidden shadow-2xl transform hover:scale-105 transition-all duration-300`}
-              >
-                {/* Lightning bolt decorations */}
-                <div className="absolute top-2 left-2">
-                  <Zap className="h-4 w-4 text-yellow-400 animate-pulse" />
-                </div>
-                <div className="absolute top-2 right-2">
-                  <Zap className="h-4 w-4 text-yellow-400 animate-pulse" />
-                </div>
-                <div className="absolute bottom-2 left-2">
-                  <Zap className="h-4 w-4 text-yellow-300 animate-pulse" />
-                </div>
-                <div className="absolute bottom-2 right-2">
-                  <Zap className="h-4 w-4 text-yellow-300 animate-pulse" />
-                </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {streakChampions.map((player, index) => {
+          const totalMatches = player.total_matches || (player.wins + player.losses)
+          const winPercentage = getWinPercentage(player.wins, totalMatches)
+          
+          return (
+            <div
+              key={player.id}
+              className="relative bg-white rounded-3xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300"
+              style={{
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+              }}
+            >
+              {/* Curved header */}
+              <div className="relative h-16 bg-gradient-to-r from-blue-400 to-blue-600">
+                <div className="absolute inset-0 bg-white rounded-b-3xl"></div>
+              </div>
 
-                <div className="text-center relative z-10">
-                  {/* Rank indicator */}
-                  <div className="flex justify-between items-start mb-3">
-                    <span className={`text-sm font-bold ${colors.accent}`}>#{index + 1}</span>
-                    <span className={`text-xs font-bold ${colors.accent} uppercase tracking-wider`}>
-                      {title}
-                    </span>
-                  </div>
-
-                  {/* Main streak number */}
-                  <div className="mb-3">
-                    <div className="flex items-center justify-center mb-1">
-                      <Zap className="h-6 w-6 text-yellow-400 mr-1" />
-                      <span className="text-5xl font-black text-yellow-400 drop-shadow-lg">
-                        {player.winning_streak}
-                      </span>
-                      <Zap className="h-6 w-6 text-yellow-400 ml-1" />
+              {/* Main content */}
+              <div className="relative -mt-8 px-6 pb-6">
+                <div className="flex items-start gap-4">
+                  {/* Player Avatar */}
+                  <div className="flex-shrink-0">
+                    <div className="w-20 h-20 bg-gradient-to-br from-blue-400 to-blue-600 rounded-2xl flex items-center justify-center text-white font-bold text-lg shadow-lg">
+                      {getPlayerInitials(player.name)}
                     </div>
-                    <p className={`text-xs font-bold ${colors.text} uppercase tracking-widest`}>
-                      WIN STREAK
-                    </p>
                   </div>
 
-                  {/* Player name */}
-                  <div className="mb-2">
-                    <h3 className={`font-bold text-lg ${colors.text} truncate`} title={player.name}>
+                  {/* Player Info */}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-xl font-bold text-gray-800 truncate mt-2">
                       {player.name}
                     </h3>
-                  </div>
-
-                  {/* Stats */}
-                  <div className={`text-sm ${colors.accent} space-y-1`}>
-                    <div className="flex justify-between">
-                      <span>Record:</span>
-                      <span className="font-bold">{player.wins}W-{player.losses}L</span>
+                    
+                    {/* Streak Badge */}
+                    <div className="flex items-center gap-2 mt-1">
+                      <div className="bg-blue-100 text-blue-800 px-2 py-1 rounded-lg text-xs font-semibold">
+                        {player.winning_streak} WIN STREAK
+                      </div>
+                      {index === 0 && (
+                        <div className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-lg text-xs font-semibold">
+                          👑 TOP
+                        </div>
+                      )}
                     </div>
-                    <div className="flex justify-between">
-                      <span>Rating:</span>
-                      <span className="font-bold">{player.current_rating || 1200}</span>
+
+                    {/* Player details */}
+                    <div className="flex items-center gap-2 mt-2 text-sm text-gray-600">
+                      <span className="bg-gray-100 px-2 py-1 rounded text-xs">
+                        #{index + 1}
+                      </span>
+                      {player.current_rating && (
+                        <span className="text-gray-700 font-medium">
+                          {Math.round(player.current_rating)} ELO
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
 
-                {/* Pulsing glow effect */}
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-10 animate-pulse"></div>
-              </div>
-            )
-          })}
-        </div>
+                {/* Stats Grid */}
+                <div className="grid grid-cols-3 gap-3 mt-6">
+                  {/* Matches */}
+                  <div className="text-center bg-gray-50 rounded-xl p-3">
+                    <div className="text-sm text-gray-500 uppercase font-medium mb-1">MATCHES</div>
+                    <div className="text-2xl font-bold text-gray-800">{totalMatches}</div>
+                    <div className="text-xs text-green-600 font-medium">
+                      {player.wins}W-{player.losses}L
+                    </div>
+                  </div>
 
-        {/* Footer message */}
-        <div className="text-center mt-6">
-          <div className="flex items-center justify-center">
-            <Zap className="h-5 w-5 text-yellow-400 mr-2" />
-            <p className="text-gray-300 text-sm font-semibold uppercase tracking-wide">
-              {streakChampions.length === 1 
-                ? 'ONE WARRIOR STANDS SUPREME' 
-                : `${streakChampions.length} WARRIORS UNLEASHED`}
-            </p>
-            <Zap className="h-5 w-5 text-yellow-400 ml-2" />
-          </div>
-        </div>
+                  {/* Win Rate */}
+                  <div className="text-center bg-gray-50 rounded-xl p-3">
+                    <div className="text-sm text-gray-500 uppercase font-medium mb-1">WIN RATE</div>
+                    <div className="text-2xl font-bold text-gray-800">{winPercentage}%</div>
+                    <div className="text-xs text-blue-600 font-medium">
+                      {player.sets_won} sets
+                    </div>
+                  </div>
+
+                  {/* Score */}
+                  <div className="text-center bg-gradient-to-br from-red-500 to-pink-600 text-white rounded-xl p-3">
+                    <div className="text-xs uppercase font-medium mb-1 opacity-90">STREAK</div>
+                    <div className="text-2xl font-bold">{player.winning_streak}</div>
+                    <div className="text-xs font-medium opacity-90">
+                      hot
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
