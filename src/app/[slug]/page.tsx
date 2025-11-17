@@ -10,6 +10,7 @@ import PlayerMatchHistoryModal from '@/components/PlayerMatchHistoryModal'
 import TopPlayersBanner from '@/components/TopPlayersBanner'
 import ScheduleRequestNotifications from '@/components/ScheduleRequestNotifications'
 import ScoreRequestNotifications from '@/components/ScoreRequestNotifications'
+import RegisterAsPlayerModal from '@/components/RegisterAsPlayerModal'
 
 interface League {
   id: string
@@ -85,6 +86,7 @@ export default function LeaguePage() {
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [isParticipant, setIsParticipant] = useState(false)
+  const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false)
 
   useEffect(() => {
     if (slug) {
@@ -100,6 +102,12 @@ export default function LeaguePage() {
     } catch (error) {
       console.error('Error logging out:', error)
     }
+  }
+
+  const handleRegistrationSuccess = () => {
+    // Refresh league data to update participant status
+    fetchLeagueData()
+    setIsRegisterModalOpen(false)
   }
 
   const fetchLeagueData = async () => {
@@ -377,9 +385,19 @@ export default function LeaguePage() {
               <Link href={`/${slug}/results`} className="btn-compact">
                 All Results
               </Link>
-              <Link href={`/${slug}/my-matches`} className="btn-compact">
-                My Matches
-              </Link>
+              {currentUser && !isParticipant && (
+                <button 
+                  onClick={() => setIsRegisterModalOpen(true)} 
+                  className="btn-compact"
+                >
+                  Register as Player
+                </button>
+              )}
+              {currentUser && isParticipant && (
+                <Link href={`/${slug}/my-matches`} className="btn-compact">
+                  My Matches
+                </Link>
+              )}
             </div>
           </div>
         </div>
@@ -599,6 +617,14 @@ export default function LeaguePage() {
         }}
         player={selectedPlayer}
         slug={slug}
+      />
+
+      {/* Register as Player Modal */}
+      <RegisterAsPlayerModal
+        isOpen={isRegisterModalOpen}
+        onClose={() => setIsRegisterModalOpen(false)}
+        slug={slug}
+        onSuccess={handleRegistrationSuccess}
       />
 
     </div>
