@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase'
 import { GoogleChatNotifier, MatchCompletionData } from '@/lib/googleChat'
-import { USATTRatingCalculator, MatchResult, PlayerRating } from '@/lib/usatt-rating-calculator'
+import { updateRatingsForMatch } from '@/lib/rating-updater'
 
 export async function DELETE(
   request: NextRequest,
@@ -191,88 +191,19 @@ export async function PUT(
         }, { status: 500 })
       }
 
-      // Update player ratings after match completion
+      // Update player ratings after match completion using the proper USATT algorithm
       try {
-        // Get current player ratings for the two players involved
-        const { data: existingRatings, error: ratingsError } = await supabase
-          .from('player_ratings')
-          .select('player_id, current_rating, matches_played, is_provisional')
-          .eq('league_id', league.id)
-          .in('player_id', [scoreRequest.requester_id, scoreRequest.opponent_id])
-
-        if (!ratingsError) {
-          // Initialize ratings for both players
-          const playerRatings = new Map<string, PlayerRating>()
-          
-          // Player 1 (requester)
-          const requesterRating = existingRatings?.find(r => r.player_id === scoreRequest.requester_id)
-          playerRatings.set(scoreRequest.requester_id, {
-            player_id: scoreRequest.requester_id,
-            current_rating: requesterRating?.current_rating || 1200,
-            matches_played: requesterRating?.matches_played || 0,
-            is_provisional: requesterRating?.is_provisional !== false
-          })
-
-          // Player 2 (opponent)
-          const opponentRating = existingRatings?.find(r => r.player_id === scoreRequest.opponent_id)
-          playerRatings.set(scoreRequest.opponent_id, {
-            player_id: scoreRequest.opponent_id,
-            current_rating: opponentRating?.current_rating || 1200,
-            matches_played: opponentRating?.matches_played || 0,
-            is_provisional: opponentRating?.is_provisional !== false
-          })
-
-          // Create match result for rating calculation
-          const matchForRating: MatchResult = {
-            id: scoreRequest.match_id,
-            player1_id: scoreRequest.requester_id,
-            player2_id: scoreRequest.opponent_id,
-            player1_score: scoreRequest.player1_score!,
-            player2_score: scoreRequest.player2_score!,
-            completed_at: completedAt
-          }
-
-          // Calculate new ratings
-          const calculator = new USATTRatingCalculator()
-          const player1CurrentRating = playerRatings.get(scoreRequest.requester_id)!.current_rating
-          const player2CurrentRating = playerRatings.get(scoreRequest.opponent_id)!.current_rating
-          
-          const ratingResults = calculator.calculateMatchRatings(
-            matchForRating,
-            player1CurrentRating,
-            player2CurrentRating
-          )
-
-          // Update ratings in database
-          const player1Matches = (playerRatings.get(scoreRequest.requester_id)?.matches_played || 0) + 1
-          const player2Matches = (playerRatings.get(scoreRequest.opponent_id)?.matches_played || 0) + 1
-
-          const ratingUpdates = [
-            {
-              player_id: scoreRequest.requester_id,
-              league_id: league.id,
-              current_rating: ratingResults.player1NewRating,
-              matches_played: player1Matches,
-              is_provisional: player1Matches < 2,
-              last_updated_at: new Date().toISOString()
-            },
-            {
-              player_id: scoreRequest.opponent_id,
-              league_id: league.id,
-              current_rating: ratingResults.player2NewRating,
-              matches_played: player2Matches,
-              is_provisional: player2Matches < 2,
-              last_updated_at: new Date().toISOString()
-            }
-          ]
-
-          // Use upsert to update ratings
-          await supabase
-            .from('player_ratings')
-            .upsert(ratingUpdates, {
-              onConflict: 'player_id,league_id',
-              ignoreDuplicates: false
+        const ratingUpdateResult = await updateRatingsForMatch(league.id, scoreRequest.match_id)
+        
+        if (!ratingUpdateResult.success) {
+          console.error('Rating update failed:', ratingUpdateResult.error)
+        } else {
+          console.log(`Successfully updated ratings for ${ratingUpdateResult.updated_players} players`)
+          if (ratingUpdateResult.player_ratings) {
+            ratingUpdateResult.player_ratings.forEach(rating => {
+              console.log(`Player ${rating.player_id}: ${rating.old_rating} -> ${rating.new_rating} (${rating.rating_change > 0 ? '+' : ''}${rating.rating_change})`)
             })
+          }
         }
       } catch (error) {
         console.error('Error updating ratings after match completion:', error)

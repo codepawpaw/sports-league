@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { USATTRatingCalculator, MatchResult, PlayerRating } from '@/lib/usatt-rating-calculator'
+import { recalculateAllRatings } from '@/lib/rating-updater'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -50,92 +50,22 @@ export async function PUT(
       return NextResponse.json({ error: 'Not authorized to manage this league' }, { status: 403 })
     }
 
-    // Fetch all completed matches for this league
-    const { data: matches, error: matchesError } = await supabase
+    // Use the helper function to recalculate all ratings
+    const ratingResult = await recalculateAllRatings(league.id)
+
+    if (!ratingResult.success) {
+      console.error('Rating recalculation failed:', ratingResult.error)
+      return NextResponse.json({ 
+        error: ratingResult.error || 'Failed to recalculate ratings' 
+      }, { status: 500 })
+    }
+
+    // Get total matches count for response
+    const { count: matchesCount } = await supabase
       .from('matches')
-      .select(`
-        id,
-        player1_id,
-        player2_id,
-        player1_score,
-        player2_score,
-        completed_at
-      `)
+      .select('*', { count: 'exact', head: true })
       .eq('league_id', league.id)
       .eq('status', 'completed')
-      .order('completed_at', { ascending: true })
-
-    if (matchesError) {
-      console.error('Error fetching matches:', matchesError)
-      return NextResponse.json({ error: 'Failed to fetch matches' }, { status: 500 })
-    }
-
-    // Fetch current player ratings
-    const { data: existingRatings, error: ratingsError } = await supabase
-      .from('player_ratings')
-      .select('player_id, current_rating, matches_played, is_provisional')
-      .eq('league_id', league.id)
-
-    if (ratingsError) {
-      console.error('Error fetching ratings:', ratingsError)
-      return NextResponse.json({ error: 'Failed to fetch ratings' }, { status: 500 })
-    }
-
-    // Convert to required format
-    const matchResults: MatchResult[] = (matches || []).map(match => ({
-      id: match.id,
-      player1_id: match.player1_id,
-      player2_id: match.player2_id,
-      player1_score: match.player1_score || 0,
-      player2_score: match.player2_score || 0,
-      completed_at: match.completed_at
-    }))
-
-    const playerRatings = new Map<string, PlayerRating>()
-    
-    // Initialize all players who have matches
-    const allPlayerIds = new Set<string>()
-    matchResults.forEach(match => {
-      allPlayerIds.add(match.player1_id)
-      allPlayerIds.add(match.player2_id)
-    })
-
-    allPlayerIds.forEach(playerId => {
-      const existingRating = existingRatings?.find(r => r.player_id === playerId)
-      playerRatings.set(playerId, {
-        player_id: playerId,
-        current_rating: existingRating?.current_rating || 1200,
-        matches_played: 0, // Will be calculated during rating process
-        is_provisional: existingRating?.is_provisional !== false
-      })
-    })
-
-    // Calculate new ratings using USATT algorithm
-    const calculator = new USATTRatingCalculator()
-    const ratingResults = calculator.calculateLeagueRatings(matchResults, playerRatings)
-
-    // Update ratings in database
-    const ratingUpdates = ratingResults.map(result => ({
-      player_id: result.player_id,
-      league_id: league.id,
-      current_rating: result.new_rating,
-      matches_played: result.matches_played,
-      is_provisional: result.is_provisional,
-      last_updated_at: new Date().toISOString()
-    }))
-
-    // Use upsert to insert or update ratings
-    const { error: updateError } = await supabase
-      .from('player_ratings')
-      .upsert(ratingUpdates, {
-        onConflict: 'player_id,league_id',
-        ignoreDuplicates: false
-      })
-
-    if (updateError) {
-      console.error('Error updating ratings:', updateError)
-      return NextResponse.json({ error: 'Failed to update ratings' }, { status: 500 })
-    }
 
     return NextResponse.json({
       message: 'Ratings recalculated successfully',
@@ -143,8 +73,8 @@ export async function PUT(
         id: league.id,
         name: league.name
       },
-      updated_players: ratingResults.length,
-      total_matches_processed: matchResults.length
+      updated_players: ratingResult.updated_players || 0,
+      total_matches_processed: matchesCount || 0
     })
 
   } catch (error) {
