@@ -95,7 +95,18 @@ export async function POST(
 
     // Get request body
     const body = await request.json()
-    const { webhook_url, enabled, notify_new_matches, notify_approved_schedules, notify_match_completions } = body
+    const { 
+      webhook_url, 
+      enabled, 
+      notify_new_matches, 
+      notify_approved_schedules, 
+      notify_match_completions,
+      daily_summary_enabled,
+      daily_summary_time,
+      summary_include_streaks,
+      summary_include_rankings,
+      summary_include_schedule
+    } = body
 
     if (!webhook_url || typeof webhook_url !== 'string') {
       return NextResponse.json({ error: 'Valid webhook URL is required' }, { status: 400 })
@@ -136,7 +147,12 @@ export async function POST(
       enabled: enabled !== undefined ? enabled : true,
       notify_new_matches: notify_new_matches !== undefined ? notify_new_matches : true,
       notify_approved_schedules: notify_approved_schedules !== undefined ? notify_approved_schedules : true,
-      notify_match_completions: notify_match_completions !== undefined ? notify_match_completions : true
+      notify_match_completions: notify_match_completions !== undefined ? notify_match_completions : true,
+      daily_summary_enabled: daily_summary_enabled !== undefined ? daily_summary_enabled : false,
+      daily_summary_time: daily_summary_time || '09:00:00',
+      summary_include_streaks: summary_include_streaks !== undefined ? summary_include_streaks : true,
+      summary_include_rankings: summary_include_rankings !== undefined ? summary_include_rankings : true,
+      summary_include_schedule: summary_include_schedule !== undefined ? summary_include_schedule : true
     }
 
     const { data: integration, error: integrationError } = await supabase

@@ -71,6 +71,12 @@ interface ChatIntegration {
   notify_new_matches: boolean
   notify_approved_schedules: boolean
   notify_match_completions: boolean
+  daily_summary_enabled: boolean
+  daily_summary_time: string
+  summary_include_streaks: boolean
+  summary_include_rankings: boolean
+  summary_include_schedule: boolean
+  last_summary_sent: string | null
   created_at: string
   updated_at: string
 }
@@ -120,10 +126,16 @@ export default function AdminPage() {
     enabled: true,
     notify_new_matches: true,
     notify_approved_schedules: true,
-    notify_match_completions: true
+    notify_match_completions: true,
+    daily_summary_enabled: false,
+    daily_summary_time: '09:00',
+    summary_include_streaks: true,
+    summary_include_rankings: true,
+    summary_include_schedule: true
   })
   const [savingChatConfig, setSavingChatConfig] = useState(false)
   const [testingChat, setTestingChat] = useState(false)
+  const [sendingDailySummary, setSendingDailySummary] = useState(false)
   const [recalculatingRatings, setRecalculatingRatings] = useState(false)
   
   const [newMatch, setNewMatch] = useState({
@@ -328,7 +340,12 @@ export default function AdminPage() {
             enabled: data.integration.enabled,
             notify_new_matches: data.integration.notify_new_matches,
             notify_approved_schedules: data.integration.notify_approved_schedules,
-            notify_match_completions: data.integration.notify_match_completions
+            notify_match_completions: data.integration.notify_match_completions,
+            daily_summary_enabled: data.integration.daily_summary_enabled || false,
+            daily_summary_time: data.integration.daily_summary_time || '09:00',
+            summary_include_streaks: data.integration.summary_include_streaks !== false,
+            summary_include_rankings: data.integration.summary_include_rankings !== false,
+            summary_include_schedule: data.integration.summary_include_schedule !== false
           })
         }
       }
@@ -1035,7 +1052,12 @@ export default function AdminPage() {
           enabled: true,
           notify_new_matches: true,
           notify_approved_schedules: true,
-          notify_match_completions: true
+          notify_match_completions: true,
+          daily_summary_enabled: false,
+          daily_summary_time: '09:00',
+          summary_include_streaks: true,
+          summary_include_rankings: true,
+          summary_include_schedule: true
         })
         alert('Chat integration removed successfully')
       } else {
@@ -1044,6 +1066,36 @@ export default function AdminPage() {
     } catch (error) {
       console.error('Error removing chat integration:', error)
       alert('Failed to remove chat integration')
+    }
+  }
+
+  const handleSendDailySummary = async () => {
+    setSendingDailySummary(true)
+
+    try {
+      const response = await fetch(`/api/leagues/${slug}/chat-integration/daily-summary`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          include_streaks: chatConfig.summary_include_streaks,
+          include_rankings: chatConfig.summary_include_rankings,
+          include_schedule: chatConfig.summary_include_schedule
+        })
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        await fetchChatIntegration()
+        alert('✅ Daily summary sent successfully! Check your Google Chat space.')
+      } else {
+        alert(data.error || 'Failed to send daily summary')
+      }
+    } catch (error) {
+      console.error('Error sending daily summary:', error)
+      alert('Failed to send daily summary')
+    } finally {
+      setSendingDailySummary(false)
     }
   }
 
@@ -2438,6 +2490,117 @@ export default function AdminPage() {
                       </div>
                     )}
                   </div>
+
+                  {/* Daily Summary Settings */}
+                  {chatConfig.enabled && (
+                    <div className="space-y-4 border-t border-gray-200 pt-6">
+                      <h4 className="font-medium text-gray-900">Daily Summary Settings</h4>
+                      
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={chatConfig.daily_summary_enabled}
+                          onChange={(e) => setChatConfig(prev => ({ ...prev, daily_summary_enabled: e.target.checked }))}
+                          className="mr-3"
+                        />
+                        <div>
+                          <span className="text-sm font-medium text-gray-700">Enable Daily Summary</span>
+                          <p className="text-xs text-gray-500">Automatically send daily league summaries</p>
+                        </div>
+                      </label>
+
+                      {chatConfig.daily_summary_enabled && (
+                        <div className="ml-6 space-y-4 border-l-2 border-gray-200 pl-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Send Time (WIB)
+                            </label>
+                            <input
+                              type="time"
+                              value={chatConfig.daily_summary_time}
+                              onChange={(e) => setChatConfig(prev => ({ ...prev, daily_summary_time: e.target.value }))}
+                              className="input-field w-32"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">
+                              Daily summary will be sent at this time (Indonesia Western Time)
+                            </p>
+                          </div>
+
+                          <div>
+                            <span className="block text-sm font-medium text-gray-700 mb-3">Include in Summary</span>
+                            <div className="space-y-2">
+                              <label className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={chatConfig.summary_include_streaks}
+                                  onChange={(e) => setChatConfig(prev => ({ ...prev, summary_include_streaks: e.target.checked }))}
+                                  className="mr-3"
+                                />
+                                <div>
+                                  <span className="text-sm text-gray-700">Winning Streak Monster</span>
+                                  <p className="text-xs text-gray-500">Show player with longest current winning streak</p>
+                                </div>
+                              </label>
+
+                              <label className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={chatConfig.summary_include_rankings}
+                                  onChange={(e) => setChatConfig(prev => ({ ...prev, summary_include_rankings: e.target.checked }))}
+                                  className="mr-3"
+                                />
+                                <div>
+                                  <span className="text-sm text-gray-700">Current Rankings</span>
+                                  <p className="text-xs text-gray-500">Show top 3 players in the league</p>
+                                </div>
+                              </label>
+
+                              <label className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={chatConfig.summary_include_schedule}
+                                  onChange={(e) => setChatConfig(prev => ({ ...prev, summary_include_schedule: e.target.checked }))}
+                                  className="mr-3"
+                                />
+                                <div>
+                                  <span className="text-sm text-gray-700">Today's Match Schedule</span>
+                                  <p className="text-xs text-gray-500">Show matches scheduled for today</p>
+                                </div>
+                              </label>
+                            </div>
+                          </div>
+
+                          {chatIntegration && (
+                            <div className="mt-4">
+                              <button
+                                type="button"
+                                onClick={handleSendDailySummary}
+                                className="btn-outline"
+                                disabled={sendingDailySummary}
+                              >
+                                {sendingDailySummary ? (
+                                  <>
+                                    <Clock className="h-4 w-4 mr-2 animate-spin" />
+                                    Sending...
+                                  </>
+                                ) : (
+                                  <>
+                                    <MessageSquare className="h-4 w-4 mr-2" />
+                                    Send Summary Now
+                                  </>
+                                )}
+                              </button>
+                              {chatIntegration.last_summary_sent && (
+                                <p className="text-xs text-gray-500 mt-2">
+                                  Last sent: {new Date(chatIntegration.last_summary_sent).toLocaleString('en-US', { timeZone: 'Asia/Jakarta' })} WIB
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <div className="flex gap-3">
                     <button 
