@@ -529,6 +529,153 @@ export class GoogleChatNotifier {
     }
   }
 
+  static async notifyDailySummaryWithData(webhookUrl: string, data: DailySummaryData): Promise<boolean> {
+    const currentDate = new Date().toLocaleDateString('en-US', {
+      timeZone: 'Asia/Jakarta',
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    })
+
+    const widgets: any[] = [
+      {
+        textParagraph: {
+          text: `📊 Here's your daily league summary for <b>${currentDate}</b>`
+        }
+      }
+    ]
+
+    // Winning Streak Monster Section
+    if (data.includeStreaks && data.winningStreakMonster) {
+      const monster = data.winningStreakMonster
+      widgets.push(
+        {
+          textParagraph: {
+            text: `🔥 <b>Winning Streak Monster</b>`
+          }
+        },
+        {
+          keyValue: {
+            topLabel: 'Player',
+            content: monster.name,
+            contentMultiline: false
+          }
+        },
+        {
+          keyValue: {
+            topLabel: 'Current Streak',
+            content: `${monster.streak} wins in a row!`,
+            contentMultiline: false
+          }
+        },
+        {
+          keyValue: {
+            topLabel: 'Overall Record',
+            content: `${monster.wins}W-${monster.losses}L (${monster.winRate}% win rate)`,
+            contentMultiline: false
+          }
+        }
+      )
+    } else if (data.includeStreaks) {
+      widgets.push({
+        textParagraph: {
+          text: `🔥 <b>Winning Streak Monster</b>\nNo players currently have a winning streak of 3 or more.`
+        }
+      })
+    }
+
+    // Top Rankings Section
+    if (data.includeRankings && data.topRankings && data.topRankings.length > 0) {
+      widgets.push({
+        textParagraph: {
+          text: `🏆 <b>Current Top Rankings</b>`
+        }
+      })
+
+      data.topRankings.forEach(player => {
+        const rankEmoji = player.rank === 1 ? '👑' : player.rank === 2 ? '🥈' : '🥉'
+        widgets.push({
+          keyValue: {
+            topLabel: `${rankEmoji} #${player.rank}`,
+            content: `${player.name} - ${player.rating} ELO (${player.wins}W-${player.losses}L, ${player.points} pts)`,
+            contentMultiline: false
+          }
+        })
+      })
+    } else if (data.includeRankings) {
+      widgets.push({
+        textParagraph: {
+          text: `🏆 <b>Current Top Rankings</b>\nNo rankings available yet.`
+        }
+      })
+    }
+
+    // Today's Schedule Section
+    if (data.includeSchedule && data.todayMatches && data.todayMatches.length > 0) {
+      widgets.push({
+        textParagraph: {
+          text: `📅 <b>Today's Match Schedule</b>`
+        }
+      })
+
+      data.todayMatches.forEach(match => {
+        const time = new Date(match.scheduledAt).toLocaleTimeString('en-US', {
+          timeZone: 'Asia/Jakarta',
+          hour: '2-digit',
+          minute: '2-digit'
+        })
+        widgets.push({
+          keyValue: {
+            topLabel: `${time}`,
+            content: `${match.player1Name} vs ${match.player2Name}`,
+            contentMultiline: false
+          }
+        })
+      })
+    } else if (data.includeSchedule) {
+      widgets.push({
+        textParagraph: {
+          text: `📅 <b>Today's Match Schedule</b>\nNo matches scheduled for today.`
+        }
+      })
+    }
+
+    // Add view league button
+    widgets.push({
+      buttons: [
+        {
+          textButton: {
+            text: 'View League',
+            onClick: {
+              openLink: {
+                url: `${data.appUrl}/${data.leagueSlug}`
+              }
+            }
+          }
+        }
+      ]
+    })
+
+    const card: GoogleChatCard = {
+      header: {
+        title: '📊 Daily League Summary',
+        subtitle: data.leagueName,
+      },
+      sections: [
+        {
+          widgets: widgets
+        }
+      ]
+    }
+
+    const message: GoogleChatMessage = {
+      cards: [card]
+    }
+
+    return this.sendMessage(webhookUrl, message)
+  }
+
   static async testNotification(webhookUrl: string, leagueName: string): Promise<boolean> {
     const card: GoogleChatCard = {
       header: {

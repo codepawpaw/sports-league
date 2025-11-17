@@ -156,7 +156,7 @@ export async function POST(
     const summaryData: DailySummaryData = {
       leagueName: league.name,
       leagueSlug: league.slug,
-      appUrl: process.env.NEXT_PUBLIC_APP_URL || 'https://app.example.com',
+      appUrl: process.env.NEXT_PUBLIC_APP_URL || `${request.nextUrl.origin}`,
       winningStreakMonster,
       topRankings,
       todayMatches,
@@ -165,8 +165,8 @@ export async function POST(
       includeSchedule: chatIntegration.summary_include_schedule
     }
 
-    // Send notification
-    const success = await GoogleChatNotifier.notifyDailySummary(
+    // Send notification using new method with pre-fetched data
+    const success = await GoogleChatNotifier.notifyDailySummaryWithData(
       chatIntegration.webhook_url,
       summaryData
     )
