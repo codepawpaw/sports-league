@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase'
+import { GoogleChatNotifier, MatchCompletionData } from '@/lib/googleChat'
 
 export async function DELETE(
   request: NextRequest,
@@ -171,13 +172,14 @@ export async function PUT(
     // If approved, update the match with final scores and complete it
     if (action === 'approve') {
       // Update the match with scores, mark as completed, and set completion timestamp
+      const completedAt = new Date().toISOString()
       const { error: matchUpdateError } = await supabase
         .from('matches')
         .update({
           player1_score: scoreRequest.player1_score,
           player2_score: scoreRequest.player2_score,
           status: 'completed',
-          completed_at: new Date().toISOString()
+          completed_at: completedAt
         })
         .eq('id', scoreRequest.match_id)
 
@@ -186,6 +188,101 @@ export async function PUT(
         return NextResponse.json({ 
           error: 'Failed to update match scores' 
         }, { status: 500 })
+      }
+
+      // Send Google Chat notification for match completion
+      try {
+        // Get match details with player names and league info
+        const { data: matchDetails, error: matchDetailsError } = await supabase
+          .from('matches')
+          .select(`
+            id,
+            player1_score,
+            player2_score,
+            player1_id,
+            player2_id,
+            league_id,
+            season_id
+          `)
+          .eq('id', scoreRequest.match_id)
+          .single()
+
+        if (!matchDetailsError && matchDetails) {
+          // Get player names
+          const { data: playersData, error: playersError } = await supabase
+            .from('participants')
+            .select('id, name')
+            .in('id', [matchDetails.player1_id, matchDetails.player2_id])
+
+          // Get league info
+          const { data: leagueData, error: leagueDataError } = await supabase
+            .from('leagues')
+            .select('id, name, slug')
+            .eq('id', matchDetails.league_id)
+            .single()
+
+          // Get season info if exists
+          let seasonData = null
+          if (matchDetails.season_id) {
+            const { data: seasonResult, error: seasonError } = await supabase
+              .from('seasons')
+              .select('id, name')
+              .eq('id', matchDetails.season_id)
+              .single()
+            
+            if (!seasonError) seasonData = seasonResult
+          }
+
+          // Get chat integration settings
+          const { data: chatIntegration, error: chatError } = await supabase
+            .from('league_chat_integrations')
+            .select('webhook_url, enabled, notify_match_completions')
+            .eq('league_id', league.id)
+            .eq('enabled', true)
+            .eq('notify_match_completions', true)
+            .single()
+
+          if (!playersError && playersData && !leagueDataError && leagueData && !chatError && chatIntegration) {
+            // Map players by ID
+            const playersMap = playersData.reduce((acc, player) => {
+              acc[player.id] = player
+              return acc
+            }, {} as Record<string, { id: string; name: string }>)
+
+            // Determine winner
+            const player1Score = scoreRequest.player1_score!
+            const player2Score = scoreRequest.player2_score!
+            const player1Name = playersMap[matchDetails.player1_id]?.name || 'Player 1'
+            const player2Name = playersMap[matchDetails.player2_id]?.name || 'Player 2'
+            
+            let winnerName = 'Draw'
+            if (player1Score > player2Score) {
+              winnerName = player1Name
+            } else if (player2Score > player1Score) {
+              winnerName = player2Name
+            }
+
+            const notificationData: MatchCompletionData = {
+              leagueName: leagueData.name,
+              seasonName: seasonData?.name,
+              player1Name: player1Name,
+              player2Name: player2Name,
+              player1Score: player1Score,
+              player2Score: player2Score,
+              winnerName: winnerName,
+              completedAt: completedAt,
+              leagueSlug: slug,
+              appUrl: process.env.NEXT_PUBLIC_APP_URL || 'https://app.example.com'
+            }
+
+            // Send notification (don't block the response if it fails)
+            GoogleChatNotifier.notifyMatchCompleted(chatIntegration.webhook_url, notificationData)
+              .catch(error => console.error('Failed to send match completion notification:', error))
+          }
+        }
+      } catch (error) {
+        console.error('Error sending Google Chat notification:', error)
+        // Don't fail the request if notification fails
       }
 
       // Delete the approved score request

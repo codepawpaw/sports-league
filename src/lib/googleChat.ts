@@ -52,6 +52,19 @@ interface ScheduleApprovalData {
   appUrl: string
 }
 
+interface MatchCompletionData {
+  leagueName: string
+  seasonName?: string
+  player1Name: string
+  player2Name: string
+  player1Score: number
+  player2Score: number
+  winnerName: string
+  completedAt: string
+  leagueSlug: string
+  appUrl: string
+}
+
 export class GoogleChatNotifier {
   private static async sendMessage(webhookUrl: string, message: GoogleChatMessage): Promise<boolean> {
     try {
@@ -205,6 +218,93 @@ export class GoogleChatNotifier {
     return this.sendMessage(webhookUrl, message)
   }
 
+  static async notifyMatchCompleted(webhookUrl: string, data: MatchCompletionData): Promise<boolean> {
+    const isDraw = data.player1Score === data.player2Score
+    const scoreDisplay = `${data.player1Score} - ${data.player2Score}`
+    
+    const card: GoogleChatCard = {
+      header: {
+        title: '🏆 Match Completed',
+        subtitle: data.leagueName,
+      },
+      sections: [
+        {
+          widgets: [
+            {
+              keyValue: {
+                topLabel: 'Match',
+                content: `${data.player1Name} vs ${data.player2Name}`,
+                contentMultiline: false
+              }
+            },
+            {
+              keyValue: {
+                topLabel: 'Final Score',
+                content: scoreDisplay,
+                contentMultiline: false
+              }
+            },
+            ...(data.seasonName ? [{
+              keyValue: {
+                topLabel: 'Season',
+                content: data.seasonName,
+                contentMultiline: false
+              }
+            }] : []),
+            {
+              keyValue: {
+                topLabel: 'Result',
+                content: isDraw ? '🤝 Draw!' : `🎉 ${data.winnerName} wins!`,
+                contentMultiline: false
+              }
+            },
+            {
+              keyValue: {
+                topLabel: 'Completed',
+                content: new Date(data.completedAt).toLocaleString('en-US', {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                }),
+                contentMultiline: false
+              }
+            },
+            {
+              textParagraph: {
+                text: isDraw 
+                  ? '⚖️ What an intense match! Both players showed excellent skills.'
+                  : `🏓 Congratulations to <b>${data.winnerName}</b> for the victory!`
+              }
+            },
+            {
+              buttons: [
+                {
+                  textButton: {
+                    text: 'View League',
+                    onClick: {
+                      openLink: {
+                        url: `${data.appUrl}/${data.leagueSlug}`
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+
+    const message: GoogleChatMessage = {
+      cards: [card]
+    }
+
+    return this.sendMessage(webhookUrl, message)
+  }
+
   static async testNotification(webhookUrl: string, leagueName: string): Promise<boolean> {
     const card: GoogleChatCard = {
       header: {
@@ -239,4 +339,4 @@ export class GoogleChatNotifier {
   }
 }
 
-export type { MatchNotificationData, ScheduleApprovalData }
+export type { MatchNotificationData, ScheduleApprovalData, MatchCompletionData }
