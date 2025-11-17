@@ -104,6 +104,7 @@ export async function GET(
       const set_diff = sets_won - sets_lost
       const points = wins * 2
 
+      console.log("p.player_ratings = ", p.player_ratings)
       // Get rating information
       const ratingData = p.player_ratings?.[0]
       
