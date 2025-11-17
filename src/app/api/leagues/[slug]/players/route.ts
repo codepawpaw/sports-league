@@ -111,8 +111,6 @@ export async function GET(
       )
     }
 
-    console.log("participantsData = ", participantsData)
-
     const participants = (participantsData as SupabaseParticipantData[]).map((p: SupabaseParticipantData) => {
       const completedMatches1 = p.player1_matches?.filter((m: SupabaseMatchData) => m.status === 'completed') || []
       const completedMatches2 = p.player2_matches?.filter((m: SupabaseMatchData) => m.status === 'completed') || []
@@ -147,7 +145,6 @@ export async function GET(
       const set_diff = sets_won - sets_lost
       const points = wins * 2
 
-      console.log("p.player_ratings = ", p.player_ratings)
       // Get rating information
       const ratingData = p.player_ratings?.[0]
       

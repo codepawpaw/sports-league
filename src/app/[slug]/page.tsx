@@ -90,12 +90,30 @@ export default function LeaguePage() {
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [isParticipant, setIsParticipant] = useState(false)
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false)
+  const [hasShownAutoModal, setHasShownAutoModal] = useState(false)
 
   useEffect(() => {
     if (slug) {
       fetchLeagueData()
     }
   }, [slug])
+
+  // Auto-modal logic: show modal when user is authenticated but not a participant
+  useEffect(() => {
+    if (currentUser !== null && !loading && slug) {
+      // Check if we've already shown the auto-modal for this league
+      const storageKey = `autoModal_${slug}`
+      const hasShownBefore = localStorage.getItem(storageKey) === 'true'
+      
+      if (currentUser && !isParticipant && !hasShownBefore && !hasShownAutoModal) {
+        // Show the modal automatically
+        setIsRegisterModalOpen(true)
+        setHasShownAutoModal(true)
+        // Mark as shown in localStorage
+        localStorage.setItem(storageKey, 'true')
+      }
+    }
+  }, [currentUser, isParticipant, loading, slug, hasShownAutoModal])
 
   const handleLogout = async () => {
     try {
