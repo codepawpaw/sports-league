@@ -176,23 +176,22 @@ export async function POST(
         .single()
 
       if (currentActiveSeason) {
-        // Copy participants from current active season
-        const { data: existingParticipants } = await supabase
-          .from('participants')
-          .select('name, email')
+        // Get participants from current active season
+        const { data: existingSeasonParticipants } = await supabase
+          .from('season_participants')
+          .select('participant_id')
           .eq('season_id', currentActiveSeason.id)
 
-        if (existingParticipants && existingParticipants.length > 0) {
-          const participantInserts = existingParticipants.map(p => ({
-            league_id: league.id,
+        if (existingSeasonParticipants && existingSeasonParticipants.length > 0) {
+          // Add existing participants to new season
+          const seasonParticipantInserts = existingSeasonParticipants.map(sp => ({
             season_id: newSeason.id,
-            name: p.name,
-            email: p.email
+            participant_id: sp.participant_id
           }))
 
           await supabase
-            .from('participants')
-            .insert(participantInserts)
+            .from('season_participants')
+            .insert(seasonParticipantInserts)
         }
       }
     }

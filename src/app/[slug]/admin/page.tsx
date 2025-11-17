@@ -18,6 +18,7 @@ interface Participant {
   id: string
   name: string
   email: string | null
+  in_current_season?: boolean
 }
 
 interface Match {
@@ -213,15 +214,39 @@ export default function AdminPage() {
 
   const fetchData = async (leagueId: string) => {
     try {
-      // Fetch participants
+      // Get active season
+      const { data: activeSeasonData } = await supabase
+        .from('seasons')
+        .select('id')
+        .eq('league_id', leagueId)
+        .eq('is_active', true)
+        .single()
+
+      // Fetch all participants for the league
       const { data: participantsData } = await supabase
         .from('participants')
         .select('*')
         .eq('league_id', leagueId)
         .order('name')
 
-      if (participantsData) {
-        setParticipants(participantsData)
+      if (participantsData && activeSeasonData) {
+        // Get participants in current season
+        const { data: seasonParticipants } = await supabase
+          .from('season_participants')
+          .select('participant_id')
+          .eq('season_id', activeSeasonData.id)
+
+        const participantIds = new Set(seasonParticipants?.map(sp => sp.participant_id) || [])
+
+        // Mark which participants are in current season
+        const enhancedParticipants = participantsData.map(p => ({
+          ...p,
+          in_current_season: participantIds.has(p.id)
+        }))
+
+        setParticipants(enhancedParticipants)
+      } else {
+        setParticipants(participantsData || [])
       }
 
       // Fetch matches
@@ -324,21 +349,39 @@ export default function AdminPage() {
     }
 
     try {
-      const { error } = await supabase
+      // First, add participant to league
+      const { data: newParticipantData, error: participantError } = await supabase
         .from('participants')
         .insert({
           league_id: league.id,
-          season_id: activeSeason.id,
           name: newParticipant.name.trim(),
           email: newParticipant.email.trim() || null
         })
+        .select()
+        .single()
 
-      if (!error) {
-        setNewParticipant({ name: '', email: '' })
-        await fetchData(league.id)
-      } else {
-        alert('Error adding participant: ' + error.message)
+      if (participantError) {
+        alert('Error adding participant: ' + participantError.message)
+        return
       }
+
+      // Then, add participant to active season
+      const { error: seasonParticipantError } = await supabase
+        .from('season_participants')
+        .insert({
+          season_id: activeSeason.id,
+          participant_id: newParticipantData.id
+        })
+
+      if (seasonParticipantError) {
+        // If adding to season fails, remove the participant
+        await supabase.from('participants').delete().eq('id', newParticipantData.id)
+        alert('Error adding participant to season: ' + seasonParticipantError.message)
+        return
+      }
+
+      setNewParticipant({ name: '', email: '' })
+      await fetchData(league.id)
     } catch (error) {
       console.error('Error adding participant:', error)
       alert('Failed to add participant')
@@ -879,6 +922,66 @@ export default function AdminPage() {
     }
   }
 
+  // Season participant management functions
+  const handleAddToSeason = async (participantId: string) => {
+    if (!activeSeason) {
+      alert('No active season found')
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('season_participants')
+        .insert({
+          season_id: activeSeason.id,
+          participant_id: participantId
+        })
+
+      if (!error) {
+        await fetchData(league!.id)
+        alert('Participant added to current season successfully!')
+      } else {
+        if (error.code === '23505') { // Unique constraint violation
+          alert('Participant is already in the current season')
+        } else {
+          alert('Error adding participant to season: ' + error.message)
+        }
+      }
+    } catch (error) {
+      console.error('Error adding participant to season:', error)
+      alert('Failed to add participant to season')
+    }
+  }
+
+  const handleRemoveFromSeason = async (participantId: string) => {
+    if (!activeSeason) {
+      alert('No active season found')
+      return
+    }
+
+    if (!confirm('Are you sure you want to remove this participant from the current season?')) {
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('season_participants')
+        .delete()
+        .eq('season_id', activeSeason.id)
+        .eq('participant_id', participantId)
+
+      if (!error) {
+        await fetchData(league!.id)
+        alert('Participant removed from current season successfully!')
+      } else {
+        alert('Error removing participant from season: ' + error.message)
+      }
+    } catch (error) {
+      console.error('Error removing participant from season:', error)
+      alert('Failed to remove participant from season')
+    }
+  }
+
   // Player rating recalculation function
   const handleRecalculateRatings = async () => {
     if (!league) return
@@ -1086,6 +1189,7 @@ export default function AdminPage() {
                       <tr>
                         <th className="table-header">Name</th>
                         <th className="table-header">Email</th>
+                        <th className="table-header">Current Season</th>
                         <th className="table-header">Actions</th>
                       </tr>
                     </thead>
@@ -1117,33 +1221,65 @@ export default function AdminPage() {
                             )}
                           </td>
                           <td className="table-cell">
+                            {participant.in_current_season ? (
+                              <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
+                                In Season
+                              </span>
+                            ) : (
+                              <span className="px-2 py-1 bg-gray-100 text-gray-800 text-xs font-medium rounded-full">
+                                Not in Season
+                              </span>
+                            )}
+                          </td>
+                          <td className="table-cell">
                             <div className="flex gap-2">
                               {editingParticipant === participant.id ? (
                                 <>
                                   <button
                                     onClick={() => handleEditParticipant(participant.id)}
                                     className="p-2 text-green-600 hover:text-green-800"
+                                    title="Save changes"
                                   >
                                     <Save className="h-4 w-4" />
                                   </button>
                                   <button
                                     onClick={() => setEditingParticipant(null)}
                                     className="p-2 text-gray-600 hover:text-gray-800"
+                                    title="Cancel editing"
                                   >
                                     <X className="h-4 w-4" />
                                   </button>
                                 </>
                               ) : (
                                 <>
+                                  {participant.in_current_season ? (
+                                    <button
+                                      onClick={() => handleRemoveFromSeason(participant.id)}
+                                      className="p-2 text-orange-600 hover:text-orange-800"
+                                      title="Remove from current season"
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={() => handleAddToSeason(participant.id)}
+                                      className="p-2 text-green-600 hover:text-green-800"
+                                      title="Add to current season"
+                                    >
+                                      <Plus className="h-4 w-4" />
+                                    </button>
+                                  )}
                                   <button
                                     onClick={() => startEditingParticipant(participant)}
                                     className="p-2 text-blue-600 hover:text-blue-800"
+                                    title="Edit participant"
                                   >
                                     <Edit className="h-4 w-4" />
                                   </button>
                                   <button
                                     onClick={() => handleDeleteParticipant(participant.id)}
                                     className="p-2 text-red-600 hover:text-red-800"
+                                    title="Delete participant"
                                   >
                                     <Trash2 className="h-4 w-4" />
                                   </button>

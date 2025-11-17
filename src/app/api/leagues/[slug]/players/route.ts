@@ -49,7 +49,49 @@ export async function GET(
       )
     }
 
-    // Fetch participants with calculated stats and ratings
+    // Get active season for the league
+    const { data: activeSeason, error: seasonError } = await supabase
+      .from('seasons')
+      .select('id')
+      .eq('league_id', league.id)
+      .eq('is_active', true)
+      .single()
+
+    if (seasonError || !activeSeason) {
+      return NextResponse.json(
+        { error: 'No active season found' },
+        { status: 404 }
+      )
+    }
+
+    // First get participant IDs for the active season
+    const { data: seasonParticipants, error: seasonParticipantsError } = await supabase
+      .from('season_participants')
+      .select('participant_id')
+      .eq('season_id', activeSeason.id)
+
+    if (seasonParticipantsError) {
+      console.error('Error fetching season participants:', seasonParticipantsError)
+      return NextResponse.json(
+        { error: 'Failed to fetch season participants' },
+        { status: 500 }
+      )
+    }
+
+    const participantIds = seasonParticipants?.map(sp => sp.participant_id) || []
+
+    if (participantIds.length === 0) {
+      return NextResponse.json({
+        league: {
+          id: league.id,
+          name: league.name
+        },
+        players: [],
+        total: 0
+      })
+    }
+
+    // Fetch participants for active season with calculated stats and ratings
     const { data: participantsData, error: participantsError } = await supabase
       .from('participants')
       .select(`
@@ -59,9 +101,10 @@ export async function GET(
         player_ratings!player_ratings_player_id_fkey(current_rating, matches_played, is_provisional)
       `)
       .eq('league_id', league.id)
+      .in('id', participantIds)
 
     if (participantsError) {
-      console.error('Error fetching participants:', participantsError)
+      console.error('Error fetching participants:',   )
       return NextResponse.json(
         { error: 'Failed to fetch participants' },
         { status: 500 }
