@@ -16,8 +16,20 @@ interface CommonOpponent {
 }
 
 interface HeadToHeadData {
-  player1: { id: string; name: string }
-  player2: { id: string; name: string }
+  player1: { 
+    id: string
+    name: string
+    current_rating: number
+    is_provisional: boolean
+    matches_played: number
+  }
+  player2: { 
+    id: string
+    name: string
+    current_rating: number
+    is_provisional: boolean
+    matches_played: number
+  }
   direct_matches: {
     player1_wins: number
     player2_wins: number
@@ -27,8 +39,15 @@ interface HeadToHeadData {
   probability: {
     player1_chance: number
     player2_chance: number
-    confidence: 'high' | 'medium' | 'low'
-    basis: 'direct_matches' | 'common_opponents' | 'insufficient_data'
+    confidence: 'high' | 'medium' | 'low' | 'very_low'
+    basis: 'direct_matches' | 'rating_with_matches' | 'rating_based' | 'common_opponents' | 'insufficient_data'
+    rating_difference: number
+    factors_used: string[]
+  }
+  rating_analysis: {
+    rating_difference: number
+    expected_probability: number
+    rating_confidence: 'established' | 'developing' | 'provisional'
   }
 }
 
@@ -90,10 +109,34 @@ export default function HeadToHeadComparison({ participants, slug }: HeadToHeadC
   const getBasisText = (basis: string) => {
     switch (basis) {
       case 'direct_matches': return 'Based on direct matches'
+      case 'rating_with_matches': return 'Based on ratings and match history'
+      case 'rating_based': return 'Based on player ratings'
       case 'common_opponents': return 'Based on common opponents'
       case 'insufficient_data': return 'Insufficient data'
       default: return 'Unknown'
     }
+  }
+
+  const getRatingColor = (isProvisional: boolean) => {
+    return isProvisional ? 'text-orange-600' : 'text-green-600'
+  }
+
+  const getRatingConfidenceText = (confidence: string) => {
+    switch (confidence) {
+      case 'established': return 'Established ratings'
+      case 'developing': return 'Developing ratings'
+      case 'provisional': return 'Provisional ratings'
+      default: return 'Unknown rating status'
+    }
+  }
+
+  const getFactorsText = (factors: string[]) => {
+    const factorNames: Record<string, string> = {
+      'ratings': 'Player Ratings',
+      'direct_matches': 'Direct Matches',
+      'common_opponents': 'Common Opponents'
+    }
+    return factors.map(factor => factorNames[factor] || factor).join(' + ')
   }
 
   return (
@@ -172,6 +215,60 @@ export default function HeadToHeadComparison({ participants, slug }: HeadToHeadC
         {/* Results */}
         {headToHeadData && !loading && (
           <div className="space-y-6">
+            {/* Player Ratings */}
+            <div className="bg-white border border-gray-200 rounded-lg p-6">
+              <div className="flex items-center mb-4">
+                <BarChart3 className="h-5 w-5 text-black mr-2" />
+                <h3 className="text-lg font-semibold text-black">Player Ratings</h3>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="text-center">
+                  <div className="mb-2">
+                    <div className={`text-3xl font-bold ${getRatingColor(headToHeadData.player1.is_provisional)}`}>
+                      {headToHeadData.player1.current_rating}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {headToHeadData.player1.is_provisional && '(Provisional)'}
+                    </div>
+                  </div>
+                  <div className="text-sm font-medium text-gray-700">{headToHeadData.player1.name}</div>
+                  <div className="text-xs text-gray-500">{headToHeadData.player1.matches_played} matches played</div>
+                </div>
+                
+                <div className="text-center">
+                  <div className="mb-2">
+                    <div className={`text-3xl font-bold ${getRatingColor(headToHeadData.player2.is_provisional)}`}>
+                      {headToHeadData.player2.current_rating}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {headToHeadData.player2.is_provisional && '(Provisional)'}
+                    </div>
+                  </div>
+                  <div className="text-sm font-medium text-gray-700">{headToHeadData.player2.name}</div>
+                  <div className="text-xs text-gray-500">{headToHeadData.player2.matches_played} matches played</div>
+                </div>
+              </div>
+              
+              <div className="mt-4 pt-4 border-t border-gray-200 text-center">
+                <div className="text-sm text-gray-600">
+                  Rating Difference: <span className="font-medium">
+                    {Math.abs(headToHeadData.rating_analysis.rating_difference)} points
+                  </span>
+                  {headToHeadData.rating_analysis.rating_difference !== 0 && (
+                    <span className="ml-1">
+                      ({headToHeadData.rating_analysis.rating_difference > 0 
+                        ? `${headToHeadData.player1.name} higher`
+                        : `${headToHeadData.player2.name} higher`})
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {getRatingConfidenceText(headToHeadData.rating_analysis.rating_confidence)}
+                </div>
+              </div>
+            </div>
+
             {/* Probability Visualization */}
             <div className="bg-gray-50 rounded-lg p-6">
               <div className="flex items-center justify-between mb-4">
@@ -213,11 +310,52 @@ export default function HeadToHeadComparison({ participants, slug }: HeadToHeadC
                 ></div>
               </div>
 
-              <div className="text-center">
+              <div className="text-center mb-4">
                 <p className="text-sm text-gray-600">
                   {getBasisText(headToHeadData.probability.basis)}
                 </p>
+                {headToHeadData.probability.factors_used.length > 0 && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Factors: {getFactorsText(headToHeadData.probability.factors_used)}
+                  </p>
+                )}
               </div>
+
+              {/* Rating Analysis Details */}
+              {(headToHeadData.probability.basis === 'rating_based' || 
+                headToHeadData.probability.basis === 'rating_with_matches') && (
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-600">Rating-based prediction:</span>
+                      <span className="ml-2 font-medium">
+                        {headToHeadData.rating_analysis.expected_probability}% - {100 - headToHeadData.rating_analysis.expected_probability}%
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">Rating difference impact:</span>
+                      <span className="ml-2 font-medium">
+                        {Math.abs(headToHeadData.rating_analysis.rating_difference)} point{Math.abs(headToHeadData.rating_analysis.rating_difference) !== 1 ? 's' : ''} 
+                        {headToHeadData.rating_analysis.rating_difference > 0 ? ' advantage' : headToHeadData.rating_analysis.rating_difference < 0 ? ' disadvantage' : ''}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {headToHeadData.probability.basis === 'rating_with_matches' && 
+                   headToHeadData.direct_matches.total_matches > 0 && (
+                    <div className="mt-3 text-xs text-gray-500">
+                      <div className="bg-gray-100 rounded p-2">
+                        <div className="font-medium mb-1">Analysis Method:</div>
+                        <div>
+                          Combined rating prediction ({headToHeadData.rating_analysis.expected_probability}%) with 
+                          direct match history ({Math.round((headToHeadData.direct_matches.player1_wins / headToHeadData.direct_matches.total_matches) * 100)}%) 
+                          for enhanced accuracy
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Direct Matches */}

@@ -12,10 +12,16 @@ interface HeadToHeadData {
   player1: {
     id: string
     name: string
+    current_rating: number
+    is_provisional: boolean
+    matches_played: number
   }
   player2: {
     id: string
     name: string
+    current_rating: number
+    is_provisional: boolean
+    matches_played: number
   }
   direct_matches: {
     player1_wins: number
@@ -26,8 +32,15 @@ interface HeadToHeadData {
   probability: {
     player1_chance: number
     player2_chance: number
-    confidence: 'high' | 'medium' | 'low'
-    basis: 'direct_matches' | 'common_opponents' | 'insufficient_data'
+    confidence: 'high' | 'medium' | 'low' | 'very_low'
+    basis: 'direct_matches' | 'rating_with_matches' | 'rating_based' | 'common_opponents' | 'insufficient_data'
+    rating_difference: number
+    factors_used: string[]
+  }
+  rating_analysis: {
+    rating_difference: number
+    expected_probability: number
+    rating_confidence: 'established' | 'developing' | 'provisional'
   }
 }
 
@@ -94,10 +107,18 @@ export async function GET(
       return NextResponse.json({ error: 'League not found' }, { status: 404 })
     }
 
-    // Get player info
+    // Get player info with ratings
     const { data: players, error: playersError } = await supabase
       .from('participants')
-      .select('id, name')
+      .select(`
+        id, 
+        name,
+        player_ratings!player_ratings_player_id_fkey(
+          current_rating,
+          matches_played,
+          is_provisional
+        )
+      `)
       .eq('league_id', league.id)
       .in('id', [player1Id, player2Id])
 
@@ -105,8 +126,28 @@ export async function GET(
       return NextResponse.json({ error: 'One or both players not found' }, { status: 404 })
     }
 
-    const player1 = players.find((p: Player) => p.id === player1Id)!
-    const player2 = players.find((p: Player) => p.id === player2Id)!
+    const player1Data = players.find((p: any) => p.id === player1Id)!
+    const player2Data = players.find((p: any) => p.id === player2Id)!
+
+    // Extract rating information
+    const player1Rating = player1Data.player_ratings?.[0]
+    const player2Rating = player2Data.player_ratings?.[0]
+
+    const player1 = {
+      id: player1Data.id,
+      name: player1Data.name,
+      current_rating: player1Rating?.current_rating || 1200,
+      is_provisional: player1Rating?.is_provisional ?? true,
+      matches_played: player1Rating?.matches_played || 0
+    }
+
+    const player2 = {
+      id: player2Data.id,
+      name: player2Data.name,
+      current_rating: player2Rating?.current_rating || 1200,
+      is_provisional: player2Rating?.is_provisional ?? true,
+      matches_played: player2Rating?.matches_played || 0
+    }
 
     // Get direct matches between the two players
     const { data: directMatches, error: directMatchesError } = await supabase
@@ -228,22 +269,68 @@ export async function GET(
       }
     }))
 
-    // Calculate probability
-    let player1Chance = 50
-    let player2Chance = 50
-    let confidence: 'high' | 'medium' | 'low' = 'low'
-    let basis: 'direct_matches' | 'common_opponents' | 'insufficient_data' = 'insufficient_data'
+    // Enhanced rating-based probability calculation
+    const ratingDifference = player1.current_rating - player2.current_rating
+    
+    // Calculate ELO-based expected probability
+    const expectedPlayer1Probability = 1 / (1 + Math.pow(10, -ratingDifference / 400))
+    const expectedPlayer1Percentage = Math.round(expectedPlayer1Probability * 100)
+    const expectedPlayer2Percentage = 100 - expectedPlayer1Percentage
+
+    // Determine rating confidence
+    let ratingConfidence: 'established' | 'developing' | 'provisional' = 'provisional'
+    if (!player1.is_provisional && !player2.is_provisional) {
+      if (player1.matches_played >= 15 && player2.matches_played >= 15) {
+        ratingConfidence = 'established'
+      } else if (player1.matches_played >= 8 && player2.matches_played >= 8) {
+        ratingConfidence = 'developing'
+      }
+    } else if (!player1.is_provisional || !player2.is_provisional) {
+      if ((player1.matches_played + player2.matches_played) >= 15) {
+        ratingConfidence = 'developing'
+      }
+    }
+
+    // Initialize calculation variables
+    let player1Chance = expectedPlayer1Percentage
+    let player2Chance = expectedPlayer2Percentage
+    let confidence: 'high' | 'medium' | 'low' | 'very_low' = 'very_low'
+    let basis: 'direct_matches' | 'rating_with_matches' | 'rating_based' | 'common_opponents' | 'insufficient_data' = 'rating_based'
+    const factorsUsed: string[] = ['ratings']
 
     const totalDirectMatches = player1DirectWins + player2DirectWins
 
-    if (totalDirectMatches >= 3) {
-      // Use direct matches if we have enough data
-      player1Chance = Math.round((player1DirectWins / totalDirectMatches) * 100)
+    // Enhanced multi-factor analysis
+    if (totalDirectMatches >= 5) {
+      // Strong direct match history - blend with ratings
+      const directMatchProbability = player1DirectWins / totalDirectMatches
+      const directMatchPercentage = Math.round(directMatchProbability * 100)
+      
+      // Weight: 70% direct matches, 30% rating for high match count
+      player1Chance = Math.round(0.7 * directMatchPercentage + 0.3 * expectedPlayer1Percentage)
       player2Chance = 100 - player1Chance
-      confidence = totalDirectMatches >= 5 ? 'high' : 'medium'
-      basis = 'direct_matches'
-    } else if (commonOpponents.length > 0) {
-      // Use improved common opponents method for transitive analysis
+      
+      confidence = 'high'
+      basis = 'rating_with_matches'
+      factorsUsed.push('direct_matches')
+      
+      console.log(`High confidence blend: ${player1.name} ${player1Chance}% (direct: ${directMatchPercentage}%, rating: ${expectedPlayer1Percentage}%)`)
+    } else if (totalDirectMatches >= 3) {
+      // Moderate direct match history - blend with ratings
+      const directMatchProbability = player1DirectWins / totalDirectMatches
+      const directMatchPercentage = Math.round(directMatchProbability * 100)
+      
+      // Weight: 60% direct matches, 40% rating for moderate match count
+      player1Chance = Math.round(0.6 * directMatchPercentage + 0.4 * expectedPlayer1Percentage)
+      player2Chance = 100 - player1Chance
+      
+      confidence = ratingConfidence === 'established' ? 'high' : 'medium'
+      basis = 'rating_with_matches'
+      factorsUsed.push('direct_matches')
+      
+      console.log(`Medium confidence blend: ${player1.name} ${player1Chance}% (direct: ${directMatchPercentage}%, rating: ${expectedPlayer1Percentage}%)`)
+    } else if (commonOpponents.length >= 2) {
+      // Use common opponents analysis with rating adjustment
       let validComparisons = 0
       let player1AdvantageSum = 0
 
@@ -251,16 +338,11 @@ export async function GET(
         const p1Games = opponent.player1_record.wins + opponent.player1_record.losses
         const p2Games = opponent.player2_record.wins + opponent.player2_record.losses
 
-        // Only consider opponents both players have actually played against
         if (p1Games > 0 && p2Games > 0) {
           const player1WinRate = opponent.player1_record.wins / p1Games
           const player2WinRate = opponent.player2_record.wins / p2Games
-          
-          // Calculate the performance difference against this common opponent
-          // Higher win rate = better performance
           const performanceDiff = player1WinRate - player2WinRate
           
-          // Weight by minimum games played (more reliable comparisons get higher weight)
           const weight = Math.min(p1Games, p2Games)
           player1AdvantageSum += performanceDiff * weight
           validComparisons += weight
@@ -268,55 +350,43 @@ export async function GET(
       })
 
       if (validComparisons > 0) {
-        // Calculate weighted average advantage
         const avgAdvantage = player1AdvantageSum / validComparisons
+        const scaledAdvantage = Math.max(-1.5, Math.min(1.5, avgAdvantage * 2))
+        const commonOpponentsProbability = 1 / (1 + Math.exp(-scaledAdvantage))
+        const commonOpponentsPercentage = Math.round(commonOpponentsProbability * 100)
         
-        // Convert advantage to probability using sigmoid-like function
-        // This ensures probabilities stay within reasonable bounds (20% - 80%)
-        const scaledAdvantage = Math.max(-2, Math.min(2, avgAdvantage * 3))
-        const probabilityFromAdvantage = 1 / (1 + Math.exp(-scaledAdvantage))
+        // Blend common opponents with rating (50-50 for established ratings, 30-70 for developing/provisional)
+        const ratingWeight = ratingConfidence === 'established' ? 0.5 : 0.7
+        const commonOpponentsWeight = 1 - ratingWeight
         
-        // Scale to 20-80% range to avoid extreme probabilities
-        const minProb = 20
-        const maxProb = 80
-        player1Chance = Math.round(minProb + (maxProb - minProb) * probabilityFromAdvantage)
+        player1Chance = Math.round(ratingWeight * expectedPlayer1Percentage + commonOpponentsWeight * commonOpponentsPercentage)
         player2Chance = 100 - player1Chance
         
-        // Set confidence based on data quality
-        const totalGames = commonOpponents.reduce((sum, opp) => {
-          return sum + (opp.player1_record.wins + opp.player1_record.losses) + 
-                     (opp.player2_record.wins + opp.player2_record.losses)
-        }, 0)
+        confidence = ratingConfidence === 'established' ? 'medium' : 'low'
+        basis = 'rating_with_matches'
+        factorsUsed.push('common_opponents')
         
-        if (commonOpponents.length >= 3 && totalGames >= 10) {
-          confidence = 'medium'
-        } else if (commonOpponents.length >= 2 && totalGames >= 6) {
-          confidence = 'low'
-        } else {
-          confidence = 'low'
-        }
-        
-        basis = 'common_opponents'
-        
-        console.log(`Head-to-head calculation for ${player1.name} vs ${player2.name}:`)
-        console.log(`- Common opponents: ${commonOpponents.length}`)
-        console.log(`- Valid comparisons weight: ${validComparisons}`)
-        console.log(`- Average advantage: ${avgAdvantage}`)
-        console.log(`- Final probability: ${player1Chance}% vs ${player2Chance}%`)
+        console.log(`Common opponents blend: ${player1.name} ${player1Chance}% (rating: ${expectedPlayer1Percentage}%, common: ${commonOpponentsPercentage}%)`)
+      }
+    }
+
+    // Set final confidence based on rating quality and available data
+    if (confidence === 'very_low') {
+      if (ratingConfidence === 'established') {
+        confidence = 'medium'
+        basis = 'rating_based'
+      } else if (ratingConfidence === 'developing') {
+        confidence = 'low'
+        basis = 'rating_based'
       } else {
-        console.log(`No valid common opponent data for ${player1.name} vs ${player2.name}`)
+        confidence = 'very_low'
+        basis = 'insufficient_data'
       }
     }
 
     const result: HeadToHeadData = {
-      player1: {
-        id: player1.id,
-        name: player1.name
-      },
-      player2: {
-        id: player2.id,
-        name: player2.name
-      },
+      player1,
+      player2,
       direct_matches: {
         player1_wins: player1DirectWins,
         player2_wins: player2DirectWins,
@@ -327,7 +397,14 @@ export async function GET(
         player1_chance: player1Chance,
         player2_chance: player2Chance,
         confidence,
-        basis
+        basis,
+        rating_difference: ratingDifference,
+        factors_used: factorsUsed
+      },
+      rating_analysis: {
+        rating_difference: ratingDifference,
+        expected_probability: expectedPlayer1Percentage,
+        rating_confidence: ratingConfidence
       }
     }
 
