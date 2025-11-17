@@ -314,6 +314,14 @@ export default function LeaguePage() {
                   Admin Panel
                 </Link>
               )}
+              {currentUser && !isParticipant && (
+                <button 
+                  onClick={() => setIsRegisterModalOpen(true)} 
+                  className="btn-compact"
+                >
+                  Register as Player
+                </button>
+              )}
               {currentUser ? (
                 <button onClick={handleLogout} className="btn-compact">
                   Log Out
@@ -349,14 +357,6 @@ export default function LeaguePage() {
               <Link href={`/${slug}/results`} className="btn-compact">
                 All Results
               </Link>
-              {currentUser && !isParticipant && (
-                <button 
-                  onClick={() => setIsRegisterModalOpen(true)} 
-                  className="btn-compact"
-                >
-                  Register as Player
-                </button>
-              )}
               {currentUser && isParticipant && (
                 <Link href={`/${slug}/my-matches`} className="btn-compact">
                   My Matches
