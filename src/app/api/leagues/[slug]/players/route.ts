@@ -12,6 +12,12 @@ interface SupabaseMatchData {
   status: string
 }
 
+interface SupabaseRatingData {
+  current_rating: number
+  matches_played: number
+  is_provisional: boolean
+}
+
 interface SupabaseParticipantData {
   id: string
   name: string
@@ -19,6 +25,7 @@ interface SupabaseParticipantData {
   league_id: string
   player1_matches?: SupabaseMatchData[]
   player2_matches?: SupabaseMatchData[]
+  player_ratings?: SupabaseRatingData[]
 }
 
 export async function GET(
@@ -42,13 +49,14 @@ export async function GET(
       )
     }
 
-    // Fetch participants with calculated stats
+    // Fetch participants with calculated stats and ratings
     const { data: participantsData, error: participantsError } = await supabase
       .from('participants')
       .select(`
         *,
         player1_matches:matches!matches_player1_id_fkey(id, player1_score, player2_score, status),
-        player2_matches:matches!matches_player2_id_fkey(id, player1_score, player2_score, status)
+        player2_matches:matches!matches_player2_id_fkey(id, player1_score, player2_score, status),
+        player_ratings!player_ratings_player_id_fkey(current_rating, matches_played, is_provisional)
       `)
       .eq('league_id', league.id)
 
@@ -94,6 +102,12 @@ export async function GET(
       const set_diff = sets_won - sets_lost
       const points = wins * 2
 
+      // Get rating information
+      const ratingData = p.player_ratings?.[0]
+      const current_rating = ratingData?.current_rating || 1200
+      const is_provisional = ratingData?.is_provisional || true
+      const total_matches = wins + losses
+
       return {
         id: p.id,
         name: p.name,
@@ -103,12 +117,20 @@ export async function GET(
         sets_won,
         sets_lost,
         set_diff,
-        points
+        points,
+        current_rating,
+        is_provisional,
+        total_matches
       }
     })
 
-    // Sort by points (descending), then by set diff (descending), then alphabetically by name (ascending)
+    // Sort by rating (descending), then by points (descending), then by set diff (descending), then alphabetically by name (ascending)
     participants.sort((a, b) => {
+      // Show non-provisional ratings first, then by rating value
+      if (a.is_provisional !== b.is_provisional) {
+        return a.is_provisional ? 1 : -1
+      }
+      if (a.current_rating !== b.current_rating) return b.current_rating - a.current_rating
       if (a.points !== b.points) return b.points - a.points
       if (a.set_diff !== b.set_diff) return b.set_diff - a.set_diff
       return a.name.localeCompare(b.name)

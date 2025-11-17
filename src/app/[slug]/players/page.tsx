@@ -23,6 +23,9 @@ interface Player {
   sets_lost: number
   set_diff: number
   points: number
+  current_rating: number
+  is_provisional: boolean
+  total_matches: number
 }
 
 interface PlayersData {
@@ -179,13 +182,13 @@ export default function PlayersPage() {
                   <tr>
                     <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Rank</th>
                     <th className="bg-gray-50 border-b border-gray-200 px-4 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Player</th>
-                    <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Total Matches</th>
+                    <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Rating</th>
+                    <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Matches</th>
                     <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">W</th>
                     <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">L</th>
                     <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Sets W</th>
                     <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Sets L</th>
                     <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Set Diff</th>
-                    <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Points</th>
                     <th className="bg-gray-50 border-b border-gray-200 px-4 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
@@ -199,7 +202,22 @@ export default function PlayersPage() {
                         <span className="font-medium">{player.name}</span>
                       </td>
                       <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">
-                        <span className="font-medium">{player.wins + player.losses}</span>
+                        {player.total_matches >= 2 ? (
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-lg">{player.current_rating}</span>
+                            {player.is_provisional && (
+                              <span className="text-xs text-gray-500">Provisional</span>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="flex flex-col">
+                            <span className="text-gray-400 text-sm">No Rating</span>
+                            <span className="text-xs text-gray-500">Need {2 - player.total_matches} more match{2 - player.total_matches !== 1 ? 'es' : ''}</span>
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">
+                        <span className="font-medium">{player.total_matches}</span>
                       </td>
                       <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">{player.wins}</td>
                       <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">{player.losses}</td>
@@ -209,9 +227,6 @@ export default function PlayersPage() {
                         <span className={`font-medium ${player.set_diff >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                           {player.set_diff >= 0 ? '+' : ''}{player.set_diff}
                         </span>
-                      </td>
-                      <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">
-                        <span className="font-semibold">{player.points}</span>
                       </td>
                       <td className="px-4 py-4 border-b border-gray-200 text-sm text-gray-900">
                         <button
