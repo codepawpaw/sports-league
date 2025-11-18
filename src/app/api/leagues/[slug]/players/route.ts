@@ -11,6 +11,7 @@ interface SupabaseMatchData {
   player2_score: number | null
   status: string
   completed_at: string | null
+  season_id: string
 }
 
 interface SupabaseRatingData {
@@ -97,29 +98,29 @@ export async function GET(
       .from('participants')
       .select(`
         *,
-        player1_matches:matches!matches_player1_id_fkey(id, player1_score, player2_score, status, completed_at),
-        player2_matches:matches!matches_player2_id_fkey(id, player1_score, player2_score, status, completed_at),
+        player1_matches:matches!matches_player1_id_fkey(id, player1_score, player2_score, status, completed_at, season_id),
+        player2_matches:matches!matches_player2_id_fkey(id, player1_score, player2_score, status, completed_at, season_id),
         player_ratings!player_ratings_player_id_fkey(current_rating, matches_played, is_provisional)
       `)
       .eq('league_id', league.id)
       .in('id', participantIds)
 
     if (participantsError) {
-      console.error('Error fetching participants:',   )
+      console.error('Error fetching participants:', participantsError)
       return NextResponse.json(
         { error: 'Failed to fetch participants' },
         { status: 500 }
       )
     }
 
-    // Helper function to calculate current winning streak
+    // Helper function to calculate current winning streak (only for current season)
     const calculateWinningStreak = (player1Matches: SupabaseMatchData[], player2Matches: SupabaseMatchData[], playerId: string) => {
-      // Combine all completed matches with their results
+      // Combine all completed matches from current season with their results
       const allMatches: { completed_at: string, isWin: boolean }[] = []
 
-      // Process matches where player was player1
+      // Process matches where player was player1 (only current season)
       player1Matches.forEach(m => {
-        if (m.status === 'completed' && m.completed_at) {
+        if (m.status === 'completed' && m.completed_at && m.season_id === activeSeason.id) {
           const player1_sets = m.player1_score || 0
           const player2_sets = m.player2_score || 0
           allMatches.push({
@@ -129,9 +130,9 @@ export async function GET(
         }
       })
 
-      // Process matches where player was player2
+      // Process matches where player was player2 (only current season)
       player2Matches.forEach(m => {
-        if (m.status === 'completed' && m.completed_at) {
+        if (m.status === 'completed' && m.completed_at && m.season_id === activeSeason.id) {
           const player1_sets = m.player1_score || 0
           const player2_sets = m.player2_score || 0
           allMatches.push({
@@ -158,8 +159,13 @@ export async function GET(
     }
 
     const participants = (participantsData as SupabaseParticipantData[]).map((p: SupabaseParticipantData) => {
-      const completedMatches1 = p.player1_matches?.filter((m: SupabaseMatchData) => m.status === 'completed') || []
-      const completedMatches2 = p.player2_matches?.filter((m: SupabaseMatchData) => m.status === 'completed') || []
+      // Filter matches to only include those from the current active season
+      const completedMatches1 = p.player1_matches?.filter((m: SupabaseMatchData) => 
+        m.status === 'completed' && m.season_id === activeSeason.id
+      ) || []
+      const completedMatches2 = p.player2_matches?.filter((m: SupabaseMatchData) => 
+        m.status === 'completed' && m.season_id === activeSeason.id
+      ) || []
       
       let wins = 0
       let losses = 0
