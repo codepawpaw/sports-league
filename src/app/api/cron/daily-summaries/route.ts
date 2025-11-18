@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
             .select('*')
             .eq('league_id', league.id)
             .order('points', { ascending: false })
-            .order('current_rating', { ascending: false })
+            .order('set_diff', { ascending: false })
 
           participantsData = data
         }

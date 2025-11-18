@@ -67,7 +67,7 @@ export async function POST(
         .select('*')
         .eq('league_id', league.id)
         .order('points', { ascending: false })
-        .order('current_rating', { ascending: false })
+        .order('set_diff', { ascending: false })
 
       participantsData = data
     }
