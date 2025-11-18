@@ -34,10 +34,16 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { slug: string } }
 ) {
+  const timestamp = new Date().toISOString()
+  const requestId = Math.random().toString(36).substring(7)
+  
+  console.log(`[${timestamp}] [${requestId}] GET /api/leagues/${params.slug}/players - Starting request`)
+  
   try {
     const { slug } = params
 
     // Fetch league info
+    console.log(`[${timestamp}] [${requestId}] Fetching league data for slug: ${slug}`)
     const { data: league, error: leagueError } = await supabase
       .from('leagues')
       .select('id, name')
@@ -45,13 +51,17 @@ export async function GET(
       .single()
 
     if (leagueError || !league) {
+      console.log(`[${timestamp}] [${requestId}] League not found for slug: ${slug}`, leagueError)
       return NextResponse.json(
         { error: 'League not found' },
         { status: 404 }
       )
     }
 
+    console.log(`[${timestamp}] [${requestId}] Found league:`, { id: league.id, name: league.name })
+
     // Get active season for the league
+    console.log(`[${timestamp}] [${requestId}] Fetching active season for league: ${league.id}`)
     const { data: activeSeason, error: seasonError } = await supabase
       .from('seasons')
       .select('id')
@@ -60,20 +70,24 @@ export async function GET(
       .single()
 
     if (seasonError || !activeSeason) {
+      console.log(`[${timestamp}] [${requestId}] No active season found for league: ${league.id}`, seasonError)
       return NextResponse.json(
         { error: 'No active season found' },
         { status: 404 }
       )
     }
 
+    console.log(`[${timestamp}] [${requestId}] Found active season: ${activeSeason.id}`)
+
     // First get participant IDs for the active season
+    console.log(`[${timestamp}] [${requestId}] Fetching season participants for season: ${activeSeason.id}`)
     const { data: seasonParticipants, error: seasonParticipantsError } = await supabase
       .from('season_participants')
       .select('participant_id')
       .eq('season_id', activeSeason.id)
 
     if (seasonParticipantsError) {
-      console.error('Error fetching season participants:', seasonParticipantsError)
+      console.error(`[${timestamp}] [${requestId}] Error fetching season participants:`, seasonParticipantsError)
       return NextResponse.json(
         { error: 'Failed to fetch season participants' },
         { status: 500 }
@@ -81,8 +95,10 @@ export async function GET(
     }
 
     const participantIds = seasonParticipants?.map(sp => sp.participant_id) || []
+    console.log(`[${timestamp}] [${requestId}] Found ${participantIds.length} participants in active season`)
 
     if (participantIds.length === 0) {
+      console.log(`[${timestamp}] [${requestId}] No participants found, returning empty result`)
       const emptyResponse = NextResponse.json({
         league: {
           id: league.id,
@@ -96,11 +112,13 @@ export async function GET(
       emptyResponse.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0')
       emptyResponse.headers.set('Pragma', 'no-cache')
       emptyResponse.headers.set('Expires', '0')
+      emptyResponse.headers.set('Surrogate-Control', 'no-store')
 
       return emptyResponse
     }
 
     // Fetch participants for active season with calculated stats and ratings
+    console.log(`[${timestamp}] [${requestId}] Fetching participant data with matches and ratings`)
     const { data: participantsData, error: participantsError } = await supabase
       .from('participants')
       .select(`
@@ -113,12 +131,14 @@ export async function GET(
       .in('id', participantIds)
 
     if (participantsError) {
-      console.error('Error fetching participants:', participantsError)
+      console.error(`[${timestamp}] [${requestId}] Error fetching participants:`, participantsError)
       return NextResponse.json(
         { error: 'Failed to fetch participants' },
         { status: 500 }
       )
     }
+
+    console.log(`[${timestamp}] [${requestId}] Found ${participantsData?.length || 0} participants with match data`)
 
     // Helper function to calculate current winning streak (only for current season)
     const calculateWinningStreak = (player1Matches: SupabaseMatchData[], player2Matches: SupabaseMatchData[], playerId: string) => {
@@ -253,24 +273,32 @@ export async function GET(
       return a.name.localeCompare(b.name)
     })
 
+    console.log(`[${timestamp}] [${requestId}] Successfully calculated rankings for ${participants.length} participants`)
+
     const response = NextResponse.json({
       league: {
         id: league.id,
         name: league.name
       },
       players: participants,
-      total: participants.length
+      total: participants.length,
+      // Add timestamp for debugging
+      generated_at: timestamp,
+      request_id: requestId
     })
 
-    // Set cache-control headers to prevent caching
+    // Set comprehensive cache-control headers to prevent caching
     response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0')
     response.headers.set('Pragma', 'no-cache')
     response.headers.set('Expires', '0')
+    response.headers.set('Surrogate-Control', 'no-store')
+    response.headers.set('Vary', '*')
 
+    console.log(`[${timestamp}] [${requestId}] Returning response with ${participants.length} players`)
     return response
 
   } catch (error) {
-    console.error('Error in players API:', error)
+    console.error(`[${timestamp}] [${requestId}] Error in players API:`, error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

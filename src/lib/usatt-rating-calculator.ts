@@ -72,7 +72,6 @@ export class USATTRatingCalculator {
       const player1Rating = pass1Ratings.get(match.player1_id)
       const player2Rating = pass1Ratings.get(match.player2_id)
       
-      // Skip matches with unrated players
       if (!player1Rating || !player2Rating) continue
 
       const player1Won = match.player1_score > match.player2_score

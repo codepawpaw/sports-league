@@ -144,8 +144,12 @@ export default function LeaguePage() {
   }
 
   const fetchLeagueData = async () => {
+    const timestamp = Date.now()
+    const requestId = Math.random().toString(36).substring(7)
+    
     console.log("===================================")
-    console.log("Call fetch league")
+    console.log(`[${new Date().toISOString()}] [${requestId}] Call fetch league data for slug: ${slug}`)
+    
     try {
       setLoading(true)
 
@@ -163,21 +167,28 @@ export default function LeaguePage() {
 
       setLeague(leagueData)
 
-      // Fetch active season info
+      // Fetch active season info with stronger cache busting
       try {
-        const response = await fetch(`/api/leagues/${slug}/seasons?t=${Date.now()}`, {
+        const seasonUrl = `/api/leagues/${slug}/seasons?t=${timestamp}&r=${requestId}`
+        console.log(`[${new Date().toISOString()}] [${requestId}] Fetching season data from: ${seasonUrl}`)
+        
+        const response = await fetch(seasonUrl, {
+          method: 'GET',
           cache: 'no-store',
           headers: {
-            'Cache-Control': 'no-cache'
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
           }
         })
         if (response.ok) {
           const data = await response.json()
           const activeSeasonData = data.seasons.find((s: Season) => s.is_active)
           setActiveSeason(activeSeasonData || null)
+          console.log(`[${new Date().toISOString()}] [${requestId}] Found active season:`, activeSeasonData?.name || 'None')
         }
       } catch (error) {
-        console.error('Error fetching season data:', error)
+        console.error(`[${new Date().toISOString()}] [${requestId}] Error fetching season data:`, error)
       }
 
       // Check if current user is admin and participant
@@ -205,21 +216,34 @@ export default function LeaguePage() {
         setIsParticipant(!!participantData)
       }
 
-      // Fetch participants with ratings from API
+      // Fetch participants with ratings from API with stronger cache busting
       try {
-        const playersResponse = await fetch(`/api/leagues/${slug}/players?t=${Date.now()}`, {
+        const playersUrl = `/api/leagues/${slug}/players?t=${timestamp}&r=${requestId}`
+        console.log(`[${new Date().toISOString()}] [${requestId}] Fetching players data from: ${playersUrl}`)
+        
+        const playersResponse = await fetch(playersUrl, {
+          method: 'GET',
           cache: 'no-store',
           headers: {
-            'Cache-Control': 'no-cache'
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
           }
         })
         if (playersResponse.ok) {
           const playersData = await playersResponse.json()
-          console.log("playersData = ", playersData)
-          setParticipants(playersData.players)
+          console.log(`[${new Date().toISOString()}] [${requestId}] Received players data:`, {
+            players_count: playersData.players?.length || 0,
+            generated_at: playersData.generated_at,
+            request_id: playersData.request_id
+          })
+          setParticipants(playersData.players || [])
+        } else {
+          console.error(`[${new Date().toISOString()}] [${requestId}] Failed to fetch players:`, playersResponse.status, playersResponse.statusText)
+          setParticipants([])
         }
       } catch (error) {
-        console.error('Error fetching players:', error)
+        console.error(`[${new Date().toISOString()}] [${requestId}] Error fetching players:`, error)
         // Fallback to empty array
         setParticipants([])
       }
