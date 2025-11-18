@@ -141,6 +141,10 @@ export default function AdminPage() {
   const [showPreviewModal, setShowPreviewModal] = useState(false)
   const [dailySummaryPreview, setDailySummaryPreview] = useState<any>(null)
   
+  // Announcement state
+  const [announcementText, setAnnouncementText] = useState('')
+  const [sendingAnnouncement, setSendingAnnouncement] = useState(false)
+  
   const [newMatch, setNewMatch] = useState({
     player1Id: '',
     player2Id: '',
@@ -1236,6 +1240,39 @@ export default function AdminPage() {
       alert('❌ Failed to recalculate ratings. Please check your internet connection and try again.')
     } finally {
       setRecalculatingRatings(false)
+    }
+  }
+
+  // Announcement function
+  const handleSendAnnouncement = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!announcementText.trim()) {
+      alert('Please enter an announcement text')
+      return
+    }
+
+    setSendingAnnouncement(true)
+
+    try {
+      const response = await fetch(`/api/leagues/${slug}/chat-integration/announcement`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ announcement: announcementText.trim() })
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setAnnouncementText('')
+        alert('✅ Announcement sent successfully! Check your Google Chat space.')
+      } else {
+        alert(data.error || 'Failed to send announcement')
+      }
+    } catch (error) {
+      console.error('Error sending announcement:', error)
+      alert('Failed to send announcement')
+    } finally {
+      setSendingAnnouncement(false)
     }
   }
 
@@ -2703,6 +2740,74 @@ export default function AdminPage() {
                   </div>
                 </form>
               </div>
+
+              {/* Custom Announcement Section */}
+              {chatIntegration && chatIntegration.enabled && (
+                <div className="card p-6 mb-6">
+                  <h3 className="text-lg font-semibold text-black mb-4">Send Custom Announcement</h3>
+                  <p className="text-gray-600 mb-4">
+                    Send a custom announcement to your Google Chat space. This will appear as a league announcement card.
+                  </p>
+                  
+                  <form onSubmit={handleSendAnnouncement} className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Announcement Message *
+                      </label>
+                      <textarea
+                        placeholder="Enter your announcement message here..."
+                        value={announcementText}
+                        onChange={(e) => setAnnouncementText(e.target.value)}
+                        className="input-field"
+                        rows={4}
+                        maxLength={2000}
+                        required
+                      />
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>Plain text only (no special formatting)</span>
+                        <span>{announcementText.length}/2000 characters</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex gap-3">
+                      <button 
+                        type="submit" 
+                        className="btn-primary"
+                        disabled={sendingAnnouncement || !announcementText.trim()}
+                      >
+                        {sendingAnnouncement ? (
+                          <>
+                            <Clock className="h-4 w-4 mr-2 animate-spin" />
+                            Sending...
+                          </>
+                        ) : (
+                          <>
+                            <MessageSquare className="h-4 w-4 mr-2" />
+                            Send Announcement
+                          </>
+                        )}
+                      </button>
+                      
+                      {announcementText.trim() && (
+                        <button
+                          type="button"
+                          onClick={() => setAnnouncementText('')}
+                          className="btn-outline"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  </form>
+                  
+                  <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                    <h4 className="text-sm font-medium text-blue-900 mb-1">Preview</h4>
+                    <p className="text-sm text-blue-700">
+                      Your announcement will appear as a rich card with "📢 League Announcement" header, your message, timestamp, and a "View League" button.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Integration Status */}
               <div className="card p-6">

@@ -708,6 +708,69 @@ export class GoogleChatNotifier {
 
     return this.sendMessage(webhookUrl, message)
   }
+
+  static async sendCustomAnnouncement(
+    webhookUrl: string, 
+    leagueName: string, 
+    announcementText: string, 
+    leagueSlug: string, 
+    appUrl: string
+  ): Promise<boolean> {
+    const currentTime = new Date().toLocaleString('en-US', {
+      timeZone: 'Asia/Jakarta',
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+    const card: GoogleChatCard = {
+      header: {
+        title: '📢 League Announcement',
+        subtitle: leagueName,
+      },
+      sections: [
+        {
+          widgets: [
+            {
+              textParagraph: {
+                text: announcementText
+              }
+            },
+            {
+              keyValue: {
+                topLabel: 'Posted',
+                content: `${currentTime} WIB`,
+                contentMultiline: false
+              }
+            },
+            {
+              buttons: [
+                {
+                  textButton: {
+                    text: 'View League',
+                    onClick: {
+                      openLink: {
+                        url: `${appUrl}/${leagueSlug}`
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+
+    const message: GoogleChatMessage = {
+      cards: [card]
+    }
+
+    return this.sendMessage(webhookUrl, message)
+  }
 }
 
 export type { MatchNotificationData, ScheduleApprovalData, MatchCompletionData, DailySummaryData }
