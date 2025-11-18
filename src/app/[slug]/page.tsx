@@ -213,6 +213,7 @@ export default function LeaguePage() {
         })
         if (playersResponse.ok) {
           const playersData = await playersResponse.json()
+          console.log("playersData = ", playersData)
           setParticipants(playersData.players)
         }
       } catch (error) {
