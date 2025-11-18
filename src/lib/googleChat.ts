@@ -1,3 +1,5 @@
+import { formatDateTimeWithTimezone, formatTimeWithTimezone, getDayBoundariesInUTC, getUserTimezone } from './timezone'
+
 interface GoogleChatCard {
   header?: {
     title: string
@@ -41,6 +43,7 @@ interface MatchNotificationData {
   scheduledAt?: string
   leagueSlug: string
   appUrl: string
+  timezone?: string
 }
 
 interface ScheduleApprovalData {
@@ -50,6 +53,7 @@ interface ScheduleApprovalData {
   scheduledAt: string
   leagueSlug: string
   appUrl: string
+  timezone?: string
 }
 
 interface ScheduleRequestData {
@@ -60,6 +64,7 @@ interface ScheduleRequestData {
   proposedAt: string
   leagueSlug: string
   appUrl: string
+  timezone?: string
 }
 
 interface MatchCompletionData {
@@ -73,12 +78,14 @@ interface MatchCompletionData {
   completedAt: string
   leagueSlug: string
   appUrl: string
+  timezone?: string
 }
 
 interface DailySummaryData {
   leagueName: string
   leagueSlug: string
   appUrl: string
+  timezone?: string
   winningStreakMonster?: {
     name: string
     streak: number
@@ -154,13 +161,10 @@ export class GoogleChatNotifier {
             ...(data.scheduledAt ? [{
               keyValue: {
                 topLabel: 'Scheduled',
-                content: new Date(data.scheduledAt).toLocaleString('en-US', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
+                content: formatDateTimeWithTimezone(data.scheduledAt, {
+                  targetTimezone: data.timezone,
+                  dateStyle: 'full',
+                  timeStyle: 'short'
                 }),
                 contentMultiline: false
               }
@@ -216,13 +220,10 @@ export class GoogleChatNotifier {
             {
               keyValue: {
                 topLabel: 'Scheduled',
-                content: new Date(data.scheduledAt).toLocaleString('en-US', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
+                content: formatDateTimeWithTimezone(data.scheduledAt, {
+                  targetTimezone: data.timezone,
+                  dateStyle: 'full',
+                  timeStyle: 'short'
                 }),
                 contentMultiline: false
               }
@@ -284,13 +285,10 @@ export class GoogleChatNotifier {
             {
               keyValue: {
                 topLabel: 'Proposed Time',
-                content: new Date(data.proposedAt).toLocaleString('en-US', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
+                content: formatDateTimeWithTimezone(data.proposedAt, {
+                  targetTimezone: data.timezone,
+                  dateStyle: 'full',
+                  timeStyle: 'short'
                 }),
                 contentMultiline: false
               }
@@ -369,13 +367,10 @@ export class GoogleChatNotifier {
             {
               keyValue: {
                 topLabel: 'Completed',
-                content: new Date(data.completedAt).toLocaleString('en-US', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
+                content: formatDateTimeWithTimezone(data.completedAt, {
+                  targetTimezone: data.timezone,
+                  dateStyle: 'full',
+                  timeStyle: 'short'
                 }),
                 contentMultiline: false
               }
@@ -437,23 +432,19 @@ export class GoogleChatNotifier {
           playersData = await playersResponse.json();
         }
 
-        // Get today's matches
+        // Get today's matches using proper timezone handling
         let todayMatches = [];
         if (options.includeSchedule) {
-          // Get today's date in WIB (UTC+7)
-          const now = new Date();
-          const wibOffset = 7 * 60; // WIB is UTC+7
-          const wibTime = new Date(now.getTime() + (wibOffset * 60000));
-          const today = wibTime.toISOString().split('T')[0]; // YYYY-MM-DD format
-
           const matchesResponse = await fetch(`${options.appUrl}/api/leagues/${options.leagueSlug}/upcoming`);
           if (matchesResponse.ok) {
             const matchesData = await matchesResponse.json();
+            // Filter matches for today using UTC boundaries for Asia/Jakarta timezone
+            const { startOfDayUTC, endOfDayUTC } = getDayBoundariesInUTC(new Date(), 'Asia/Jakarta');
+            
             todayMatches = matchesData.matches.filter((match: any) => {
               if (!match.scheduled_at) return false;
               const matchDate = new Date(match.scheduled_at);
-              const matchWibDate = new Date(matchDate.getTime() + (wibOffset * 60000));
-              return matchWibDate.toISOString().split('T')[0] === today;
+              return matchDate >= startOfDayUTC && matchDate <= endOfDayUTC;
             });
           }
         }
@@ -530,18 +521,10 @@ export class GoogleChatNotifier {
         if (options.includeSchedule) {
           if (todayMatches.length > 0) {
             const scheduleText = todayMatches.map((match: any) => {
-              const matchTime = new Date(match.scheduled_at);
-              // Convert to WIB
-              const wibTime = new Date(matchTime.getTime() + (7 * 60 * 60 * 1000));
-              const timeStr = wibTime.toLocaleTimeString('en-US', {
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: false,
-                timeZone: 'UTC'
-              });
+              const timeStr = formatTimeWithTimezone(match.scheduled_at, 'Asia/Jakarta');
               
               return `🏓 <b>${match.player1.name}</b> vs <b>${match.player2.name}</b><br/>` +
-                     `⏰ ${timeStr} WIB`;
+                     `⏰ ${timeStr}`;
             }).join('<br/><br/>');
 
             sections.push({
@@ -566,12 +549,10 @@ export class GoogleChatNotifier {
       }
 
       // Build the complete message
-      const currentDate = new Date().toLocaleDateString('en-US', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        timeZone: 'Asia/Jakarta'
+      const currentDate = formatDateTimeWithTimezone(new Date().toISOString(), {
+        includeTime: false,
+        targetTimezone: 'Asia/Jakarta',
+        dateStyle: 'full'
       });
 
       const message = {
@@ -608,13 +589,12 @@ export class GoogleChatNotifier {
   }
 
   static async notifyDailySummaryWithData(webhookUrl: string, data: DailySummaryData): Promise<boolean> {
-    const currentDate = new Date().toLocaleDateString('en-US', {
-      timeZone: 'Asia/Jakarta',
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    })
+    const targetTimezone = data.timezone || 'Asia/Jakarta';
+    const currentDate = formatDateTimeWithTimezone(new Date().toISOString(), {
+      includeTime: false,
+      targetTimezone,
+      dateStyle: 'full'
+    });
 
     const widgets: any[] = [
       {
@@ -698,11 +678,7 @@ export class GoogleChatNotifier {
       })
 
       data.todayMatches.forEach(match => {
-        const time = new Date(match.scheduledAt).toLocaleTimeString('en-US', {
-          timeZone: 'Asia/Jakarta',
-          hour: '2-digit',
-          minute: '2-digit'
-        })
+        const time = formatTimeWithTimezone(match.scheduledAt, targetTimezone);
         widgets.push({
           keyValue: {
             topLabel: `${time}`,
@@ -792,16 +768,13 @@ export class GoogleChatNotifier {
     leagueName: string, 
     announcementText: string, 
     leagueSlug: string, 
-    appUrl: string
+    appUrl: string,
+    timezone: string = 'Asia/Jakarta'
   ): Promise<boolean> {
-    const currentTime = new Date().toLocaleString('en-US', {
-      timeZone: 'Asia/Jakarta',
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+    const currentTime = formatDateTimeWithTimezone(new Date().toISOString(), {
+      targetTimezone: timezone,
+      dateStyle: 'full',
+      timeStyle: 'short'
     });
 
     const card: GoogleChatCard = {
@@ -820,7 +793,7 @@ export class GoogleChatNotifier {
             {
               keyValue: {
                 topLabel: 'Posted',
-                content: `${currentTime} WIB`,
+                content: currentTime,
                 contentMultiline: false
               }
             },

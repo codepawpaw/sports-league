@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase'
 import { GoogleChatNotifier, MatchCompletionData } from '@/lib/googleChat'
 import { updateRatingsForMatch } from '@/lib/rating-updater'
+import { convertLocalToUTC } from '@/lib/timezone'
 
 export async function DELETE(
   request: NextRequest,

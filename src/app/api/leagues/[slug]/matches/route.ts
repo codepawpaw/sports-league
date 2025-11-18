@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase'
 import { GoogleChatNotifier } from '@/lib/googleChat'
+import { convertLocalToUTC } from '@/lib/timezone'
 
 export async function POST(
   request: NextRequest,
@@ -82,7 +83,7 @@ export async function POST(
       return NextResponse.json({ error: 'Player information not found' }, { status: 400 })
     }
 
-    // Create the match
+    // Create the match with proper UTC conversion for scheduled_at
     const { data: match, error: matchError } = await supabase
       .from('matches')
       .insert({
@@ -90,7 +91,7 @@ export async function POST(
         season_id: activeSeason.id,
         player1_id: player1_id,
         player2_id: player2_id,
-        scheduled_at: scheduled_at ? new Date(scheduled_at).toISOString() : null,
+        scheduled_at: scheduled_at ? convertLocalToUTC(scheduled_at) : null,
         status: 'scheduled'
       })
       .select()

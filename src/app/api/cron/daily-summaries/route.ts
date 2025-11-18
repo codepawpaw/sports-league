@@ -1,17 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase'
 import { GoogleChatNotifier, DailySummaryData } from '@/lib/googleChat'
+import { getDayBoundariesInUTC } from '@/lib/timezone'
 
 export async function GET(request: NextRequest) {
   try {
     const supabase = createSupabaseServerClient()
 
-    // Get current time in WIB (GMT+7)
+    // Get current time
     const now = new Date()
-    const wibOffset = 7 * 60 * 60 * 1000 // GMT+7
-    const nowWIB = new Date(now.getTime() + wibOffset)
-    const currentTimeWIB = nowWIB.getHours().toString().padStart(2, '0') + ':' + 
-                           nowWIB.getMinutes().toString().padStart(2, '0')
+    
+    // Use Asia/Jakarta timezone for daily summary scheduling
+    const targetTimezone = 'Asia/Jakarta'
+    const nowInTimezone = new Date().toLocaleString('en-CA', { 
+      timeZone: targetTimezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    }).replace(',', '')
+    
+    const localDateTime = new Date(nowInTimezone.replace(' ', 'T'))
+    const currentTimeFormatted = localDateTime.getHours().toString().padStart(2, '0') + ':' + 
+                                localDateTime.getMinutes().toString().padStart(2, '0')
 
     // Find leagues that need daily summaries sent
     const { data: integrations, error: integrationsError } = await supabase
@@ -53,7 +67,7 @@ export async function GET(request: NextRequest) {
         const summaryTimeFormatted = summaryTime.substring(0, 5) // HH:MM format
 
         // Check if current time matches the configured time (within 1 hour window)
-        const currentHour = nowWIB.getHours()
+        const currentHour = localDateTime.getHours()
         const summaryHour = parseInt(summaryTime.substring(0, 2))
         
         // Only send if we're in the correct hour and haven't sent today yet
@@ -61,12 +75,13 @@ export async function GET(request: NextRequest) {
           continue
         }
 
-        // Check if we already sent today
-        const today = nowWIB.toISOString().substring(0, 10) // YYYY-MM-DD format
+        // Check if we already sent today using timezone-aware date comparison
+        const { startOfDayUTC } = getDayBoundariesInUTC(localDateTime, targetTimezone)
+        const todayStart = startOfDayUTC.toISOString().substring(0, 10) // YYYY-MM-DD format
         const lastSent = integration.last_summary_sent ? 
           new Date(integration.last_summary_sent).toISOString().substring(0, 10) : null
 
-        if (lastSent === today) {
+        if (lastSent === todayStart) {
           continue // Already sent today
         }
 
@@ -133,16 +148,11 @@ export async function GET(request: NextRequest) {
           }))
         }
 
-        // Get today's matches (WIB timezone)
+        // Get today's matches using proper timezone handling
         let todayMatches = undefined
         if (integration.summary_include_schedule) {
-          // Get start and end of day in WIB
-          const startOfDay = new Date(nowWIB.getFullYear(), nowWIB.getMonth(), nowWIB.getDate())
-          const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000)
-
-          // Adjust back to UTC for database query
-          const startOfDayUTC = new Date(startOfDay.getTime() - wibOffset)
-          const endOfDayUTC = new Date(endOfDay.getTime() - wibOffset)
+          // Get start and end of day in target timezone, properly converted to UTC
+          const { startOfDayUTC, endOfDayUTC } = getDayBoundariesInUTC(localDateTime, targetTimezone)
 
           const { data: matches } = await supabase
             .from('matches')
@@ -179,6 +189,7 @@ export async function GET(request: NextRequest) {
           leagueName: league.name,
           leagueSlug: league.slug,
           appUrl: process.env.NEXT_PUBLIC_APP_URL || 'https://app.example.com',
+          timezone: targetTimezone,
           winningStreakMonster,
           topRankings,
           todayMatches,
@@ -220,7 +231,8 @@ export async function GET(request: NextRequest) {
       processed,
       errors,
       timestamp: now.toISOString(),
-      currentTimeWIB
+      currentTime: currentTimeFormatted,
+      timezone: targetTimezone
     })
 
   } catch (error) {

@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Calendar, Clock, X, Send, AlertCircle } from 'lucide-react'
+import { convertDateTimeLocalToUTC, getUserTimezone, formatDateTimeWithTimezone } from '@/lib/timezone'
 
 interface ScheduleRequestModalProps {
   isOpen: boolean
@@ -29,6 +30,7 @@ export default function ScheduleRequestModal({
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [userTimezone, setUserTimezone] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -38,17 +40,20 @@ export default function ScheduleRequestModal({
       return
     }
 
-    // Combine date and time into a proper ISO string
-    const dateTimeString = `${selectedDate}T${selectedTime}:00`
-    const requestedDate = new Date(dateTimeString)
-
-    // Check if the date is in the future
-    if (requestedDate <= new Date()) {
-      setError('Please select a future date and time')
-      return
-    }
-
     try {
+      // Combine date and time into datetime-local format
+      const dateTimeString = `${selectedDate}T${selectedTime}`
+      
+      // Convert local time to UTC for database storage
+      const requestedDateUTC = convertDateTimeLocalToUTC(dateTimeString)
+      const requestedDate = new Date(requestedDateUTC)
+
+      // Check if the date is in the future (comparing with current UTC time)
+      if (requestedDate <= new Date()) {
+        setError('Please select a future date and time')
+        return
+      }
+
       setLoading(true)
       setError(null)
 
@@ -58,7 +63,7 @@ export default function ScheduleRequestModal({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          requested_date: requestedDate.toISOString(),
+          requested_date: requestedDateUTC,
           message: message.trim() || undefined
         }),
       })
@@ -82,6 +87,12 @@ export default function ScheduleRequestModal({
       setLoading(false)
     }
   }
+
+  // Get user's timezone on component mount
+  useEffect(() => {
+    const timezone = getUserTimezone()
+    setUserTimezone(timezone.abbreviation)
+  }, [])
 
   const handleClose = () => {
     if (!loading) {
@@ -133,6 +144,11 @@ export default function ScheduleRequestModal({
                   Request a schedule time for your match against{' '}
                   <span className="font-medium">{match.opponent.name}</span>
                 </p>
+                {userTimezone && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    Times will be converted to UTC for scheduling ({userTimezone} timezone detected)
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -163,7 +179,7 @@ export default function ScheduleRequestModal({
 
             <div>
               <label htmlFor="time" className="block text-sm font-medium text-gray-700">
-                Time
+                Time {userTimezone && `(${userTimezone})`}
               </label>
               <input
                 type="time"
