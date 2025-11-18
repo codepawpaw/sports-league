@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { Trophy, Calendar, Users, Settings, LogIn, Plus } from 'lucide-react'
+import { Trophy, Calendar, Users, Settings, LogIn, Plus, RefreshCw } from 'lucide-react'
 import { createSupabaseComponentClient } from '@/lib/supabase'
 import HeadToHeadComparison from '@/components/HeadToHeadComparison'
 import PlayerMatchHistoryModal from '@/components/PlayerMatchHistoryModal'
@@ -92,6 +92,7 @@ export default function LeaguePage() {
   const [isParticipant, setIsParticipant] = useState(false)
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false)
   const [hasShownAutoModal, setHasShownAutoModal] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => {
     if (slug) {
@@ -130,6 +131,16 @@ export default function LeaguePage() {
     // Refresh league data to update participant status
     fetchLeagueData()
     setIsRegisterModalOpen(false)
+  }
+
+  const handleManualRefresh = async () => {
+    if (refreshing) return
+    setRefreshing(true)
+    try {
+      await fetchLeagueData()
+    } finally {
+      setRefreshing(false)
+    }
   }
 
   const fetchLeagueData = async () => {
@@ -400,9 +411,20 @@ export default function LeaguePage() {
         <div className="space-y-8">
           <div className="card">
             <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center">
-                <Trophy className="h-6 w-6 text-black mr-2" />
-                <h2 className="text-xl font-bold text-black">Current Rankings</h2>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <Trophy className="h-6 w-6 text-black mr-2" />
+                  <h2 className="text-xl font-bold text-black">Current Rankings</h2>
+                </div>
+                <button
+                  onClick={handleManualRefresh}
+                  disabled={refreshing}
+                  className={`btn-compact flex items-center gap-2 ${refreshing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  title="Refresh rankings and match data"
+                >
+                  <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                  {refreshing ? 'Refreshing...' : 'Refresh'}
+                </button>
               </div>
             </div>
             <div className="overflow-x-auto">

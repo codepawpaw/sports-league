@@ -192,11 +192,19 @@ export async function PUT(
       }
 
       // Update player ratings after match completion using the proper USATT algorithm
+      let ratingUpdateSuccess = false
       try {
         const ratingUpdateResult = await updateRatingsForMatch(league.id, scoreRequest.match_id)
         
         if (!ratingUpdateResult.success) {
-          console.error('Rating update failed:', ratingUpdateResult.error)
+          console.error('CRITICAL: Rating update failed for match completion:', {
+            matchId: scoreRequest.match_id,
+            leagueId: league.id,
+            error: ratingUpdateResult.error,
+            timestamp: new Date().toISOString()
+          })
+          // Rating update failed - this is a critical issue but we don't want to fail the match completion
+          ratingUpdateSuccess = false
         } else {
           console.log(`Successfully updated ratings for ${ratingUpdateResult.updated_players} players`)
           if (ratingUpdateResult.player_ratings) {
@@ -204,10 +212,17 @@ export async function PUT(
               console.log(`Player ${rating.player_id}: ${rating.old_rating} -> ${rating.new_rating} (${rating.rating_change > 0 ? '+' : ''}${rating.rating_change})`)
             })
           }
+          ratingUpdateSuccess = true
         }
       } catch (error) {
-        console.error('Error updating ratings after match completion:', error)
-        // Don't fail the request if rating update fails
+        console.error('CRITICAL: Exception during rating update after match completion:', {
+          matchId: scoreRequest.match_id,
+          leagueId: league.id,
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+          timestamp: new Date().toISOString()
+        })
+        ratingUpdateSuccess = false
       }
 
       // Send Google Chat notification for match completion

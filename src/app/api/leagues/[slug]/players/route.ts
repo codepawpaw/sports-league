@@ -230,8 +230,16 @@ export async function GET(
 
     // Sort by rating (descending), then by points (descending), then by set diff (descending), then alphabetically by name (ascending)
     participants.sort((a, b) => {
+      // Primary sort: by USATT rating (descending)
+      if (a.current_rating !== b.current_rating) return b.current_rating - a.current_rating
+      
+      // Secondary sort: by points (descending)
       if (a.points !== b.points) return b.points - a.points
+      
+      // Tertiary sort: by set difference (descending)
       if (a.set_diff !== b.set_diff) return b.set_diff - a.set_diff
+      
+      // Final sort: alphabetically by name (ascending)
       return a.name.localeCompare(b.name)
     })
 
