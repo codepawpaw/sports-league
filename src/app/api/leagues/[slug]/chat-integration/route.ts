@@ -9,6 +9,7 @@ interface ChatIntegration {
   enabled: boolean
   notify_new_matches: boolean
   notify_approved_schedules: boolean
+  notify_schedule_requests: boolean
   notify_match_completions: boolean
   created_at: string
   updated_at: string
@@ -100,6 +101,7 @@ export async function POST(
       enabled, 
       notify_new_matches, 
       notify_approved_schedules, 
+      notify_schedule_requests,
       notify_match_completions,
       daily_summary_enabled,
       daily_summary_time,
@@ -147,6 +149,7 @@ export async function POST(
       enabled: enabled !== undefined ? enabled : true,
       notify_new_matches: notify_new_matches !== undefined ? notify_new_matches : true,
       notify_approved_schedules: notify_approved_schedules !== undefined ? notify_approved_schedules : true,
+      notify_schedule_requests: notify_schedule_requests !== undefined ? notify_schedule_requests : true,
       notify_match_completions: notify_match_completions !== undefined ? notify_match_completions : true,
       daily_summary_enabled: daily_summary_enabled !== undefined ? daily_summary_enabled : false,
       daily_summary_time: daily_summary_time || '09:00:00',

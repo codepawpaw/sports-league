@@ -70,6 +70,7 @@ interface ChatIntegration {
   enabled: boolean
   notify_new_matches: boolean
   notify_approved_schedules: boolean
+  notify_schedule_requests: boolean
   notify_match_completions: boolean
   daily_summary_enabled: boolean
   daily_summary_time: string
@@ -126,6 +127,7 @@ export default function AdminPage() {
     enabled: true,
     notify_new_matches: true,
     notify_approved_schedules: true,
+    notify_schedule_requests: true,
     notify_match_completions: true,
     daily_summary_enabled: false,
     daily_summary_time: '09:00',
@@ -347,6 +349,7 @@ export default function AdminPage() {
             enabled: data.integration.enabled,
             notify_new_matches: data.integration.notify_new_matches,
             notify_approved_schedules: data.integration.notify_approved_schedules,
+            notify_schedule_requests: data.integration.notify_schedule_requests !== false,
             notify_match_completions: data.integration.notify_match_completions,
             daily_summary_enabled: data.integration.daily_summary_enabled || false,
             daily_summary_time: data.integration.daily_summary_time || '09:00',
@@ -1059,6 +1062,7 @@ export default function AdminPage() {
           enabled: true,
           notify_new_matches: true,
           notify_approved_schedules: true,
+          notify_schedule_requests: true,
           notify_match_completions: true,
           daily_summary_enabled: false,
           daily_summary_time: '09:00',
@@ -2543,6 +2547,19 @@ export default function AdminPage() {
                         <label className="flex items-center">
                           <input
                             type="checkbox"
+                            checked={chatConfig.notify_schedule_requests}
+                            onChange={(e) => setChatConfig(prev => ({ ...prev, notify_schedule_requests: e.target.checked }))}
+                            className="mr-3"
+                          />
+                          <div>
+                            <span className="text-sm font-medium text-gray-700">Schedule Requests</span>
+                            <p className="text-xs text-gray-500">Notify when someone sends a schedule request for a match</p>
+                          </div>
+                        </label>
+
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
                             checked={chatConfig.notify_match_completions}
                             onChange={(e) => setChatConfig(prev => ({ ...prev, notify_match_completions: e.target.checked }))}
                             className="mr-3"
@@ -2856,6 +2873,17 @@ export default function AdminPage() {
                             : 'bg-gray-100 text-gray-800'
                         }`}>
                           {chatIntegration.notify_approved_schedules ? 'On' : 'Off'}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-700">Schedule Request Notifications</span>
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                          chatIntegration.notify_schedule_requests 
+                            ? 'bg-blue-100 text-blue-800' 
+                            : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {chatIntegration.notify_schedule_requests ? 'On' : 'Off'}
                         </span>
                       </div>
                       

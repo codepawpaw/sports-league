@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase'
+import { GoogleChatNotifier } from '@/lib/googleChat'
 
 export async function POST(
   request: NextRequest,
@@ -109,6 +110,44 @@ export async function POST(
     if (createError) {
       console.error('Error creating schedule request:', createError)
       return NextResponse.json({ error: 'Failed to create schedule request' }, { status: 500 })
+    }
+
+    // Send Google Chat notification if enabled
+    try {
+      // Get league name and chat integration settings
+      const { data: leagueDetails, error: leagueDetailsError } = await supabase
+        .from('leagues')
+        .select('id, name, slug')
+        .eq('id', league.id)
+        .single()
+
+      // Get chat integration settings
+      const { data: chatIntegration, error: chatError } = await supabase
+        .from('league_chat_integrations')
+        .select('webhook_url, enabled, notify_schedule_requests')
+        .eq('league_id', league.id)
+        .eq('enabled', true)
+        .eq('notify_schedule_requests', true)
+        .single()
+
+      if (!leagueDetailsError && leagueDetails && !chatError && chatIntegration) {
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.example.com'
+        
+        await GoogleChatNotifier.notifyScheduleRequest(chatIntegration.webhook_url, {
+          leagueName: leagueDetails.name,
+          player1Name: scheduleRequest.match.player1.name,
+          player2Name: scheduleRequest.match.player2.name,
+          requestedByName: scheduleRequest.requester.name,
+          proposedAt: requested_date,
+          leagueSlug: slug,
+          appUrl: appUrl
+        })
+
+        console.log('Successfully sent schedule request notification to Google Chat')
+      }
+    } catch (error) {
+      // Don't fail the request if notification fails
+      console.error('Failed to send Google Chat notification for schedule request:', error)
     }
 
     return NextResponse.json({ 

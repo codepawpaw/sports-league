@@ -52,6 +52,16 @@ interface ScheduleApprovalData {
   appUrl: string
 }
 
+interface ScheduleRequestData {
+  leagueName: string
+  player1Name: string
+  player2Name: string
+  requestedByName: string
+  proposedAt: string
+  leagueSlug: string
+  appUrl: string
+}
+
 interface MatchCompletionData {
   leagueName: string
   seasonName?: string
@@ -220,6 +230,74 @@ export class GoogleChatNotifier {
             {
               textParagraph: {
                 text: '🎾 The match time has been confirmed by both players!'
+              }
+            },
+            {
+              buttons: [
+                {
+                  textButton: {
+                    text: 'View League',
+                    onClick: {
+                      openLink: {
+                        url: `${data.appUrl}/${data.leagueSlug}`
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+
+    const message: GoogleChatMessage = {
+      cards: [card]
+    }
+
+    return this.sendMessage(webhookUrl, message)
+  }
+
+  static async notifyScheduleRequest(webhookUrl: string, data: ScheduleRequestData): Promise<boolean> {
+    const card: GoogleChatCard = {
+      header: {
+        title: '📅 New Schedule Request',
+        subtitle: data.leagueName,
+      },
+      sections: [
+        {
+          widgets: [
+            {
+              keyValue: {
+                topLabel: 'Match',
+                content: `${data.player1Name} vs ${data.player2Name}`,
+                contentMultiline: false
+              }
+            },
+            {
+              keyValue: {
+                topLabel: 'Requested By',
+                content: data.requestedByName,
+                contentMultiline: false
+              }
+            },
+            {
+              keyValue: {
+                topLabel: 'Proposed Time',
+                content: new Date(data.proposedAt).toLocaleString('en-US', {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                }),
+                contentMultiline: false
+              }
+            },
+            {
+              textParagraph: {
+                text: '⏰ A player has sent a schedule request for this match. The other player needs to approve or propose a different time.'
               }
             },
             {
@@ -773,4 +851,4 @@ export class GoogleChatNotifier {
   }
 }
 
-export type { MatchNotificationData, ScheduleApprovalData, MatchCompletionData, DailySummaryData }
+export type { MatchNotificationData, ScheduleApprovalData, ScheduleRequestData, MatchCompletionData, DailySummaryData }
