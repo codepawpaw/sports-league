@@ -83,7 +83,7 @@ export async function GET(
     const participantIds = seasonParticipants?.map(sp => sp.participant_id) || []
 
     if (participantIds.length === 0) {
-      return NextResponse.json({
+      const emptyResponse = NextResponse.json({
         league: {
           id: league.id,
           name: league.name
@@ -91,6 +91,13 @@ export async function GET(
         players: [],
         total: 0
       })
+
+      // Set cache-control headers to prevent caching
+      emptyResponse.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0')
+      emptyResponse.headers.set('Pragma', 'no-cache')
+      emptyResponse.headers.set('Expires', '0')
+
+      return emptyResponse
     }
 
     // Fetch participants for active season with calculated stats and ratings
@@ -246,7 +253,7 @@ export async function GET(
       return a.name.localeCompare(b.name)
     })
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       league: {
         id: league.id,
         name: league.name
@@ -254,6 +261,13 @@ export async function GET(
       players: participants,
       total: participants.length
     })
+
+    // Set cache-control headers to prevent caching
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0')
+    response.headers.set('Pragma', 'no-cache')
+    response.headers.set('Expires', '0')
+
+    return response
 
   } catch (error) {
     console.error('Error in players API:', error)

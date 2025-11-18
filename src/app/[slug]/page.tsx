@@ -163,7 +163,12 @@ export default function LeaguePage() {
 
       // Fetch active season info
       try {
-        const response = await fetch(`/api/leagues/${slug}/seasons`)
+        const response = await fetch(`/api/leagues/${slug}/seasons?t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache'
+          }
+        })
         if (response.ok) {
           const data = await response.json()
           const activeSeasonData = data.seasons.find((s: Season) => s.is_active)
@@ -200,7 +205,12 @@ export default function LeaguePage() {
 
       // Fetch participants with ratings from API
       try {
-        const playersResponse = await fetch(`/api/leagues/${slug}/players`)
+        const playersResponse = await fetch(`/api/leagues/${slug}/players?t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache'
+          }
+        })
         if (playersResponse.ok) {
           const playersData = await playersResponse.json()
           setParticipants(playersData.players)
