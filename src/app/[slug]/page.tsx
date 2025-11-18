@@ -144,6 +144,8 @@ export default function LeaguePage() {
   }
 
   const fetchLeagueData = async () => {
+    console.log("===================================")
+    console.log("Call fetch league")
     try {
       setLoading(true)
 
