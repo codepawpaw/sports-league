@@ -12,6 +12,7 @@ import ScheduleRequestNotifications from '@/components/ScheduleRequestNotificati
 import ScoreRequestNotifications from '@/components/ScoreRequestNotifications'
 import RegisterAsPlayerModal from '@/components/RegisterAsPlayerModal'
 import MatchTabs from '@/components/MatchTabs'
+import TabNavigation from '@/components/TabNavigation'
 
 interface League {
   id: string
@@ -387,35 +388,23 @@ export default function LeaguePage() {
         </div>
       </header>
 
-      {/* League Title and Navigation */}
+      {/* League Title */}
       <div className="border-b border-gray-100 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-black break-words">{league?.name}</h1>
-              {activeSeason && (
-                <h2 className="text-lg font-medium text-gray-600 mt-1">{activeSeason.name}</h2>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Link href={`/${slug}/players`} className="btn-compact">
-                Players
-              </Link>
-              <Link href={`/${slug}/upcoming`} className="btn-compact">
-                Upcoming Matches
-              </Link>
-              <Link href={`/${slug}/results`} className="btn-compact">
-                All Results
-              </Link>
-              {currentUser && isParticipant && (
-                <Link href={`/${slug}/my-matches`} className="btn-compact">
-                  My Matches
-                </Link>
-              )}
-            </div>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-black break-words">{league?.name}</h1>
+            {activeSeason && (
+              <h2 className="text-lg font-medium text-gray-600 mt-1">{activeSeason.name}</h2>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Tab Navigation */}
+      <TabNavigation 
+        currentUser={currentUser}
+        isParticipant={isParticipant}
+      />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">

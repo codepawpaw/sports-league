@@ -8,6 +8,7 @@ import { createSupabaseComponentClient } from '@/lib/supabase'
 import RegisterAsPlayerModal from '@/components/RegisterAsPlayerModal'
 import ScheduleRequestModal from '@/components/ScheduleRequestModal'
 import ScoreRequestModal from '@/components/ScoreRequestModal'
+import TabNavigation from '@/components/TabNavigation'
 
 interface UserMatch {
   id: string
@@ -560,6 +561,12 @@ export default function MyMatchesPage() {
           </div>
         </div>
       </div>
+
+      {/* Tab Navigation */}
+      <TabNavigation 
+        currentUser={currentUser}
+        isParticipant={!!data?.user_player}
+      />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">

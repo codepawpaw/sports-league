@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { Calendar, ArrowLeft, Clock } from 'lucide-react'
+import { createSupabaseComponentClient } from '@/lib/supabase'
+import TabNavigation from '@/components/TabNavigation'
 
 interface League {
   id: string
@@ -35,16 +37,37 @@ interface UpcomingData {
 export default function UpcomingPage() {
   const params = useParams()
   const slug = params.slug as string
+  const supabase = createSupabaseComponentClient()
   
   const [data, setData] = useState<UpcomingData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [currentUser, setCurrentUser] = useState<any>(null)
+  const [isParticipant, setIsParticipant] = useState(false)
 
   useEffect(() => {
     if (slug) {
       fetchUpcomingMatches()
+      getCurrentUser()
     }
   }, [slug])
+
+  const getCurrentUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    setCurrentUser(user)
+    
+    if (user && data?.league) {
+      // Check if user is a participant
+      const { data: participantData } = await supabase
+        .from('participants')
+        .select('id')
+        .eq('league_id', data.league.id)
+        .eq('email', user.email)
+        .single()
+
+      setIsParticipant(!!participantData)
+    }
+  }
 
   const fetchUpcomingMatches = async () => {
     try {
@@ -153,6 +176,12 @@ export default function UpcomingPage() {
           </div>
         </div>
       </div>
+
+      {/* Tab Navigation */}
+      <TabNavigation 
+        currentUser={currentUser}
+        isParticipant={isParticipant}
+      />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">

@@ -7,6 +7,7 @@ import { Users, ArrowLeft, Trophy } from 'lucide-react'
 import { createSupabaseComponentClient } from '@/lib/supabase'
 import PlayerMatchHistoryModal from '@/components/PlayerMatchHistoryModal'
 import RegisterAsPlayerModal from '@/components/RegisterAsPlayerModal'
+import TabNavigation from '@/components/TabNavigation'
 
 interface League {
   id: string
@@ -46,6 +47,7 @@ export default function PlayersPage() {
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
+  const [isParticipant, setIsParticipant] = useState(false)
 
   useEffect(() => {
     if (slug) {
@@ -57,6 +59,18 @@ export default function PlayersPage() {
   const getCurrentUser = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     setCurrentUser(user)
+    
+    if (user && data?.league) {
+      // Check if user is a participant
+      const { data: participantData } = await supabase
+        .from('participants')
+        .select('id')
+        .eq('league_id', data.league.id)
+        .eq('email', user.email)
+        .single()
+
+      setIsParticipant(!!participantData)
+    }
   }
 
   const fetchPlayers = async () => {
@@ -133,6 +147,12 @@ export default function PlayersPage() {
           </div>
         </div>
       </div>
+
+      {/* Tab Navigation */}
+      <TabNavigation 
+        currentUser={currentUser}
+        isParticipant={isParticipant}
+      />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
