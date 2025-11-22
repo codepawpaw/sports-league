@@ -550,41 +550,7 @@ export default function LeaguePage() {
 
         {/* Sidebar - Now Below Rankings */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-          {/* Recent Results */}
-          <div className="card">
-            <div className="p-4 border-b border-gray-200">
-              <h3 className="font-semibold text-black">Recent Results</h3>
-            </div>
-            <div className="p-4 space-y-3">
-              {recentMatches.map((match) => (
-                <div key={match.id} className="text-sm">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="font-medium text-black">
-                        {match.player1.name} vs {match.player2.name}
-                      </div>
-                      <div className="text-gray-500">
-                        {match.completed_at && formatDate(match.completed_at)}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-semibold text-black">
-                        {match.player1_score} - {match.player2_score}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {(match.player1_score !== null && match.player2_score !== null && 
-                          match.player1_score > match.player2_score) ? 
-                          match.player1.name : match.player2.name} wins
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {recentMatches.length === 0 && (
-                <p className="text-gray-500 text-sm">No completed matches</p>
-              )}
-            </div>
-          </div>
+         
 
           {/* League Info */}
           <div className="card">

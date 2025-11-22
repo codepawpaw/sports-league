@@ -175,6 +175,9 @@ export default function AdminPage() {
   const [isGeneratingDraw, setIsGeneratingDraw] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
 
+  // Player filter state
+  const [selectedPlayerFilter, setSelectedPlayerFilter] = useState('all')
+
 
 
   useEffect(() => {
@@ -792,6 +795,14 @@ export default function AdminPage() {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
     return days[dayNumber]
   }
+
+  // Filter matches based on selected player
+  const filteredMatches = selectedPlayerFilter === 'all' 
+    ? matches 
+    : matches.filter(match => 
+        match.player1.id === selectedPlayerFilter || 
+        match.player2.id === selectedPlayerFilter
+      )
 
   // Season management functions
   const handleAddSeason = async (e: React.FormEvent) => {
@@ -2184,6 +2195,33 @@ export default function AdminPage() {
                 )}
               </div>
 
+              {/* Player Filter Section */}
+              <div className="card p-6 mb-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-black">Filter Matches by Player</h3>
+                  <span className="text-sm text-gray-500">
+                    Showing {filteredMatches.length} of {matches.length} matches
+                  </span>
+                </div>
+                <div className="flex gap-4 items-center">
+                  <label className="text-sm font-medium text-gray-700">
+                    Filter by Player:
+                  </label>
+                  <select
+                    value={selectedPlayerFilter}
+                    onChange={(e) => setSelectedPlayerFilter(e.target.value)}
+                    className="input-field w-64"
+                  >
+                    <option value="all">All Players</option>
+                    {participants.map(participant => (
+                      <option key={participant.id} value={participant.id}>
+                        {participant.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
               {/* Matches List */}
               <div className="card">
                 <div className="p-6 border-b border-gray-200">
@@ -2201,7 +2239,7 @@ export default function AdminPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {matches.map((match) => (
+                      {filteredMatches.map((match) => (
                         <tr key={match.id}>
                           <td className="table-cell">
                             {match.player1.name} vs {match.player2.name}
