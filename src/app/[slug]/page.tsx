@@ -11,6 +11,7 @@ import TopPlayersBanner from '@/components/TopPlayersBanner'
 import ScheduleRequestNotifications from '@/components/ScheduleRequestNotifications'
 import ScoreRequestNotifications from '@/components/ScoreRequestNotifications'
 import RegisterAsPlayerModal from '@/components/RegisterAsPlayerModal'
+import MatchTabs from '@/components/MatchTabs'
 
 interface League {
   id: string
@@ -437,12 +438,12 @@ export default function LeaguePage() {
         {/* Schedule Request Notifications */}
         <ScheduleRequestNotifications slug={slug} />
 
-        {/* Top Players Banner */}
-        <TopPlayersBanner 
-          participants={participants}
+        {/* Match Tabs - Incoming and Completed Matches */}
+        <MatchTabs 
           upcomingMatches={upcomingMatches}
+          recentMatches={recentMatches}
+          slug={slug}
         />
-
 
         {/* Rankings - Full Width */}
         <div className="space-y-8">
@@ -548,38 +549,7 @@ export default function LeaguePage() {
         </div>
 
         {/* Sidebar - Now Below Rankings */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
-          {/* Upcoming Matches */}
-          <div className="card">
-            <div className="p-4 border-b border-gray-200">
-              <div className="flex items-center">
-                <h3 className="font-semibold text-black">Upcoming Matches</h3>
-              </div>
-            </div>
-            <div className="p-4 space-y-3">
-              {upcomingMatches.map((match) => (
-                <div key={match.id} className="text-sm">
-                  <div className="font-medium text-black">
-                    {match.player1.name} vs {match.player2.name}
-                  </div>
-                  {match.scheduled_at && (
-                    <div className="text-gray-500">
-                      {formatDate(match.scheduled_at)}
-                    </div>
-                  )}
-                  <div className={`inline-block px-2 py-1 rounded-full text-xs ${
-                    match.status === 'scheduled' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    {match.status === 'scheduled' ? 'Scheduled' : 'In Progress'}
-                  </div>
-                </div>
-              ))}
-              {upcomingMatches.length === 0 && (
-                <p className="text-gray-500 text-sm">No upcoming matches</p>
-              )}
-            </div>
-          </div>
-
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
           {/* Recent Results */}
           <div className="card">
             <div className="p-4 border-b border-gray-200">

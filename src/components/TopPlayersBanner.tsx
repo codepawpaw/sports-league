@@ -35,11 +35,6 @@ interface TopPlayersBannerProps {
 export default function TopPlayersBanner({ participants, upcomingMatches }: TopPlayersBannerProps) {
   const top3Players = participants.slice(0, 3)
 
-  // Find the player with the highest winning streak (minimum 3 wins)
-  const winningStreakMonster = participants
-    .filter(player => player.winning_streak >= 3)
-    .sort((a, b) => b.winning_streak - a.winning_streak)[0]
-
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       month: 'short',
@@ -87,123 +82,59 @@ export default function TopPlayersBanner({ participants, upcomingMatches }: TopP
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           {/* Left side - Top 3 Players */}
           <div className="lg:col-span-3">
-            <div className="flex items-center mb-4">
-              <h2 className="text-xl font-bold">Top Rated Players</h2>
+            <div className="text-center mb-6">
+              <h2 className="text-2xl font-bold">🏆 Top Players</h2>
+              <p className="text-gray-300">Current season leaders</p>
             </div>
-            
-            {top3Players.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {top3Players.map((player, index) => (
-                  <div
-                    key={player.id}
-                    className={`${getRankBgColor(index + 1)} rounded-lg p-4 text-black`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-2xl font-bold text-gray-600">#{index + 1}</span>
-                      {getRankIcon(index + 1)}
-                    </div>
-                    <div className="mb-2">
-                      <h3 className="font-bold text-lg truncate" title={player.name}>
-                        {player.name}
-                      </h3>
-                    </div>
-                    <div className="space-y-1 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Rating:</span>
-                        <span className="font-semibold text-lg">{player.current_rating || 1200}{player.is_provisional ? '*' : ''}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Record:</span>
-                        <span className="font-semibold">{player.wins}W-{player.losses}L</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Points:</span>
-                        <span className="font-semibold">{player.points}</span>
-                      </div>
-                    </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {top3Players.map((player, index) => (
+                <div
+                  key={player.id}
+                  className={`${getRankBgColor(index + 1)} rounded-xl p-4 text-center border-2`}
+                >
+                  <div className="flex justify-center mb-3">
+                    {getRankIcon(index + 1)}
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <Trophy className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p className="text-lg opacity-75">No players yet</p>
-              </div>
-            )}
-            
-            {/* Winning Streak Monster Card */}
-            {winningStreakMonster && (
-              <div className="mt-6">
-                <div className="flex items-center mb-3">
-                  <h3 className="text-lg font-bold">Winning Streak Monster</h3>
-                </div>
-                <div className="bg-gradient-to-r from-orange-500 to-red-600 rounded-lg p-4 text-white">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-bold text-lg truncate" title={winningStreakMonster.name}>
-                      {winningStreakMonster.name}
-                    </h4>
-                    <div className="bg-white/20 px-2 py-1 rounded-lg text-sm font-semibold">
-                      {winningStreakMonster.winning_streak} Streak
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-3 text-center text-sm">
-                    <div>
-                      <div className="font-semibold text-xs opacity-75 mb-1">TOTAL MATCHES</div>
-                      <div className="text-lg font-bold">{winningStreakMonster.wins + winningStreakMonster.losses}</div>
-                    </div>
-                    <div>
-                      <div className="font-semibold text-xs opacity-75 mb-1">WIN RATE</div>
-                      <div className="text-lg font-bold">{getWinRate(winningStreakMonster.wins, winningStreakMonster.losses)}%</div>
-                    </div>
-                    <div>
-                      <div className="font-semibold text-xs opacity-75 mb-1">STREAK</div>
-                      <div className="text-lg font-bold">{winningStreakMonster.winning_streak}</div>
-                    </div>
+                  <h3 className="font-bold text-lg text-black truncate" title={player.name}>
+                    {player.name}
+                  </h3>
+                  <div className="text-black text-sm mt-2">
+                    <div className="font-semibold">{player.wins}W - {player.losses}L</div>
+                    <div>Win Rate: {getWinRate(player.wins, player.losses)}%</div>
+                    {player.current_rating && (
+                      <div className="mt-1 font-medium">
+                        Rating: {Math.round(player.current_rating)}
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
-            )}
+              ))}
+            </div>
           </div>
 
           {/* Right side - Upcoming Matches */}
           <div className="lg:col-span-2">
-            <div className="flex items-center mb-4">
-              <h2 className="text-xl font-bold">Upcoming Matches</h2>
+            <div className="text-center mb-6">
+              <h3 className="text-xl font-bold flex items-center justify-center gap-2">
+                <Calendar className="h-5 w-5" />
+                Upcoming Matches
+              </h3>
             </div>
-            
-            <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4 border border-white/30">
-              {upcomingMatches.length > 0 ? (
-                <div className="space-y-3">
-                  {upcomingMatches.slice(0, 4).map((match) => (
-                    <div key={match.id} className="bg-white/30 rounded-lg p-3 border border-white/20">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <div className="font-semibold text-sm">
-                            {match.player1.name} vs {match.player2.name}
-                          </div>
-                          {match.scheduled_at && (
-                            <div className="text-xs opacity-75 mt-1">
-                              {formatDate(match.scheduled_at)}
-                            </div>
-                          )}
-                        </div>
-                        <div className="ml-2">
-                          <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
-                            match.status === 'scheduled' 
-                              ? 'bg-white text-black' 
-                              : 'bg-gray-200 text-black'
-                          }`}>
-                            {match.status === 'scheduled' ? 'Scheduled' : 'In Progress'}
-                          </span>
-                        </div>
-                      </div>
+            <div className="space-y-3">
+              {upcomingMatches.slice(0, 5).map((match) => (
+                <div key={match.id} className="bg-white/10 rounded-lg p-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="font-medium">
+                      {match.player1.name} vs {match.player2.name}
                     </div>
-                  ))}
+                    <div className="text-gray-300 text-xs">
+                      {match.scheduled_at && formatDate(match.scheduled_at)}
+                    </div>
+                  </div>
                 </div>
-              ) : (
-                <div className="text-center py-6">
-                  <p className="opacity-75">No upcoming matches</p>
-                </div>
+              ))}
+              {upcomingMatches.length === 0 && (
+                <p className="text-gray-300 text-center text-sm">No upcoming matches</p>
               )}
             </div>
           </div>
