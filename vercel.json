@@ -1,10 +1,10 @@
 {
   "functions": {
     "src/app/api/leagues/[slug]/players/route.ts": {
-      "maxDuration": 0
+      "maxDuration": 30
     },
     "src/app/api/leagues/[slug]/seasons/route.ts": {
-      "maxDuration": 0
+      "maxDuration": 30
     }
   },
   "headers": [
