@@ -11,7 +11,7 @@ import TopPlayersBanner from '@/components/TopPlayersBanner'
 import ScheduleRequestNotifications from '@/components/ScheduleRequestNotifications'
 import ScoreRequestNotifications from '@/components/ScoreRequestNotifications'
 import RegisterAsPlayerModal from '@/components/RegisterAsPlayerModal'
-import MatchTabs from '@/components/MatchTabs'
+import UpcomingMatchesCarousel from '@/components/UpcomingMatchesCarousel'
 import TabNavigation from '@/components/TabNavigation'
 import CompletedMatchesCarousel from '@/components/CompletedMatchesCarousel'
 
@@ -411,15 +411,13 @@ export default function LeaguePage() {
       {/* Completed Matches Carousel */}
       <CompletedMatchesCarousel recentMatches={recentMatches} />
 
+      <UpcomingMatchesCarousel 
+          upcomingMatches={upcomingMatches}
+          slug={slug}
+      />
+
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        {/* Active Season Description */}
-        {activeSeason?.description && (
-          <div className="mb-8 p-4 bg-gray-50 rounded-lg border">
-            <p className="text-gray-700 text-center">{activeSeason.description}</p>
-          </div>
-        )}
-
         {league?.description && (
           <div className="mb-8">
             <p className="text-lg text-gray-600">{league.description}</p>
@@ -431,12 +429,6 @@ export default function LeaguePage() {
 
         {/* Schedule Request Notifications */}
         <ScheduleRequestNotifications slug={slug} />
-
-        {/* Match Tabs - Upcoming Matches Only */}
-        <MatchTabs 
-          upcomingMatches={upcomingMatches}
-          slug={slug}
-        />
 
         {/* Rankings - Full Width */}
         <div className="space-y-8">
