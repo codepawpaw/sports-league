@@ -77,7 +77,7 @@ export default function LeaguePredictionCard({ slug }: { slug: string }) {
     <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
       {/* Header */}
       <div className="flex items-center mb-6">
-        <h2 className="text-xl font-bold text-black">Championship Predictions</h2>
+        <h2 className="text-xl font-bold text-black">Championship Readiness Score</h2>
       </div>
 
       {/* Top 2 Candidates */}
