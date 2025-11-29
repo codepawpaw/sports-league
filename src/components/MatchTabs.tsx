@@ -229,154 +229,179 @@ export default function MatchTabs({ upcomingMatches, recentMatches, slug }: Matc
         )}
 
         {activeTab === 'completed' && (
-          <div className="space-y-3">
+          <div className="grid gap-4 sm:gap-6">
             {recentMatches.length > 0 ? (
               recentMatches.map((match) => {
                 const winner = getWinner(match)
                 return (
-                  <div key={match.id} className="p-4 hover:bg-gray-50 rounded-lg border border-transparent hover:border-gray-200 transition-colors">
+                  <div 
+                    key={match.id} 
+                    className="group relative bg-white border-2 border-gray-100 rounded-xl p-4 sm:p-6 hover:border-green-100 hover:shadow-lg transition-all duration-300 ease-in-out transform hover:-translate-y-1"
+                  >
+                    {/* Winner Badge - Desktop */}
+                    <div className="hidden sm:block absolute -top-3 left-1/2 transform -translate-x-1/2">
+                      <div className="bg-green-600 text-white px-4 py-1 rounded-full text-sm font-semibold shadow-md">
+                        {winner?.name} Wins
+                      </div>
+                    </div>
+
                     {/* Desktop Layout */}
-                    <div className="hidden md:flex items-center justify-between">
-                      {/* Match Info */}
-                      <div className="flex items-center space-x-6">
-                        <div className="flex items-center space-x-4">
-                          {/* Player 1 */}
-                          <div className="flex items-center space-x-3">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                              winner?.id === match.player1.id ? 'bg-green-100' : 'bg-gray-100'
-                            }`}>
-                              <span className={`font-medium text-sm ${
-                                winner?.id === match.player1.id ? 'text-green-600' : 'text-gray-600'
-                              }`}>
-                                {match.player1.name.charAt(0).toUpperCase()}
-                              </span>
+                    <div className="hidden md:flex items-center justify-between pt-4">
+                      {/* Left Player */}
+                      <div className="flex flex-col items-center space-y-3 flex-1">
+                        <div className={`w-16 h-16 rounded-full flex items-center justify-center shadow-md transition-all duration-300 ${
+                          winner?.id === match.player1.id 
+                            ? 'bg-green-100 border-2 border-green-600 scale-110' 
+                            : 'bg-white border-2 border-gray-300 grayscale opacity-75'
+                        }`}>
+                          <span className={`font-bold text-xl ${
+                            winner?.id === match.player1.id ? 'text-green-600' : 'text-gray-500'
+                          }`}>
+                            {match.player1.name.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="text-center">
+                          <h3 className={`font-semibold text-lg leading-tight ${
+                            winner?.id === match.player1.id ? 'text-black' : 'text-gray-500'
+                          }`}>
+                            {match.player1.name}
+                          </h3>
+                          {winner?.id === match.player1.id && (
+                            <div className="flex items-center justify-center mt-1">
+                              <Trophy className="h-5 w-5 text-green-600" />
                             </div>
-                            <span className={`font-medium ${
-                              winner?.id === match.player1.id ? 'text-black' : 'text-gray-600'
-                            }`}>
-                              {match.player1.name}
-                            </span>
-                          </div>
-                          
-                          {/* Score */}
-                          <div className="flex items-center space-x-2">
-                            <span className={`text-lg font-bold ${
-                              winner?.id === match.player1.id ? 'text-green-600' : 'text-gray-600'
-                            }`}>
-                              {match.player1_score}
-                            </span>
-                            <span className="text-gray-400">-</span>
-                            <span className={`text-lg font-bold ${
-                              winner?.id === match.player2.id ? 'text-green-600' : 'text-gray-600'
-                            }`}>
-                              {match.player2_score}
-                            </span>
-                          </div>
-                          
-                          {/* Player 2 */}
-                          <div className="flex items-center space-x-3">
-                            <span className={`font-medium ${
-                              winner?.id === match.player2.id ? 'text-black' : 'text-gray-600'
-                            }`}>
-                              {match.player2.name}
-                            </span>
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                              winner?.id === match.player2.id ? 'bg-green-100' : 'bg-gray-100'
-                            }`}>
-                              <span className={`font-medium text-sm ${
-                                winner?.id === match.player2.id ? 'text-green-600' : 'text-gray-600'
-                              }`}>
-                                {match.player2.name.charAt(0).toUpperCase()}
-                              </span>
-                            </div>
-                          </div>
+                          )}
                         </div>
                       </div>
-
-                      {/* Completion Date */}
-                      <div className="text-right">
-                        <div className="text-sm font-medium text-gray-600">
-                          {winner?.name} wins
+                      
+                      {/* Score Section */}
+                      <div className="flex flex-col items-center space-y-4 px-8">
+                        <div className="flex items-center space-x-6">
+                          <span className={`text-4xl font-black tracking-tight ${
+                            winner?.id === match.player1.id ? 'text-green-600' : 'text-gray-400'
+                          }`}>
+                            {match.player1_score}
+                          </span>
+                          <div className="text-gray-300 text-2xl font-light">—</div>
+                          <span className={`text-4xl font-black tracking-tight ${
+                            winner?.id === match.player2.id ? 'text-green-600' : 'text-gray-400'
+                          }`}>
+                            {match.player2_score}
+                          </span>
                         </div>
-                        <div className="text-xs text-gray-500 flex items-center gap-1">
+                        <div className="text-xs text-gray-500 flex items-center gap-2 bg-gray-50 px-3 py-1 rounded-full">
                           <Calendar className="h-3 w-3" />
-                          {formatDate(match.completed_at)}
+                          <span className="font-medium">{formatDate(match.completed_at)}</span>
+                        </div>
+                      </div>
+                      
+                      {/* Right Player */}
+                      <div className="flex flex-col items-center space-y-3 flex-1">
+                        <div className={`w-16 h-16 rounded-full flex items-center justify-center shadow-md transition-all duration-300 ${
+                          winner?.id === match.player2.id 
+                            ? 'bg-green-100 border-2 border-green-600 scale-110' 
+                            : 'bg-white border-2 border-gray-300 grayscale opacity-75'
+                        }`}>
+                          <span className={`font-bold text-xl ${
+                            winner?.id === match.player2.id ? 'text-green-600' : 'text-gray-500'
+                          }`}>
+                            {match.player2.name.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="text-center">
+                          <h3 className={`font-semibold text-lg leading-tight ${
+                            winner?.id === match.player2.id ? 'text-black' : 'text-gray-500'
+                          }`}>
+                            {match.player2.name}
+                          </h3>
+                          {winner?.id === match.player2.id && (
+                            <div className="flex items-center justify-center mt-1">
+                              <Trophy className="h-5 w-5 text-green-600" />
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
 
                     {/* Mobile Layout */}
-                    <div className="md:hidden space-y-3">
-                      {/* Winner Section */}
+                    <div className="md:hidden space-y-4">
+                      {/* Winner Badge - Mobile */}
                       <div className="text-center">
-                        <div className="text-sm font-medium text-gray-600 mb-1">
-                          {winner?.name} wins
+                        <div className="inline-flex items-center bg-green-600 text-white px-4 py-1 rounded-full text-sm font-semibold">
+                          <Trophy className="h-4 w-4 mr-1" />
+                          {winner?.name} Wins
                         </div>
-                        <div className="flex items-center justify-center space-x-4">
-                          <span className={`text-2xl font-bold ${
-                            winner?.id === match.player1.id ? 'text-green-600' : 'text-gray-600'
+                      </div>
+
+                      {/* Score Display */}
+                      <div className="text-center">
+                        <div className="flex items-center justify-center space-x-6 mb-3">
+                          <span className={`text-3xl font-black ${
+                            winner?.id === match.player1.id ? 'text-green-600' : 'text-gray-400'
                           }`}>
                             {match.player1_score}
                           </span>
-                          <span className="text-gray-400 text-lg">-</span>
-                          <span className={`text-2xl font-bold ${
-                            winner?.id === match.player2.id ? 'text-green-600' : 'text-gray-600'
+                          <div className="text-gray-300 text-xl">—</div>
+                          <span className={`text-3xl font-black ${
+                            winner?.id === match.player2.id ? 'text-green-600' : 'text-gray-400'
                           }`}>
                             {match.player2_score}
                           </span>
                         </div>
                       </div>
 
-                      {/* Players Section */}
-                      <div className="space-y-2">
-                        {/* Player 1 */}
-                        <div className="flex items-center space-x-3">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                            winner?.id === match.player1.id ? 'bg-green-100' : 'bg-gray-100'
+                      {/* Players */}
+                      <div className="space-y-3">
+                        <div className="flex items-center space-x-4 p-3 rounded-lg bg-gray-50">
+                          <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm ${
+                            winner?.id === match.player1.id ? 'bg-green-100 border-2 border-green-600' : 'bg-white border-2 border-gray-300'
                           }`}>
-                            <span className={`font-medium text-base ${
-                              winner?.id === match.player1.id ? 'text-green-600' : 'text-gray-600'
+                            <span className={`font-bold text-base ${
+                              winner?.id === match.player1.id ? 'text-green-600' : 'text-gray-500'
                             }`}>
                               {match.player1.name.charAt(0).toUpperCase()}
                             </span>
                           </div>
-                          <span className={`font-medium text-base truncate ${
-                            winner?.id === match.player1.id ? 'text-black' : 'text-gray-600'
-                          }`}>
-                            {match.player1.name}
-                          </span>
+                          <div className="flex-1">
+                            <span className={`font-semibold text-base ${
+                              winner?.id === match.player1.id ? 'text-black' : 'text-gray-600'
+                            }`}>
+                              {match.player1.name}
+                            </span>
+                          </div>
                           {winner?.id === match.player1.id && (
-                            <Trophy className="h-4 w-4 text-green-600 flex-shrink-0" />
+                            <Trophy className="h-5 w-5 text-green-600 flex-shrink-0" />
                           )}
                         </div>
                         
-                        {/* Player 2 */}
-                        <div className="flex items-center space-x-3">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                            winner?.id === match.player2.id ? 'bg-green-100' : 'bg-gray-100'
+                        <div className="flex items-center space-x-4 p-3 rounded-lg bg-gray-50">
+                          <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm ${
+                            winner?.id === match.player2.id ? 'bg-green-100 border-2 border-green-600' : 'bg-white border-2 border-gray-300'
                           }`}>
-                            <span className={`font-medium text-base ${
-                              winner?.id === match.player2.id ? 'text-green-600' : 'text-gray-600'
+                            <span className={`font-bold text-base ${
+                              winner?.id === match.player2.id ? 'text-green-600' : 'text-gray-500'
                             }`}>
                               {match.player2.name.charAt(0).toUpperCase()}
                             </span>
                           </div>
-                          <span className={`font-medium text-base truncate ${
-                            winner?.id === match.player2.id ? 'text-black' : 'text-gray-600'
-                          }`}>
-                            {match.player2.name}
-                          </span>
+                          <div className="flex-1">
+                            <span className={`font-semibold text-base ${
+                              winner?.id === match.player2.id ? 'text-black' : 'text-gray-600'
+                            }`}>
+                              {match.player2.name}
+                            </span>
+                          </div>
                           {winner?.id === match.player2.id && (
-                            <Trophy className="h-4 w-4 text-green-600 flex-shrink-0" />
+                            <Trophy className="h-5 w-5 text-green-600 flex-shrink-0" />
                           )}
                         </div>
                       </div>
 
-                      {/* Completion Date */}
-                      <div className="flex justify-center pt-2 border-t border-gray-100">
-                        <div className="text-xs text-gray-500 flex items-center gap-1">
+                      {/* Date */}
+                      <div className="flex justify-center pt-2">
+                        <div className="text-xs text-gray-500 flex items-center gap-2 bg-gray-100 px-3 py-1 rounded-full">
                           <Calendar className="h-3 w-3" />
-                          {formatDate(match.completed_at)}
+                          <span className="font-medium">{formatDate(match.completed_at)}</span>
                         </div>
                       </div>
                     </div>
