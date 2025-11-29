@@ -39,7 +39,7 @@ interface HeadToHeadData {
   probability: {
     player1_chance: number
     player2_chance: number
-    confidence: 'high' | 'medium' | 'low' | 'very_low'
+    confidence: 'high' | 'medium' | 'low'
     basis: 'direct_matches' | 'rating_with_matches' | 'rating_based' | 'common_opponents' | 'insufficient_data'
     rating_difference: number
     factors_used: string[]

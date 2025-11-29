@@ -39,7 +39,7 @@ interface HeadToHeadData {
   probability: {
     player1_chance: number
     player2_chance: number
-    confidence: 'high' | 'medium' | 'low' | 'very_low'
+    confidence: 'high' | 'medium' | 'low'
     basis: 'direct_matches' | 'rating_with_matches' | 'rating_based' | 'common_opponents' | 'insufficient_data'
     rating_difference: number
     factors_used: string[]
@@ -114,8 +114,7 @@ export default function PredictionModal({ isOpen, onClose, player1, player2, slu
       case 'rating_with_matches': return 'Based on ratings and match history'
       case 'rating_based': return 'Based on player ratings'
       case 'common_opponents': return 'Based on common opponents'
-      case 'insufficient_data': return 'Insufficient data'
-      default: return 'Unknown'
+      default: return ''
     }
   }
 
@@ -348,17 +347,6 @@ export default function PredictionModal({ isOpen, onClose, player1, player2, slu
                 </div>
               )}
 
-              {/* No Data Message */}
-              {headToHeadData.direct_matches.total_matches === 0 && 
-               headToHeadData.common_opponents.length === 0 && (
-                <div className="text-center py-8 bg-gray-50 rounded-lg">
-                  <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600 mb-2">Limited data for comparison</p>
-                  <p className="text-sm text-gray-500">
-                    Prediction based on player ratings only.
-                  </p>
-                </div>
-              )}
             </div>
           )}
         </div>

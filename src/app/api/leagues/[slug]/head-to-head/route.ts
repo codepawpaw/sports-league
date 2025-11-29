@@ -32,7 +32,7 @@ interface HeadToHeadData {
   probability: {
     player1_chance: number
     player2_chance: number
-    confidence: 'high' | 'medium' | 'low' | 'very_low'
+    confidence: 'high' | 'medium' | 'low'
     basis: 'direct_matches' | 'rating_with_matches' | 'rating_based' | 'common_opponents' | 'insufficient_data'
     rating_difference: number
     factors_used: string[]
@@ -294,7 +294,7 @@ export async function GET(
     // Initialize calculation variables
     let player1Chance = expectedPlayer1Percentage
     let player2Chance = expectedPlayer2Percentage
-    let confidence: 'high' | 'medium' | 'low' | 'very_low' = 'very_low'
+    let confidence: 'high' | 'medium' | 'low' 
     let basis: 'direct_matches' | 'rating_with_matches' | 'rating_based' | 'common_opponents' | 'insufficient_data' = 'rating_based'
     const factorsUsed: string[] = ['ratings']
 
@@ -370,19 +370,9 @@ export async function GET(
       }
     }
 
-    // Set final confidence based on rating quality and available data
-    if (confidence === 'very_low') {
-      if (ratingConfidence === 'established') {
-        confidence = 'medium'
-        basis = 'rating_based'
-      } else if (ratingConfidence === 'developing') {
-        confidence = 'low'
-        basis = 'rating_based'
-      } else {
-        confidence = 'very_low'
-        basis = 'insufficient_data'
-      }
-    }
+ 
+
+    confidence = 'medium'
 
     const result: HeadToHeadData = {
       player1,
