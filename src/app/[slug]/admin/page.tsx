@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Trophy, ArrowLeft, Users, Calendar, Plus, Edit, Trash2, Save, X, Shuffle, Eye, Clock, Shield, CheckCircle, XCircle, MessageSquare, UserPlus, Settings, Calculator } from 'lucide-react'
 import { createSupabaseComponentClient } from '@/lib/supabase'
+import MatchEditModal from '@/components/MatchEditModal'
 
 interface League {
   id: string
@@ -153,13 +154,12 @@ export default function AdminPage() {
     scheduledAt: ''
   })
   
-  const [editingMatch, setEditingMatch] = useState<string | null>(null)
-  const [editMatchData, setEditMatchData] = useState({
-    player1_score: '',
-    player2_score: '',
-    status: 'scheduled' as Match['status'],
-    scheduled_at: ''
-  })
+  // Modal state
+  const [editingMatch, setEditingMatch] = useState<Match | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  
+  // Match tabs state
+  const [activeMatchTab, setActiveMatchTab] = useState<'scheduled' | 'completed' | 'ongoing'>('scheduled')
 
   // Auto draw state
   const [showAutoDraw, setShowAutoDraw] = useState(false)
@@ -522,25 +522,30 @@ export default function AdminPage() {
     }
   }
 
-  const handleUpdateMatch = async (matchId: string) => {
+  const handleUpdateMatch = async (matchId: string, formData: {
+    player1_score: string
+    player2_score: string
+    status: Match['status']
+    scheduled_at: string
+  }) => {
     if (!league) return
 
     try {
       const updateData: any = {
-        status: editMatchData.status,
-        scheduled_at: editMatchData.scheduled_at ? new Date(editMatchData.scheduled_at).toISOString() : null
+        status: formData.status,
+        scheduled_at: formData.scheduled_at ? new Date(formData.scheduled_at).toISOString() : null
       }
 
       const completedAt = new Date().toISOString()
-      const wasBeingCompleted = editMatchData.status === 'completed'
+      const wasBeingCompleted = formData.status === 'completed'
 
       if (wasBeingCompleted) {
-        if (!editMatchData.player1_score || !editMatchData.player2_score) {
+        if (!formData.player1_score || !formData.player2_score) {
           alert('Please enter scores for both players')
           return
         }
-        updateData.player1_score = parseInt(editMatchData.player1_score)
-        updateData.player2_score = parseInt(editMatchData.player2_score)
+        updateData.player1_score = parseInt(formData.player1_score)
+        updateData.player2_score = parseInt(formData.player2_score)
         updateData.completed_at = completedAt
       }
 
@@ -636,8 +641,8 @@ export default function AdminPage() {
               }, {} as Record<string, { id: string; name: string }>)
 
               // Determine winner
-              const player1Score = parseInt(editMatchData.player1_score!)
-              const player2Score = parseInt(editMatchData.player2_score!)
+              const player1Score = parseInt(formData.player1_score!)
+              const player2Score = parseInt(formData.player2_score!)
               const player1Name = playersMap[matchDetails.player1_id]?.name || 'Player 1'
               const player2Name = playersMap[matchDetails.player2_id]?.name || 'Player 2'
               
@@ -675,7 +680,6 @@ export default function AdminPage() {
         }
       }
 
-      setEditingMatch(null)
       await fetchData(league.id)
     } catch (error) {
       console.error('Error updating match:', error)
@@ -692,13 +696,13 @@ export default function AdminPage() {
   }
 
   const startEditingMatch = (match: Match) => {
-    setEditingMatch(match.id)
-    setEditMatchData({
-      player1_score: match.player1_score?.toString() || '',
-      player2_score: match.player2_score?.toString() || '',
-      status: match.status,
-      scheduled_at: match.scheduled_at ? new Date(match.scheduled_at).toISOString().slice(0, 16) : ''
-    })
+    setEditingMatch(match)
+    setIsModalOpen(true)
+  }
+
+  const closeModal = () => {
+    setIsModalOpen(false)
+    setEditingMatch(null)
   }
 
   // Auto draw functions
@@ -796,13 +800,29 @@ export default function AdminPage() {
     return days[dayNumber]
   }
 
-  // Filter matches based on selected player
-  const filteredMatches = selectedPlayerFilter === 'all' 
-    ? matches 
-    : matches.filter(match => 
-        match.player1.id === selectedPlayerFilter || 
-        match.player2.id === selectedPlayerFilter
-      )
+  // Filter matches based on selected player and active tab
+  const getFilteredMatches = () => {
+    let filtered = selectedPlayerFilter === 'all' 
+      ? matches 
+      : matches.filter(match => 
+          match.player1.id === selectedPlayerFilter || 
+          match.player2.id === selectedPlayerFilter
+        )
+    
+    // Filter by tab status
+    switch (activeMatchTab) {
+      case 'scheduled':
+        return filtered.filter(match => match.status === 'scheduled')
+      case 'ongoing':
+        return filtered.filter(match => match.status === 'in_progress')
+      case 'completed':
+        return filtered.filter(match => match.status === 'completed')
+      default:
+        return filtered
+    }
+  }
+
+  const filteredMatches = getFilteredMatches()
 
   // Season management functions
   const handleAddSeason = async (e: React.FormEvent) => {
@@ -1700,11 +1720,47 @@ export default function AdminPage() {
               {/* Matches List */}
               <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
                 <div className="p-6 border-b border-gray-200">
-                  <div className="flex justify-between items-center">
+                  <div className="flex justify-between items-center mb-6">
                     <h3 className="text-xl font-semibold text-black">Match Overview</h3>
                     <span className="text-sm text-gray-500">
                       Showing {filteredMatches.length} of {matches.length} matches
                     </span>
+                  </div>
+                  
+                  {/* Match Tabs */}
+                  <div className="border-b border-gray-200">
+                    <nav className="flex space-x-8">
+                      <button
+                        onClick={() => setActiveMatchTab('scheduled')}
+                        className={`py-3 px-1 border-b-2 font-medium text-sm ${
+                          activeMatchTab === 'scheduled'
+                            ? 'border-green-500 text-green-600'
+                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        }`}
+                      >
+                        Scheduled ({matches.filter(m => m.status === 'scheduled').length})
+                      </button>
+                      <button
+                        onClick={() => setActiveMatchTab('ongoing')}
+                        className={`py-3 px-1 border-b-2 font-medium text-sm ${
+                          activeMatchTab === 'ongoing'
+                            ? 'border-green-500 text-green-600'
+                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        }`}
+                      >
+                        Ongoing ({matches.filter(m => m.status === 'in_progress').length})
+                      </button>
+                      <button
+                        onClick={() => setActiveMatchTab('completed')}
+                        className={`py-3 px-1 border-b-2 font-medium text-sm ${
+                          activeMatchTab === 'completed'
+                            ? 'border-green-500 text-green-600'
+                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        }`}
+                      >
+                        Completed ({matches.filter(m => m.status === 'completed').length})
+                      </button>
+                    </nav>
                   </div>
                 </div>
                 
@@ -1715,10 +1771,10 @@ export default function AdminPage() {
                       <Calendar className="h-12 w-12 mx-auto text-gray-300 mb-4" />
                       <p className="text-lg font-medium text-gray-900 mb-2">No matches found</p>
                       <p className="text-gray-500">
-                        {selectedPlayerFilter === 'all' ? 
-                          "Create your first match above to get started." :
-                          "This player doesn't have any matches yet."
-                        }
+                      {matches.length === 0 ? 
+                        "Create your first match above to get started." :
+                        `No ${activeMatchTab} matches found.`
+                      }
                       </p>
                     </div>
                   ) : (
@@ -1797,105 +1853,44 @@ export default function AdminPage() {
                             <span className="font-medium">{match.player1.name} vs {match.player2.name}</span>
                           </td>
                           <td className="table-cell">
-                            {editingMatch === match.id ? (
-                              <div className="flex gap-2">
-                                <input
-                                  type="number"
-                                  placeholder="P1"
-                                  value={editMatchData.player1_score}
-                                  onChange={(e) => setEditMatchData(prev => ({ ...prev, player1_score: e.target.value }))}
-                                  className="input-field w-16"
-                                  min="0"
-                                />
-                                <span className="self-center">-</span>
-                                <input
-                                  type="number"
-                                  placeholder="P2"
-                                  value={editMatchData.player2_score}
-                                  onChange={(e) => setEditMatchData(prev => ({ ...prev, player2_score: e.target.value }))}
-                                  className="input-field w-16"
-                                  min="0"
-                                />
-                              </div>
-                            ) : (
-                              <span className="font-mono">
-                                {match.status === 'completed' 
-                                  ? `${match.player1_score} - ${match.player2_score}`
-                                  : '-'
-                                }
-                              </span>
-                            )}
+                            <span className="font-mono">
+                              {match.status === 'completed' 
+                                ? `${match.player1_score} - ${match.player2_score}`
+                                : '-'
+                              }
+                            </span>
                           </td>
                           <td className="table-cell">
-                            {editingMatch === match.id ? (
-                              <select
-                                value={editMatchData.status}
-                                onChange={(e) => setEditMatchData(prev => ({ ...prev, status: e.target.value as Match['status'] }))}
-                                className="input-field"
-                              >
-                                <option value="scheduled">Scheduled</option>
-                                <option value="in_progress">In Progress</option>
-                                <option value="completed">Completed</option>
-                                <option value="cancelled">Cancelled</option>
-                              </select>
-                            ) : (
-                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                match.status === 'completed' ? 'bg-green-100 text-green-800' :
-                                match.status === 'in_progress' ? 'bg-gray-100 text-gray-800' :
-                                match.status === 'cancelled' ? 'bg-gray-100 text-gray-800' : 
-                                'bg-gray-100 text-gray-800'
-                              }`}>
-                                {match.status.replace('_', ' ')}
-                              </span>
-                            )}
+                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                              match.status === 'completed' ? 'bg-green-100 text-green-800' :
+                              match.status === 'in_progress' ? 'bg-gray-100 text-gray-800' :
+                              match.status === 'cancelled' ? 'bg-gray-100 text-gray-800' : 
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {match.status.replace('_', ' ')}
+                            </span>
                           </td>
                           <td className="table-cell">
-                            {editingMatch === match.id ? (
-                              <input
-                                type="datetime-local"
-                                value={editMatchData.scheduled_at}
-                                onChange={(e) => setEditMatchData(prev => ({ ...prev, scheduled_at: e.target.value }))}
-                                className="input-field"
-                              />
-                            ) : (
-                              <span className="text-sm">
-                                {match.scheduled_at ? formatDate(match.scheduled_at) : 'Not scheduled'}
-                              </span>
-                            )}
+                            <span className="text-sm">
+                              {match.scheduled_at ? formatDate(match.scheduled_at) : 'Not scheduled'}
+                            </span>
                           </td>
                           <td className="table-cell">
                             <div className="flex gap-2">
-                              {editingMatch === match.id ? (
-                                <>
-                                  <button
-                                    onClick={() => handleUpdateMatch(match.id)}
-                                    className="p-2 text-green-600 hover:text-green-800"
-                                  >
-                                    <Save className="h-4 w-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => setEditingMatch(null)}
-                                    className="p-2 text-gray-600 hover:text-gray-800"
-                                  >
-                                    <X className="h-4 w-4" />
-                                  </button>
-                                </>
-                              ) : (
-                                <>
-                                  <button
-                                    onClick={() => startEditingMatch(match)}
-                                    className="p-2 text-gray-600 hover:text-black"
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteMatch(match.id)}
-                                    className="p-2 text-gray-600 hover:text-black"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </button>
-                                </>
-                              )}
+                              <button
+                                onClick={() => startEditingMatch(match)}
+                                className="p-2 text-gray-600 hover:text-black"
+                                title="Edit match"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteMatch(match.id)}
+                                className="p-2 text-gray-600 hover:text-black"
+                                title="Delete match"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -1906,9 +1901,9 @@ export default function AdminPage() {
                             <Calendar className="h-12 w-12 mx-auto text-gray-300 mb-4" />
                             <p className="text-lg font-medium text-gray-900 mb-2">No matches found</p>
                             <p className="text-gray-500">
-                              {selectedPlayerFilter === 'all' ? 
+                              {matches.length === 0 ? 
                                 "Create your first match above to get started." :
-                                "This player doesn't have any matches yet."
+                                `No ${activeMatchTab} matches found.`
                               }
                             </p>
                           </td>
@@ -1922,6 +1917,14 @@ export default function AdminPage() {
           </div>
         )}
       </main>
+
+      {/* Match Edit Modal */}
+      <MatchEditModal
+        match={editingMatch}
+        isOpen={isModalOpen}
+        onClose={closeModal}
+        onSave={handleUpdateMatch}
+      />
     </div>
   )
 }
