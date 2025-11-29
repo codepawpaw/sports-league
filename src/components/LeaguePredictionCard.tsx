@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Trophy, TrendingUp, Target } from 'lucide-react'
+import { Trophy, TrendingUp, Target, ChevronDown, ChevronUp, BarChart3 } from 'lucide-react'
 
 interface PlayerPrediction {
   id: string
@@ -10,7 +10,7 @@ interface PlayerPrediction {
   currentPosition: number
   matchesRemaining: number
   maxPossiblePoints: number
-  winProbability: number
+  readinessScore: number
   keyFactors: string[]
   winningStreak: number
   winPercentage: number
@@ -26,6 +26,7 @@ export default function LeaguePredictionCard({ slug }: { slug: string }) {
   const [predictions, setPredictions] = useState<PredictionData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showFormula, setShowFormula] = useState(false)
 
   useEffect(() => {
     fetchPredictions()
@@ -95,8 +96,8 @@ export default function LeaguePredictionCard({ slug }: { slug: string }) {
               </div>
             </div>
             <div className="text-right">
-              <div className="text-2xl font-bold text-green-600">{firstCandidate.winProbability}%</div>
-              <div className="text-xs text-gray-500">win probability</div>
+              <div className="text-2xl font-bold text-green-600">{firstCandidate.readinessScore}%</div>
+              <div className="text-xs text-gray-500">readiness score</div>
             </div>
           </div>
           
@@ -104,7 +105,7 @@ export default function LeaguePredictionCard({ slug }: { slug: string }) {
           <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
             <div 
               className="bg-green-500 h-2 rounded-full transition-all duration-500"
-              style={{ width: `${Math.max(firstCandidate.winProbability, 5)}%` }}
+              style={{ width: `${Math.max(firstCandidate.readinessScore, 5)}%` }}
             ></div>
           </div>
 
@@ -132,8 +133,8 @@ export default function LeaguePredictionCard({ slug }: { slug: string }) {
               </div>
             </div>
             <div className="text-right">
-              <div className="text-2xl font-bold text-black">{secondCandidate.winProbability}%</div>
-              <div className="text-xs text-gray-500">win probability</div>
+              <div className="text-2xl font-bold text-black">{secondCandidate.readinessScore}%</div>
+              <div className="text-xs text-gray-500">readiness score</div>
             </div>
           </div>
 
@@ -141,7 +142,7 @@ export default function LeaguePredictionCard({ slug }: { slug: string }) {
           <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
             <div 
               className="bg-gray-500 h-2 rounded-full transition-all duration-500"
-              style={{ width: `${Math.max(secondCandidate.winProbability, 5)}%` }}
+              style={{ width: `${Math.max(secondCandidate.readinessScore, 5)}%` }}
             ></div>
           </div>
 
@@ -157,8 +158,55 @@ export default function LeaguePredictionCard({ slug }: { slug: string }) {
         </div>
       </div>
 
+      {/* Formula Explanation */}
+      <div className="mt-6 pt-4 border-t border-gray-100">
+        <button 
+          onClick={() => setShowFormula(!showFormula)}
+          className="flex items-center justify-between w-full text-left text-sm text-gray-600 hover:text-black transition-colors"
+        >
+          <div className="flex items-center">
+            <span className="font-medium">How is the readiness score calculated?</span>
+          </div>
+          {showFormula ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </button>
+        
+        {showFormula && (
+          <div className="mt-3 p-3 bg-gray-50 rounded-lg text-sm">
+            <p className="text-gray-700 mb-3">
+              The Championship Readiness Score is calculated using three key components:
+            </p>
+            <div className="space-y-2">
+              <div className="flex items-start">
+                <div className="w-3 h-3 bg-blue-500 rounded-full mt-1 mr-3 flex-shrink-0"></div>
+                <div>
+                  <span className="font-medium text-gray-800">Current Position (40%)</span>
+                  <p className="text-gray-600">Higher score for better league standing</p>
+                </div>
+              </div>
+              <div className="flex items-start">
+                <div className="w-3 h-3 bg-orange-500 rounded-full mt-1 mr-3 flex-shrink-0"></div>
+                <div>
+                  <span className="font-medium text-gray-800">Match Outlook (35%)</span>
+                  <p className="text-gray-600">Expected performance against remaining opponents</p>
+                </div>
+              </div>
+              <div className="flex items-start">
+                <div className="w-3 h-3 bg-green-500 rounded-full mt-1 mr-3 flex-shrink-0"></div>
+                <div>
+                  <span className="font-medium text-gray-800">Recent Form (25%)</span>
+                  <p className="text-gray-600">Bonus for winning streaks and recent performance</p>
+                </div>
+              </div>
+            </div>
+            <p className="text-xs text-gray-500 mt-3">
+              Note: These are readiness scores, not probabilities. Scores above 100% total are possible.
+            </p>
+          </div>
+        )}
+      </div>
+
       {/* Footer Stats */}
-      <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-100">
+      <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
         <div className="flex items-center text-sm text-gray-500">
           <Target className="h-4 w-4 mr-1" />
           <span>Based on current standings, remaining matches, and recent form</span>

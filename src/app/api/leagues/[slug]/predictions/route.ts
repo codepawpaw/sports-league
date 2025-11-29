@@ -17,7 +17,7 @@ interface PlayerPrediction {
   currentPosition: number
   matchesRemaining: number
   maxPossiblePoints: number
-  winProbability: number
+  readinessScore: number
   keyFactors: string[]
   winningStreak: number
   winPercentage: number
@@ -214,7 +214,7 @@ export async function GET(
         currentPosition,
         matchesRemaining,
         maxPossiblePoints,
-        winProbability: Math.round(totalWinProbability * 10) / 10,
+        readinessScore: Math.round(totalWinProbability * 10) / 10,
         keyFactors: keyFactors.slice(0, 3), // Limit to top 3 factors
         winningStreak: player.winning_streak,
         winPercentage: Math.round(winPercentage * 10) / 10,
@@ -222,9 +222,9 @@ export async function GET(
       }
     })
 
-    // Sort by win probability and take top 2
+    // Sort by readiness score and take top 2
     const topPredictions = predictions
-      .sort((a, b) => b.winProbability - a.winProbability)
+      .sort((a, b) => b.readinessScore - a.readinessScore)
       .slice(0, 2)
 
     console.log(`[${timestamp}] [${requestId}] Generated predictions for top 2 players`)
