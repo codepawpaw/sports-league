@@ -109,6 +109,16 @@ body {
     @apply bg-transparent text-black border border-gray-300 px-2 py-1 rounded-md text-xs font-medium hover:bg-gray-50 transition-colors duration-200 sm:px-4 sm:py-2 sm:text-sm;
   }
   
+  .btn-modern-small {
+    @apply bg-white text-gray-700 border border-gray-200 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 transition-all duration-200 shadow-sm hover:shadow-md;
+  }
+  
+  @media (max-width: 640px) {
+    .btn-modern-small {
+      @apply px-2 py-1.5 text-xs rounded-md;
+    }
+  }
+  
   .input-field {
     @apply w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent;
   }

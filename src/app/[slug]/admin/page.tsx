@@ -1339,7 +1339,7 @@ export default function AdminPage() {
                 <span className="text-xl font-bold">{league?.name} - Admin</span>
               </Link>
             </div>
-            <Link href={`/${slug}`} className="btn-outline">
+            <Link href={`/${slug}`} className="btn-modern-small">
               View Public Page
             </Link>
           </div>
