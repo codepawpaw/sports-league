@@ -13,6 +13,7 @@ import ScoreRequestNotifications from '@/components/ScoreRequestNotifications'
 import RegisterAsPlayerModal from '@/components/RegisterAsPlayerModal'
 import MatchTabs from '@/components/MatchTabs'
 import TabNavigation from '@/components/TabNavigation'
+import CompletedMatchesCarousel from '@/components/CompletedMatchesCarousel'
 
 interface League {
   id: string
@@ -407,6 +408,9 @@ export default function LeaguePage() {
         isParticipant={isParticipant}
       />
 
+      {/* Completed Matches Carousel */}
+      <CompletedMatchesCarousel recentMatches={recentMatches} />
+
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         {/* Active Season Description */}
@@ -428,10 +432,9 @@ export default function LeaguePage() {
         {/* Schedule Request Notifications */}
         <ScheduleRequestNotifications slug={slug} />
 
-        {/* Match Tabs - Incoming and Completed Matches */}
+        {/* Match Tabs - Upcoming Matches Only */}
         <MatchTabs 
           upcomingMatches={upcomingMatches}
-          recentMatches={recentMatches}
           slug={slug}
         />
 
