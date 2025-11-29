@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { Users, ArrowLeft, Trophy } from 'lucide-react'
 import { createSupabaseComponentClient } from '@/lib/supabase'
 import PlayerMatchHistoryModal from '@/components/PlayerMatchHistoryModal'
 import RegisterAsPlayerModal from '@/components/RegisterAsPlayerModal'
@@ -95,12 +94,30 @@ export default function PlayersPage() {
     }
   }
 
+  // Sort players by rating (highest first), then by name
+  const sortedPlayers = data?.players ? [...data.players].sort((a, b) => {
+    // Players with ratings come first
+    if (a.total_matches >= 2 && b.total_matches < 2) return -1
+    if (a.total_matches < 2 && b.total_matches >= 2) return 1
+    
+    // Both have ratings, sort by rating (highest first)
+    if (a.total_matches >= 2 && b.total_matches >= 2) {
+      return b.current_rating - a.current_rating
+    }
+    
+    // Both don't have ratings, sort by name
+    return a.name.localeCompare(b.name)
+  }) : []
+
+  const topThreePlayers = sortedPlayers.slice(0, 3)
+  const otherPlayers = sortedPlayers.slice(3)
+
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
           <div className="spinner mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading players...</p>
+          <p className="text-black">Loading players...</p>
         </div>
       </div>
     )
@@ -111,7 +128,7 @@ export default function PlayersPage() {
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-black mb-4">Error</h1>
-          <p className="text-gray-600 mb-6">{error}</p>
+          <p className="text-black mb-6">{error}</p>
           <Link href={`/${slug}`} className="btn-primary">
             Back to League
           </Link>
@@ -122,31 +139,27 @@ export default function PlayersPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Header */}
+      {/* Header - Same as Results Page */}
       <header className="border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <Link href="/" className="flex items-center text-black hover:text-gray-600">
-                <Users className="h-8 w-8" />
-              </Link>
             </div>
             <div className="flex items-center gap-4">
-              <Link href={`/${slug}`} className="btn-mobile">
-                <ArrowLeft className="h-3 w-3 mr-1 sm:h-4 sm:w-4 sm:mr-2" />
-                Back to League
+              <Link href={`/${slug}`} className="text-black hover:text-green-600 font-medium">
+                ← Back to League
               </Link>
             </div>
           </div>
         </div>
       </header>
 
-      {/* League Title */}
-      <div className="border-b border-gray-100 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      {/* League Title - Same as Results Page */}
+      <div className="border-b border-gray-200 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-black break-words">{data.league.name}</h1>
-            <h2 className="text-lg font-medium text-gray-600 mt-1">Players</h2>
+            <h1 className="text-3xl sm:text-4xl font-bold text-black break-words">{data.league.name}</h1>
+            <p className="text-lg text-black mt-2">Players</p>
           </div>
         </div>
       </div>
@@ -159,114 +172,153 @@ export default function PlayersPage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
+        {/* Header Section */}
+        <div className="mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <div className="flex items-center mb-2">
-                <Users className="h-6 w-6 text-black mr-2" />
-                <h2 className="text-2xl font-bold text-black">Players</h2>
-              </div>
-              <p className="text-gray-600">
+              <h2 className="text-2xl font-bold text-black mb-2">Players</h2>
+              <p className="text-black">
                 {data.total} player{data.total !== 1 ? 's' : ''} in this league
               </p>
             </div>
             <button
               onClick={() => setIsRegisterModalOpen(true)}
-              className="btn-primary flex items-center"
+              className="bg-black hover:bg-gray-800 text-white px-4 py-2 rounded-md font-medium transition-colors"
             >
-              <Users className="h-4 w-4 mr-2" />
               Register as Player
             </button>
           </div>
         </div>
 
-
         {data.players.length === 0 ? (
-          <div className="card">
-            <div className="p-8 text-center">
-              <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No players yet</h3>
-              <p className="text-gray-500">
+          <div className="text-center py-12">
+            <div className="bg-white rounded-lg border-2 border-gray-200 p-8">
+              <h3 className="text-xl font-bold text-black mb-2">No players yet</h3>
+              <p className="text-black">
                 No players have joined this league yet.
               </p>
             </div>
           </div>
         ) : (
-          <div className="card">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center">
-                <Trophy className="h-6 w-6 text-black mr-2" />
-                <h3 className="text-xl font-bold text-black">Player Rankings</h3>
-              </div>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-full">
-                <thead>
-                  <tr>
-                    <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Rank</th>
-                    <th className="bg-gray-50 border-b border-gray-200 px-4 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Player</th>
-                    <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Rating</th>
-                    <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Matches</th>
-                    <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">W</th>
-                    <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">L</th>
-                    <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Sets W</th>
-                    <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Sets L</th>
-                    <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Set Diff</th>
-                    <th className="bg-gray-50 border-b border-gray-200 px-4 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.players.map((player, index) => (
-                    <tr key={player.id}>
-                      <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">
-                        <span className="font-bold text-lg">#{index + 1}</span>
-                      </td>
-                      <td className="px-4 py-4 border-b border-gray-200 text-sm text-gray-900">
-                        <span className="font-medium">{player.name}</span>
-                      </td>
-                      <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">
-                        {player.total_matches >= 2 ? (
-                          <div className="flex flex-col">
-                            <span className="font-semibold text-lg">{player.current_rating}</span>
-                            {player.is_provisional && (
-                              <span className="text-xs text-gray-500">Provisional</span>
-                            )}
+          <div className="space-y-8">
+            {/* Top 3 Players Cards */}
+            {topThreePlayers.length > 0 && (
+              <div>
+                <div className="bg-black text-white px-3 py-1 text-sm font-bold tracking-wide inline-block mb-4">
+                  TOP PERFORMERS
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {topThreePlayers.map((player, index) => (
+                    <div 
+                      key={player.id} 
+                      className="bg-white rounded-lg border-2 border-gray-200 overflow-hidden hover:border-gray-400 hover:shadow-md transition-all duration-200"
+                    >
+                      {/* Position Header */}
+                      <div className="bg-gray-800 text-white px-3 py-1 text-xs font-medium flex items-center justify-center">
+                        {index === 0 && '🥇 '}
+                        {index === 1 && '🥈 '}
+                        {index === 2 && '🥉 '}
+                        Position {index + 1}
+                      </div>
+
+                      {/* Player Content */}
+                      <div className="p-4 space-y-3">
+                        {/* Player Name */}
+                        <div className="text-center">
+                          <div className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold bg-gray-100 text-gray-800 mx-auto mb-2">
+                            {player.name.charAt(0).toUpperCase()}
                           </div>
-                        ) : (
-                          <div className="flex flex-col">
-                            <span className="text-gray-400 text-sm">No Rating</span>
-                            <span className="text-xs text-gray-500">Need {2 - player.total_matches} more match{2 - player.total_matches !== 1 ? 'es' : ''}</span>
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">
-                        <span className="font-medium">{player.total_matches}</span>
-                      </td>
-                      <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">{player.wins}</td>
-                      <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">{player.losses}</td>
-                      <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">{player.sets_won}</td>
-                      <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">{player.sets_lost}</td>
-                      <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">
-                        <span className={`font-medium ${player.set_diff >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {player.set_diff >= 0 ? '+' : ''}{player.set_diff}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 border-b border-gray-200 text-sm text-gray-900">
+                          <h3 className="font-bold text-lg text-black truncate">{player.name}</h3>
+                        </div>
+
+                        {/* Rating */}
+                        <div className="text-center border-t border-gray-100 pt-3">
+                          {player.total_matches >= 2 ? (
+                            <div>
+                              <div className="text-2xl font-bold text-black">{player.current_rating}</div>
+                              <div className="text-sm text-black">Rating</div>
+                              {player.is_provisional && (
+                                <div className="text-xs text-black mt-1">Provisional</div>
+                              )}
+                            </div>
+                          ) : (
+                            <div>
+                              <div className="text-lg text-black">No Rating</div>
+                              <div className="text-xs text-black">Need {2 - player.total_matches} more match{2 - player.total_matches !== 1 ? 'es' : ''}</div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Action Button */}
                         <button
                           onClick={() => {
                             setSelectedPlayer({ id: player.id, name: player.name })
                             setIsHistoryModalOpen(true)
                           }}
-                          className="text-sm bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-2 rounded-md font-medium transition-colors border border-blue-200 hover:border-blue-300"
+                          className="w-full bg-gray-50 hover:bg-gray-100 text-gray-800 border border-gray-200 hover:border-gray-300 px-3 py-2 rounded-md text-sm font-medium transition-colors"
                         >
-                          History
+                          View History
                         </button>
-                      </td>
-                    </tr>
+                      </div>
+                    </div>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </div>
+              </div>
+            )}
+
+            {/* Other Players List */}
+            {otherPlayers.length > 0 && (
+              <div>
+                <div className="bg-black text-white px-3 py-1 text-sm font-bold tracking-wide inline-block mb-4">
+                  ALL PLAYERS
+                </div>
+                <div className="space-y-2">
+                  {otherPlayers.map((player) => (
+                    <div 
+                      key={player.id} 
+                      className="bg-white rounded-lg border-2 border-gray-200 overflow-hidden hover:border-gray-400 hover:shadow-sm transition-all duration-200"
+                    >
+                      <div className="p-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                          {/* Player Info */}
+                          <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold bg-gray-100 text-gray-800 flex-shrink-0">
+                              {player.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <h3 className="font-bold text-lg text-black">{player.name}</h3>
+                              <div className="text-sm text-black">
+                                {player.total_matches >= 2 ? (
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-semibold">Rating: {player.current_rating}</span>
+                                    {player.is_provisional && (
+                                      <span className="text-xs">(Provisional)</span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span>No Rating - Need {2 - player.total_matches} more match{2 - player.total_matches !== 1 ? 'es' : ''}</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Action Button */}
+                          <button
+                            onClick={() => {
+                              setSelectedPlayer({ id: player.id, name: player.name })
+                              setIsHistoryModalOpen(true)
+                            }}
+                            className="bg-gray-50 hover:bg-gray-100 text-gray-800 border border-gray-200 hover:border-gray-300 px-4 py-2 rounded-md text-sm font-medium transition-colors flex-shrink-0"
+                          >
+                            View History
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </main>
@@ -292,7 +344,6 @@ export default function PlayersPage() {
           fetchPlayers()
         }}
       />
-
     </div>
   )
 }
