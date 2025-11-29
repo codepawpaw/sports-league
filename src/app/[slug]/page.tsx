@@ -14,6 +14,7 @@ import RegisterAsPlayerModal from '@/components/RegisterAsPlayerModal'
 import UpcomingMatchesCarousel from '@/components/UpcomingMatchesCarousel'
 import TabNavigation from '@/components/TabNavigation'
 import CompletedMatchesCarousel from '@/components/CompletedMatchesCarousel'
+import LeaguePredictionCard from '@/components/LeaguePredictionCard'
 
 interface League {
   id: string
@@ -429,6 +430,9 @@ export default function LeaguePage() {
 
         {/* Schedule Request Notifications */}
         <ScheduleRequestNotifications slug={slug} />
+
+        {/* Championship Predictions */}
+        <LeaguePredictionCard slug={slug} />
 
         {/* Rankings - Full Width */}
         <div className="space-y-8">
