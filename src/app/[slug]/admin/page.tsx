@@ -1291,8 +1291,6 @@ export default function AdminPage() {
     }
   }
 
-
-
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -1602,632 +1600,186 @@ export default function AdminPage() {
           </div>
         )}
 
-        {activeTab === 'admins' && (
-          <div>
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-black mb-4">Manage Administrators</h2>
-              
-              {/* Add Admin Form */}
-              <div className="card p-6 mb-6">
-                <h3 className="text-lg font-semibold text-black mb-4">Add New Administrator</h3>
-                <p className="text-gray-600 text-sm mb-4">
-                  Add an email address to grant administrative access to this league. The user will be able to manage participants, matches, and other administrators.
-                </p>
-                <form onSubmit={handleAddAdmin} className="flex gap-4">
-                  <input
-                    type="email"
-                    placeholder="Enter email address"
-                    value={newAdminEmail}
-                    onChange={(e) => setNewAdminEmail(e.target.value)}
-                    className="input-field flex-1"
-                    required
-                  />
-                  <button 
-                    type="submit" 
-                    className="btn-primary"
-                    disabled={addingAdmin}
-                  >
-                    {addingAdmin ? (
-                      <>
-                        <Clock className="h-4 w-4 mr-2 animate-spin" />
-                        Adding...
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Admin
-                      </>
-                    )}
-                  </button>
-                </form>
-              </div>
-
-              {/* Current Admins List */}
-              <div className="card">
-                <div className="p-6 border-b border-gray-200">
-                  <h3 className="text-lg font-semibold text-black">Current Administrators</h3>
-                  <p className="text-sm text-gray-600 mt-1">
-                    All users listed below can access and manage this league's admin panel.
-                  </p>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr>
-                        <th className="table-header">Email</th>
-                        <th className="table-header">Added On</th>
-                        <th className="table-header">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {admins.map((admin) => (
-                        <tr key={admin.id}>
-                          <td className="table-cell">
-                            <div className="flex items-center">
-                              <span>{admin.email}</span>
-                              {admin.email === currentUserEmail && (
-                                <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-                                  You
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="table-cell">
-                            {new Date(admin.created_at).toLocaleDateString()}
-                          </td>
-                          <td className="table-cell">
-                            {admin.email === currentUserEmail ? (
-                              <span className="text-gray-500 text-sm">Cannot remove yourself</span>
-                            ) : (
-                              <button
-                                onClick={() => handleRemoveAdmin(admin)}
-                                className="p-2 text-red-600 hover:text-red-800"
-                                title="Remove administrator"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                      {admins.length === 0 && (
-                        <tr>
-                          <td colSpan={3} className="table-cell text-center text-gray-500">
-                            No administrators found
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'seasons' && (
-          <div>
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-black mb-4">Manage Seasons</h2>
-              
-              {/* Current Active Season */}
-              {activeSeason && (
-                <div className="card p-6 mb-6">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <h3 className="text-lg font-semibold text-black">Currently Active Season</h3>
-                      <div className="mt-2">
-                        <span className="text-xl font-bold text-black">{activeSeason.name}</span>
-                        {activeSeason.description && (
-                          <p className="text-gray-600 mt-1">{activeSeason.description}</p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex gap-3">
-                      <span className="px-3 py-1 bg-green-100 text-green-800 text-sm font-medium rounded-full">
-                        Active
-                      </span>
-                      {!activeSeason.is_finished && (
-                        <button
-                          onClick={() => handleFinishSeason(activeSeason.slug)}
-                          className="btn-outline text-red-600 border-red-600 hover:bg-red-50"
-                        >
-                          Finish Season
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Add Season Form */}
-              <div className="card p-6 mb-6">
-                <h3 className="text-lg font-semibold text-black mb-4">Create New Season</h3>
-                <form onSubmit={handleAddSeason} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Season Name *
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g., Season 2, Spring Tournament"
-                        value={newSeason.name}
-                        onChange={(e) => setNewSeason(prev => ({ ...prev, name: e.target.value }))}
-                        className="input-field"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Start Date
-                      </label>
-                      <input
-                        type="date"
-                        value={newSeason.startDate}
-                        onChange={(e) => setNewSeason(prev => ({ ...prev, startDate: e.target.value }))}
-                        className="input-field"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Description
-                    </label>
-                    <textarea
-                      placeholder="Optional description for this season"
-                      value={newSeason.description}
-                      onChange={(e) => setNewSeason(prev => ({ ...prev, description: e.target.value }))}
-                      className="input-field"
-                      rows={3}
-                    />
-                  </div>
-
-                  <div className="space-y-3">
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={newSeason.makeActive}
-                        onChange={(e) => setNewSeason(prev => ({ ...prev, makeActive: e.target.checked }))}
-                        className="mr-2"
-                      />
-                      <span className="text-sm text-gray-700">Make this the active season</span>
-                    </label>
-                    
-                    {newSeason.makeActive && (
-                      <label className="flex items-center ml-6">
-                        <input
-                          type="checkbox"
-                          checked={newSeason.convertExisting}
-                          onChange={(e) => setNewSeason(prev => ({ ...prev, convertExisting: e.target.checked }))}
-                          className="mr-2"
-                        />
-                        <span className="text-sm text-gray-700">Copy participants from current active season</span>
-                      </label>
-                    )}
-                  </div>
-
-                  <div className="flex gap-3">
-                    <button 
-                      type="submit" 
-                      className="btn-primary"
-                      disabled={addingSeason}
-                    >
-                      {addingSeason ? (
-                        <>
-                          <Clock className="h-4 w-4 mr-2 animate-spin" />
-                          Creating...
-                        </>
-                      ) : (
-                        <>
-                          Create Season
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </form>
-              </div>
-
-              {/* All Seasons List */}
-              <div className="card">
-                <div className="p-6 border-b border-gray-200">
-                  <h3 className="text-lg font-semibold text-black">All Seasons</h3>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr>
-                        <th className="table-header">Name</th>
-                        <th className="table-header">Status</th>
-                        <th className="table-header">Start Date</th>
-                        <th className="table-header">End Date</th>
-                        <th className="table-header">Created</th>
-                        <th className="table-header">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {seasons.map((season) => (
-                        <tr key={season.id}>
-                          <td className="table-cell">
-                            <div>
-                              <div className="font-medium text-black">{season.name}</div>
-                              {season.description && (
-                                <div className="text-sm text-gray-500">{season.description}</div>
-                              )}
-                            </div>
-                          </td>
-                          <td className="table-cell">
-                            <div className="flex gap-2">
-                              {season.is_active && (
-                                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
-                                  Active
-                                </span>
-                              )}
-                              {season.is_finished && (
-                                <span className="px-2 py-1 bg-gray-100 text-gray-800 text-xs font-medium rounded-full">
-                                  Finished
-                                </span>
-                              )}
-                              {!season.is_active && !season.is_finished && (
-                                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
-                                  Inactive
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="table-cell">
-                            {season.start_date ? new Date(season.start_date).toLocaleDateString() : '-'}
-                          </td>
-                          <td className="table-cell">
-                            {season.end_date ? new Date(season.end_date).toLocaleDateString() : '-'}
-                          </td>
-                          <td className="table-cell">
-                            {new Date(season.created_at).toLocaleDateString()}
-                          </td>
-                          <td className="table-cell">
-                            <div className="flex gap-2">
-                              {!season.is_active && !season.is_finished && (
-                                <button
-                                  onClick={() => handleActivateSeason(season.slug)}
-                                  className="text-sm bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-2 rounded font-medium transition-colors border border-blue-200 hover:border-blue-300"
-                                >
-                                  Activate
-                                </button>
-                              )}
-                              {season.is_active && !season.is_finished && (
-                                <button
-                                  onClick={() => handleFinishSeason(season.slug)}
-                                  className="text-sm bg-red-100 hover:bg-red-200 text-red-800 px-3 py-2 rounded font-medium transition-colors border border-red-200 hover:border-red-300"
-                                >
-                                  Finish
-                                </button>
-                              )}
-                              {season.is_finished && (
-                                <span className="text-sm text-gray-500">Finished</span>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                      {seasons.length === 0 && (
-                        <tr>
-                          <td colSpan={6} className="table-cell text-center text-gray-500">
-                            No seasons yet
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         {activeTab === 'matches' && (
           <div>
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-black mb-4">Manage Matches</h2>
+            <div className="mb-8">
+              <h2 className="text-3xl font-bold text-black mb-2">Match Management</h2>
+              <p className="text-gray-600 mb-8">Create, manage, and track all league matches from this central hub.</p>
               
-              {/* Add Match Form */}
-              <div className="card p-6 mb-6">
-                <h3 className="text-lg font-semibold text-black mb-4">Schedule New Match</h3>
-                <form onSubmit={handleAddMatch} className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <select
-                    value={newMatch.player1Id}
-                    onChange={(e) => setNewMatch(prev => ({ ...prev, player1Id: e.target.value }))}
-                    className="input-field"
-                    required
-                  >
-                    <option value="">Select Player 1</option>
-                    {participants.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                  <select
-                    value={newMatch.player2Id}
-                    onChange={(e) => setNewMatch(prev => ({ ...prev, player2Id: e.target.value }))}
-                    className="input-field"
-                    required
-                  >
-                    <option value="">Select Player 2</option>
-                    {participants.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                  <input
-                    type="datetime-local"
-                    value={newMatch.scheduledAt}
-                    onChange={(e) => setNewMatch(prev => ({ ...prev, scheduledAt: e.target.value }))}
-                    className="input-field"
-                  />
-                  <button type="submit" className="btn-primary">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Schedule Match
-                  </button>
-                </form>
+              {/* Quick Stats */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                <div className="bg-white border border-gray-200 rounded-xl p-6">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-black mb-1">{matches.length}</div>
+                    <div className="text-sm text-gray-600">Total Matches</div>
+                  </div>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-xl p-6">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600 mb-1">
+                      {matches.filter(m => m.status === 'completed').length}
+                    </div>
+                    <div className="text-sm text-gray-600">Completed</div>
+                  </div>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-xl p-6">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-black mb-1">
+                      {matches.filter(m => m.status === 'scheduled').length}
+                    </div>
+                    <div className="text-sm text-gray-600">Scheduled</div>
+                  </div>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-xl p-6">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-black mb-1">
+                      {matches.filter(m => m.status === 'in_progress').length}
+                    </div>
+                    <div className="text-sm text-gray-600">In Progress</div>
+                  </div>
+                </div>
               </div>
 
-              {/* Auto Draw Section */}
-              <div className="card p-6 mb-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold text-black">Auto Draw Tournament</h3>
-                  {!showAutoDraw && (
-                    <button
-                      onClick={() => setShowAutoDraw(true)}
-                      className="btn-primary"
-                      disabled={participants.length < 2}
-                    >
-                      <Shuffle className="h-4 w-4 mr-2" />
-                      Generate All Matches
-                    </button>
-                  )}
-                </div>
-
-                {participants.length < 2 && (
-                  <p className="text-gray-600 text-sm mb-4">
-                    Add at least 2 participants to use auto draw feature
-                  </p>
-                )}
-
-                {showAutoDraw && (
-                  <div className="space-y-6">
-                    {/* Clear Existing Option */}
-                    <div>
-                      <label className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={autoDrawConfig.clearExisting}
-                          onChange={(e) => setAutoDrawConfig(prev => ({ ...prev, clearExisting: e.target.checked }))}
-                          className="mr-2"
-                        />
-                        <span className="text-sm text-gray-700">Clear existing matches first</span>
-                      </label>
-                      {matches.length > 0 && (
-                        <p className="text-sm text-gray-500 ml-6">
-                          This will delete all {matches.length} existing match(es)
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Schedule Options */}
-                    <div>
-                      <h4 className="font-medium text-black mb-3">Schedule Options</h4>
-                      <div className="space-y-3">
-                        <label className="flex items-center">
-                          <input
-                            type="radio"
-                            name="scheduleOption"
-                            checked={!autoDrawConfig.autoSchedule}
-                            onChange={() => setAutoDrawConfig(prev => ({ ...prev, autoSchedule: false }))}
-                            className="mr-2"
-                          />
-                          <span className="text-sm text-gray-700">No automatic scheduling</span>
-                        </label>
-                        <label className="flex items-center">
-                          <input
-                            type="radio"
-                            name="scheduleOption"
-                            checked={autoDrawConfig.autoSchedule}
-                            onChange={() => setAutoDrawConfig(prev => ({ ...prev, autoSchedule: true }))}
-                            className="mr-2"
-                          />
-                          <span className="text-sm text-gray-700">Automatic scheduling</span>
-                        </label>
-                      </div>
-                    </div>
-
-                    {/* Automatic Scheduling Options */}
-                    {autoDrawConfig.autoSchedule && (
-                      <div className="border-l-4 border-blue-500 pl-4 space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Start Date
-                            </label>
-                            <input
-                              type="date"
-                              value={autoDrawConfig.startDate}
-                              onChange={(e) => setAutoDrawConfig(prev => ({ ...prev, startDate: e.target.value }))}
-                              className="input-field"
-                              required
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Start Time
-                            </label>
-                            <input
-                              type="time"
-                              value={autoDrawConfig.startTime}
-                              onChange={(e) => setAutoDrawConfig(prev => ({ ...prev, startTime: e.target.value }))}
-                              className="input-field"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Match Interval
-                            </label>
-                            <select
-                              value={autoDrawConfig.intervalDays}
-                              onChange={(e) => setAutoDrawConfig(prev => ({ ...prev, intervalDays: parseInt(e.target.value) }))}
-                              className="input-field"
-                            >
-                              <option value={1}>Daily</option>
-                              <option value={2}>Every 2 days</option>
-                              <option value={3}>Every 3 days</option>
-                              <option value={7}>Weekly</option>
-                            </select>
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Days of Week
-                          </label>
-                          <div className="flex gap-2">
-                            {[0, 1, 2, 3, 4, 5, 6].map(day => (
-                              <button
-                                key={day}
-                                type="button"
-                                onClick={() => handleDayOfWeekToggle(day)}
-                                className={`px-3 py-2 rounded text-sm font-medium ${
-                                  autoDrawConfig.daysOfWeek.includes(day)
-                                    ? 'bg-black text-white'
-                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                }`}
-                              >
-                                {getDayName(day)}
-                              </button>
-                            ))}
-                          </div>
-                          <p className="text-xs text-gray-500 mt-1">
-                            Select which days matches can be scheduled
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Actions */}
-                    <div className="flex gap-3">
-                      <button
-                        onClick={handlePreviewAutoDraw}
-                        className="btn-outline"
-                        disabled={autoDrawConfig.autoSchedule && !autoDrawConfig.startDate}
-                      >
-                        <Eye className="h-4 w-4 mr-2" />
-                        Preview Matches
-                      </button>
-                      <button
-                        onClick={handleGenerateAutoDraw}
-                        className="btn-primary"
-                        disabled={isGeneratingDraw || (autoDrawConfig.autoSchedule && !autoDrawConfig.startDate)}
-                      >
-                        {isGeneratingDraw ? (
-                          <>
-                            <Clock className="h-4 w-4 mr-2 animate-spin" />
-                            Generating...
-                          </>
-                        ) : (
-                          <>
-                            <Shuffle className="h-4 w-4 mr-2" />
-                            Generate Tournament
-                          </>
-                        )}
-                      </button>
-                      <button
-                        onClick={() => {
-                          setShowAutoDraw(false)
-                          setShowPreview(false)
-                          setAutoDrawPreview(null)
-                        }}
-                        className="btn-outline"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Preview Modal */}
-                {showPreview && autoDrawPreview && (
-                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full m-4 max-h-[90vh] overflow-hidden">
-                      <div className="p-6 border-b border-gray-200">
-                        <h3 className="text-lg font-semibold text-black">Match Preview</h3>
-                        <p className="text-sm text-gray-600 mt-1">
-                          {autoDrawPreview.totalMatches} matches will be created for {autoDrawPreview.participants} participants
-                          {autoDrawPreview.estimatedDuration && ` (${autoDrawPreview.estimatedDuration})`}
-                        </p>
-                      </div>
-                      <div className="p-6 overflow-y-auto max-h-96">
-                        <div className="space-y-2">
-                          {autoDrawPreview.matches.map((match: any, index: number) => (
-                            <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded">
-                              <span className="font-medium">
-                                {match.player1_name} vs {match.player2_name}
-                              </span>
-                              <span className="text-sm text-gray-600">
-                                {match.scheduled_at ? formatPreviewDate(match.scheduled_at) : 'No date'}
-                              </span>
-                            </div>
+              {/* Action Panel */}
+              <div className="bg-white border border-gray-200 rounded-xl p-6 mb-8">
+                <h3 className="text-xl font-semibold text-black mb-6">Quick Actions</h3>
+                
+                {/* Add Match Form */}
+                <div className="mb-6">
+                  <h4 className="text-lg font-medium text-black mb-4">Schedule New Match</h4>
+                  <form onSubmit={handleAddMatch} className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Player 1</label>
+                        <select
+                          value={newMatch.player1Id}
+                          onChange={(e) => setNewMatch(prev => ({ ...prev, player1Id: e.target.value }))}
+                          className="input-field"
+                          required
+                        >
+                          <option value="">Select Player 1</option>
+                          {participants.map(p => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
                           ))}
-                        </div>
+                        </select>
                       </div>
-                      <div className="p-6 border-t border-gray-200 flex gap-3">
-                        <button
-                          onClick={handleGenerateAutoDraw}
-                          className="btn-primary"
-                          disabled={isGeneratingDraw}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Player 2</label>
+                        <select
+                          value={newMatch.player2Id}
+                          onChange={(e) => setNewMatch(prev => ({ ...prev, player2Id: e.target.value }))}
+                          className="input-field"
+                          required
                         >
-                          {isGeneratingDraw ? 'Generating...' : 'Confirm & Generate'}
-                        </button>
-                        <button
-                          onClick={() => setShowPreview(false)}
-                          className="btn-outline"
-                        >
-                          Back to Config
+                          <option value="">Select Player 2</option>
+                          {participants.map(p => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Schedule Date</label>
+                        <input
+                          type="datetime-local"
+                          value={newMatch.scheduledAt}
+                          onChange={(e) => setNewMatch(prev => ({ ...prev, scheduledAt: e.target.value }))}
+                          className="input-field"
+                        />
+                      </div>
+                      <div className="flex items-end">
+                        <button type="submit" className="btn-primary w-full">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Schedule Match
                         </button>
                       </div>
                     </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Player Filter Section */}
-              <div className="card p-6 mb-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold text-black">Filter Matches by Player</h3>
-                  <span className="text-sm text-gray-500">
-                    Showing {filteredMatches.length} of {matches.length} matches
-                  </span>
-                </div>
-                <div className="flex gap-4 items-center">
-                  <label className="text-sm font-medium text-gray-700">
-                    Filter by Player:
-                  </label>
-                  <select
-                    value={selectedPlayerFilter}
-                    onChange={(e) => setSelectedPlayerFilter(e.target.value)}
-                    className="input-field w-64"
-                  >
-                    <option value="all">All Players</option>
-                    {participants.map(participant => (
-                      <option key={participant.id} value={participant.id}>
-                        {participant.name}
-                      </option>
-                    ))}
-                  </select>
+                  </form>
                 </div>
               </div>
 
               {/* Matches List */}
-              <div className="card">
+              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
                 <div className="p-6 border-b border-gray-200">
-                  <h3 className="text-lg font-semibold text-black">All Matches</h3>
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-xl font-semibold text-black">Match Overview</h3>
+                    <span className="text-sm text-gray-500">
+                      Showing {filteredMatches.length} of {matches.length} matches
+                    </span>
+                  </div>
                 </div>
-                <div className="overflow-x-auto">
+                
+                {/* Mobile Card Layout */}
+                <div className="block lg:hidden">
+                  {filteredMatches.length === 0 ? (
+                    <div className="p-8 text-center">
+                      <Calendar className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+                      <p className="text-lg font-medium text-gray-900 mb-2">No matches found</p>
+                      <p className="text-gray-500">
+                        {selectedPlayerFilter === 'all' ? 
+                          "Create your first match above to get started." :
+                          "This player doesn't have any matches yet."
+                        }
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-gray-200">
+                      {filteredMatches.map((match) => (
+                        <div key={match.id} className="p-4">
+                          <div className="space-y-3">
+                            {/* Players */}
+                            <div className="flex justify-between items-center">
+                              <h4 className="font-semibold text-black">
+                                {match.player1.name} vs {match.player2.name}
+                              </h4>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => startEditingMatch(match)}
+                                  className="p-2 text-gray-600 hover:text-black"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteMatch(match.id)}
+                                  className="p-2 text-gray-600 hover:text-black"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </div>
+                            
+                            {/* Status & Score */}
+                            <div className="flex justify-between items-center">
+                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                match.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                match.status === 'in_progress' ? 'bg-gray-100 text-gray-800' :
+                                match.status === 'cancelled' ? 'bg-gray-100 text-gray-800' : 
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {match.status.replace('_', ' ')}
+                              </span>
+                              <span className="font-mono text-lg">
+                                {match.status === 'completed' 
+                                  ? `${match.player1_score} - ${match.player2_score}`
+                                  : '-'
+                                }
+                              </span>
+                            </div>
+                            
+                            {/* Date */}
+                            {match.scheduled_at && (
+                              <p className="text-sm text-gray-600">
+                                Scheduled: {formatDate(match.scheduled_at)}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Desktop Table Layout */}
+                <div className="hidden lg:block overflow-x-auto">
                   <table className="w-full">
                     <thead>
                       <tr>
@@ -2242,7 +1794,7 @@ export default function AdminPage() {
                       {filteredMatches.map((match) => (
                         <tr key={match.id}>
                           <td className="table-cell">
-                            {match.player1.name} vs {match.player2.name}
+                            <span className="font-medium">{match.player1.name} vs {match.player2.name}</span>
                           </td>
                           <td className="table-cell">
                             {editingMatch === match.id ? (
@@ -2255,7 +1807,7 @@ export default function AdminPage() {
                                   className="input-field w-16"
                                   min="0"
                                 />
-                                <span>-</span>
+                                <span className="self-center">-</span>
                                 <input
                                   type="number"
                                   placeholder="P2"
@@ -2266,9 +1818,12 @@ export default function AdminPage() {
                                 />
                               </div>
                             ) : (
-                              match.status === 'completed' 
-                                ? `${match.player1_score} - ${match.player2_score}`
-                                : '-'
+                              <span className="font-mono">
+                                {match.status === 'completed' 
+                                  ? `${match.player1_score} - ${match.player2_score}`
+                                  : '-'
+                                }
+                              </span>
                             )}
                           </td>
                           <td className="table-cell">
@@ -2284,10 +1839,11 @@ export default function AdminPage() {
                                 <option value="cancelled">Cancelled</option>
                               </select>
                             ) : (
-                              <span className={`badge-${
-                                match.status === 'completed' ? 'green' :
-                                match.status === 'in_progress' ? 'yellow' :
-                                match.status === 'cancelled' ? 'red' : 'gray'
+                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                match.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                match.status === 'in_progress' ? 'bg-gray-100 text-gray-800' :
+                                match.status === 'cancelled' ? 'bg-gray-100 text-gray-800' : 
+                                'bg-gray-100 text-gray-800'
                               }`}>
                                 {match.status.replace('_', ' ')}
                               </span>
@@ -2302,7 +1858,9 @@ export default function AdminPage() {
                                 className="input-field"
                               />
                             ) : (
-                              match.scheduled_at ? formatDate(match.scheduled_at) : '-'
+                              <span className="text-sm">
+                                {match.scheduled_at ? formatDate(match.scheduled_at) : 'Not scheduled'}
+                              </span>
                             )}
                           </td>
                           <td className="table-cell">
@@ -2326,13 +1884,13 @@ export default function AdminPage() {
                                 <>
                                   <button
                                     onClick={() => startEditingMatch(match)}
-                                    className="p-2 text-blue-600 hover:text-blue-800"
+                                    className="p-2 text-gray-600 hover:text-black"
                                   >
                                     <Edit className="h-4 w-4" />
                                   </button>
                                   <button
                                     onClick={() => handleDeleteMatch(match.id)}
-                                    className="p-2 text-red-600 hover:text-red-800"
+                                    className="p-2 text-gray-600 hover:text-black"
                                   >
                                     <Trash2 className="h-4 w-4" />
                                   </button>
@@ -2342,727 +1900,28 @@ export default function AdminPage() {
                           </td>
                         </tr>
                       ))}
-                      {matches.length === 0 && (
+                      {filteredMatches.length === 0 && (
                         <tr>
-                          <td colSpan={5} className="table-cell text-center text-gray-500">
-                            No matches yet
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'registration-requests' && (
-          <div>
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-black mb-4">Player Registration Requests</h2>
-              <p className="text-gray-600 mb-6">
-                Review and manage player registration requests. Users can request to claim a player profile by registering with their email.
-              </p>
-              
-              {/* Registration Requests List */}
-              <div className="card">
-                <div className="p-6 border-b border-gray-200">
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-lg font-semibold text-black">Pending Requests</h3>
-                    <span className="text-sm text-gray-500">
-                      {registrationRequests.filter(r => r.status === 'pending').length} pending requests
-                    </span>
-                  </div>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr>
-                        <th className="table-header">Player</th>
-                        <th className="table-header">Requesting User</th>
-                        <th className="table-header">Status</th>
-                        <th className="table-header">Requested</th>
-                        <th className="table-header">Reviewed</th>
-                        <th className="table-header">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {registrationRequests.map((request) => (
-                        <tr key={request.id}>
-                          <td className="table-cell">
-                            <div className="font-medium text-black">{request.player.name}</div>
-                          </td>
-                          <td className="table-cell">
-                            <div className="text-sm">{request.claimer_email}</div>
-                          </td>
-                          <td className="table-cell">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                              request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                              request.status === 'approved' ? 'bg-green-100 text-green-800' :
-                              'bg-red-100 text-red-800'
-                            }`}>
-                              {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-                            </span>
-                          </td>
-                          <td className="table-cell">
-                            <div className="text-sm text-gray-600">
-                              {new Date(request.requested_at).toLocaleDateString()}
-                              <div className="text-xs text-gray-400">
-                                {new Date(request.requested_at).toLocaleTimeString()}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="table-cell">
-                            {request.reviewed_at ? (
-                              <div className="text-sm text-gray-600">
-                                {new Date(request.reviewed_at).toLocaleDateString()}
-                                <div className="text-xs text-gray-400">
-                                  {new Date(request.reviewed_at).toLocaleTimeString()}
-                                </div>
-                                {request.reviewed_by && (
-                                  <div className="text-xs text-gray-400">
-                                    by {request.reviewed_by}
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-gray-400">-</span>
-                            )}
-                          </td>
-                          <td className="table-cell">
-                            {request.status === 'pending' ? (
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => handleApproveRequest(request.id)}
-                                  className="inline-flex items-center px-3 py-2 text-sm font-medium text-green-700 bg-green-100 border border-green-300 rounded-md hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-                                  title="Approve request"
-                                >
-                                  <CheckCircle className="h-4 w-4 mr-1" />
-                                  Approve
-                                </button>
-                                <button
-                                  onClick={() => handleRejectRequest(request.id)}
-                                  className="inline-flex items-center px-3 py-2 text-sm font-medium text-red-700 bg-red-100 border border-red-300 rounded-md hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-                                  title="Reject request"
-                                >
-                                  <XCircle className="h-4 w-4 mr-1" />
-                                  Reject
-                                </button>
-                              </div>
-                            ) : (
-                              <span className="text-gray-500 text-sm">
-                                {request.status === 'approved' ? 'Approved' : 'Rejected'}
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                      {registrationRequests.length === 0 && (
-                        <tr>
-                          <td colSpan={6} className="table-cell text-center text-gray-500">
-                            <div className="py-8">
-                              <UserPlus className="h-12 w-12 mx-auto text-gray-300 mb-4" />
-                              <p className="text-lg font-medium text-gray-900 mb-2">No registration requests</p>
-                              <p className="text-gray-500">
-                                When users request to claim a player profile, they will appear here for review.
-                              </p>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Summary Statistics */}
-              {registrationRequests.length > 0 && (
-                <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="card p-4">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-yellow-600">
-                        {registrationRequests.filter(r => r.status === 'pending').length}
-                      </div>
-                      <div className="text-sm text-gray-600">Pending</div>
-                    </div>
-                  </div>
-                  <div className="card p-4">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-green-600">
-                        {registrationRequests.filter(r => r.status === 'approved').length}
-                      </div>
-                      <div className="text-sm text-gray-600">Approved</div>
-                    </div>
-                  </div>
-                  <div className="card p-4">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-red-600">
-                        {registrationRequests.filter(r => r.status === 'rejected').length}
-                      </div>
-                      <div className="text-sm text-gray-600">Rejected</div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'integrations' && (
-          <div>
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-black mb-4">Google Chat Integration</h2>
-              <p className="text-gray-600 mb-6">
-                Configure Google Chat notifications to automatically post updates about new matches and schedule confirmations to your Google Chat space.
-              </p>
-              
-              {/* Chat Integration Form */}
-              <div className="card p-6 mb-6">
-                <h3 className="text-lg font-semibold text-black mb-4">Configuration</h3>
-                <form onSubmit={handleSaveChatConfig} className="space-y-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Google Chat Webhook URL *
-                    </label>
-                    <input
-                      type="url"
-                      placeholder="https://chat.googleapis.com/v1/spaces/..."
-                      value={chatConfig.webhook_url}
-                      onChange={(e) => setChatConfig(prev => ({ ...prev, webhook_url: e.target.value }))}
-                      className="input-field"
-                      required
-                    />
-                    <p className="text-sm text-gray-500 mt-1">
-                      Create a webhook in your Google Chat space and paste the URL here.
-                    </p>
-                  </div>
-
-                  <div className="space-y-4">
-                    <h4 className="font-medium text-gray-900">Notification Settings</h4>
-                    
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={chatConfig.enabled}
-                        onChange={(e) => setChatConfig(prev => ({ ...prev, enabled: e.target.checked }))}
-                        className="mr-3"
-                      />
-                      <div>
-                        <span className="text-sm font-medium text-gray-700">Enable Google Chat Integration</span>
-                        <p className="text-xs text-gray-500">Master switch for all notifications</p>
-                      </div>
-                    </label>
-
-                    {chatConfig.enabled && (
-                      <div className="ml-6 space-y-3 border-l-2 border-gray-200 pl-4">
-                        <label className="flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={chatConfig.notify_new_matches}
-                            onChange={(e) => setChatConfig(prev => ({ ...prev, notify_new_matches: e.target.checked }))}
-                            className="mr-3"
-                          />
-                          <div>
-                            <span className="text-sm font-medium text-gray-700">New Match Created</span>
-                            <p className="text-xs text-gray-500">Notify when new matches are created (auto-draw or manual)</p>
-                          </div>
-                        </label>
-
-                        <label className="flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={chatConfig.notify_approved_schedules}
-                            onChange={(e) => setChatConfig(prev => ({ ...prev, notify_approved_schedules: e.target.checked }))}
-                            className="mr-3"
-                          />
-                          <div>
-                            <span className="text-sm font-medium text-gray-700">Schedule Confirmed</span>
-                            <p className="text-xs text-gray-500">Notify when players confirm a match schedule</p>
-                          </div>
-                        </label>
-
-                        <label className="flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={chatConfig.notify_schedule_requests}
-                            onChange={(e) => setChatConfig(prev => ({ ...prev, notify_schedule_requests: e.target.checked }))}
-                            className="mr-3"
-                          />
-                          <div>
-                            <span className="text-sm font-medium text-gray-700">Schedule Requests</span>
-                            <p className="text-xs text-gray-500">Notify when someone sends a schedule request for a match</p>
-                          </div>
-                        </label>
-
-                        <label className="flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={chatConfig.notify_match_completions}
-                            onChange={(e) => setChatConfig(prev => ({ ...prev, notify_match_completions: e.target.checked }))}
-                            className="mr-3"
-                          />
-                          <div>
-                            <span className="text-sm font-medium text-gray-700">Match Completed</span>
-                            <p className="text-xs text-gray-500">Notify when matches are completed with final scores</p>
-                          </div>
-                        </label>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Daily Summary Settings */}
-                  {chatConfig.enabled && (
-                    <div className="space-y-4 border-t border-gray-200 pt-6">
-                      <h4 className="font-medium text-gray-900">Daily Summary Settings</h4>
-                      
-                      <label className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={chatConfig.daily_summary_enabled}
-                          onChange={(e) => setChatConfig(prev => ({ ...prev, daily_summary_enabled: e.target.checked }))}
-                          className="mr-3"
-                        />
-                        <div>
-                          <span className="text-sm font-medium text-gray-700">Enable Daily Summary</span>
-                          <p className="text-xs text-gray-500">Automatically send daily league summaries</p>
-                        </div>
-                      </label>
-
-                      {chatConfig.daily_summary_enabled && (
-                        <div className="ml-6 space-y-4 border-l-2 border-gray-200 pl-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Send Time (WIB)
-                            </label>
-                            <input
-                              type="time"
-                              value={chatConfig.daily_summary_time}
-                              onChange={(e) => setChatConfig(prev => ({ ...prev, daily_summary_time: e.target.value }))}
-                              className="input-field w-32"
-                            />
-                            <p className="text-xs text-gray-500 mt-1">
-                              Daily summary will be sent at this time (Indonesia Western Time)
+                          <td colSpan={5} className="table-cell text-center text-gray-500 py-8">
+                            <Calendar className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+                            <p className="text-lg font-medium text-gray-900 mb-2">No matches found</p>
+                            <p className="text-gray-500">
+                              {selectedPlayerFilter === 'all' ? 
+                                "Create your first match above to get started." :
+                                "This player doesn't have any matches yet."
+                              }
                             </p>
-                          </div>
-
-                          <div>
-                            <span className="block text-sm font-medium text-gray-700 mb-3">Include in Summary</span>
-                            <div className="space-y-2">
-                              <label className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  checked={chatConfig.summary_include_streaks}
-                                  onChange={(e) => setChatConfig(prev => ({ ...prev, summary_include_streaks: e.target.checked }))}
-                                  className="mr-3"
-                                />
-                                <div>
-                                  <span className="text-sm text-gray-700">Winning Streak Monster</span>
-                                  <p className="text-xs text-gray-500">Show player with longest current winning streak</p>
-                                </div>
-                              </label>
-
-                              <label className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  checked={chatConfig.summary_include_rankings}
-                                  onChange={(e) => setChatConfig(prev => ({ ...prev, summary_include_rankings: e.target.checked }))}
-                                  className="mr-3"
-                                />
-                                <div>
-                                  <span className="text-sm text-gray-700">Current Rankings</span>
-                                  <p className="text-xs text-gray-500">Show top 3 players in the league</p>
-                                </div>
-                              </label>
-
-                              <label className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  checked={chatConfig.summary_include_schedule}
-                                  onChange={(e) => setChatConfig(prev => ({ ...prev, summary_include_schedule: e.target.checked }))}
-                                  className="mr-3"
-                                />
-                                <div>
-                                  <span className="text-sm text-gray-700">Today's Match Schedule</span>
-                                  <p className="text-xs text-gray-500">Show matches scheduled for today</p>
-                                </div>
-                              </label>
-                            </div>
-                          </div>
-
-                          {chatIntegration && (
-                            <div className="mt-4">
-                              <div className="flex gap-3">
-                                <button
-                                  type="button"
-                                  onClick={handlePreviewDailySummary}
-                                  className="btn-outline"
-                                  disabled={previewingDailySummary}
-                                >
-                                  {previewingDailySummary ? (
-                                    <>
-                                      <Clock className="h-4 w-4 mr-2 animate-spin" />
-                                      Generating...
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Eye className="h-4 w-4 mr-2" />
-                                      Preview Summary
-                                    </>
-                                  )}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={handleSendDailySummary}
-                                  className="btn-outline"
-                                  disabled={sendingDailySummary}
-                                >
-                                  {sendingDailySummary ? (
-                                    <>
-                                      <Clock className="h-4 w-4 mr-2 animate-spin" />
-                                      Sending...
-                                    </>
-                                  ) : (
-                                    <>
-                                      <MessageSquare className="h-4 w-4 mr-2" />
-                                      Send Summary Now
-                                    </>
-                                  )}
-                                </button>
-                              </div>
-                              {chatIntegration.last_summary_sent && (
-                                <p className="text-xs text-gray-500 mt-2">
-                                  Last sent: {new Date(chatIntegration.last_summary_sent).toLocaleString('en-US', { timeZone: 'Asia/Jakarta' })} WIB
-                                </p>
-                              )}
-                            </div>
-                          )}
-                        </div>
+                          </td>
+                        </tr>
                       )}
-                    </div>
-                  )}
-
-                  <div className="flex gap-3">
-                    <button 
-                      type="submit" 
-                      className="btn-primary"
-                      disabled={savingChatConfig}
-                    >
-                      {savingChatConfig ? (
-                        <>
-                          <Clock className="h-4 w-4 mr-2 animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        <>
-                          <Save className="h-4 w-4 mr-2" />
-                          Save Configuration
-                        </>
-                      )}
-                    </button>
-                    
-                    {chatIntegration && (
-                      <>
-                        <button 
-                          type="button"
-                          onClick={handleTestChat}
-                          className="btn-outline"
-                          disabled={testingChat || !chatConfig.enabled}
-                        >
-                          {testingChat ? (
-                            <>
-                              <Clock className="h-4 w-4 mr-2 animate-spin" />
-                              Testing...
-                            </>
-                          ) : (
-                            <>
-                              <MessageSquare className="h-4 w-4 mr-2" />
-                              Send Test
-                            </>
-                          )}
-                        </button>
-                        
-                        <button
-                          type="button"
-                          onClick={handleRemoveChatIntegration}
-                          className="btn-outline text-red-600 border-red-600 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Remove Integration
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </form>
-              </div>
-
-              {/* Custom Announcement Section */}
-              {chatIntegration && chatIntegration.enabled && (
-                <div className="card p-6 mb-6">
-                  <h3 className="text-lg font-semibold text-black mb-4">Send Custom Announcement</h3>
-                  <p className="text-gray-600 mb-4">
-                    Send a custom announcement to your Google Chat space. This will appear as a league announcement card.
-                  </p>
-                  
-                  <form onSubmit={handleSendAnnouncement} className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Announcement Message *
-                      </label>
-                      <textarea
-                        placeholder="Enter your announcement message here..."
-                        value={announcementText}
-                        onChange={(e) => setAnnouncementText(e.target.value)}
-                        className="input-field"
-                        rows={4}
-                        maxLength={2000}
-                        required
-                      />
-                      <div className="flex justify-between text-xs text-gray-500 mt-1">
-                        <span>Plain text only (no special formatting)</span>
-                        <span>{announcementText.length}/2000 characters</span>
-                      </div>
-                    </div>
-                    
-                    <div className="flex gap-3">
-                      <button 
-                        type="submit" 
-                        className="btn-primary"
-                        disabled={sendingAnnouncement || !announcementText.trim()}
-                      >
-                        {sendingAnnouncement ? (
-                          <>
-                            <Clock className="h-4 w-4 mr-2 animate-spin" />
-                            Sending...
-                          </>
-                        ) : (
-                          <>
-                            <MessageSquare className="h-4 w-4 mr-2" />
-                            Send Announcement
-                          </>
-                        )}
-                      </button>
-                      
-                      {announcementText.trim() && (
-                        <button
-                          type="button"
-                          onClick={() => setAnnouncementText('')}
-                          className="btn-outline"
-                        >
-                          Clear
-                        </button>
-                      )}
-                    </div>
-                  </form>
-                  
-                  <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                    <h4 className="text-sm font-medium text-blue-900 mb-1">Preview</h4>
-                    <p className="text-sm text-blue-700">
-                      Your announcement will appear as a rich card with "📢 League Announcement" header, your message, timestamp, and a "View League" button.
-                    </p>
-                  </div>
+                    </tbody>
+                  </table>
                 </div>
-              )}
-
-              {/* Integration Status */}
-              <div className="card p-6">
-                <h3 className="text-lg font-semibold text-black mb-4">Integration Status</h3>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-700">Configuration Status</span>
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                      chatIntegration 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      {chatIntegration ? 'Configured' : 'Not Configured'}
-                    </span>
-                  </div>
-                  
-                  {chatIntegration && (
-                    <>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-700">Integration Status</span>
-                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                          chatIntegration.enabled 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {chatIntegration.enabled ? 'Enabled' : 'Disabled'}
-                        </span>
-                      </div>
-                      
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-700">New Match Notifications</span>
-                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                          chatIntegration.notify_new_matches 
-                            ? 'bg-blue-100 text-blue-800' 
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {chatIntegration.notify_new_matches ? 'On' : 'Off'}
-                        </span>
-                      </div>
-                      
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-700">Schedule Confirmation Notifications</span>
-                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                          chatIntegration.notify_approved_schedules 
-                            ? 'bg-blue-100 text-blue-800' 
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {chatIntegration.notify_approved_schedules ? 'On' : 'Off'}
-                        </span>
-                      </div>
-                      
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-700">Schedule Request Notifications</span>
-                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                          chatIntegration.notify_schedule_requests 
-                            ? 'bg-blue-100 text-blue-800' 
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {chatIntegration.notify_schedule_requests ? 'On' : 'Off'}
-                        </span>
-                      </div>
-                      
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-700">Match Completion Notifications</span>
-                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                          chatIntegration.notify_match_completions 
-                            ? 'bg-blue-100 text-blue-800' 
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {chatIntegration.notify_match_completions ? 'On' : 'Off'}
-                        </span>
-                      </div>
-                      
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-700">Last Updated</span>
-                        <span className="text-xs text-gray-500">
-                          {new Date(chatIntegration.updated_at).toLocaleString()}
-                        </span>
-                      </div>
-                    </>
-                  )}
-                </div>
-                
-                {!chatIntegration && (
-                  <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-                    <h4 className="text-sm font-medium text-blue-900 mb-2">Getting Started</h4>
-                    <ol className="text-sm text-blue-700 space-y-1 list-decimal list-inside">
-                      <li>Create a Google Chat space or use an existing one</li>
-                      <li>Add a webhook to the space (Chat settings → Webhooks)</li>
-                      <li>Copy the webhook URL and paste it above</li>
-                      <li>Configure your notification preferences</li>
-                      <li>Save and test the configuration</li>
-                    </ol>
-                  </div>
-                )}
               </div>
             </div>
           </div>
         )}
-
-
       </main>
-      
-      {/* Daily Summary Preview Modal */}
-      {showPreviewModal && dailySummaryPreview && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full m-4 max-h-[90vh] overflow-hidden">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold text-black">Daily Summary Preview</h3>
-                <button
-                  onClick={() => {
-                    setShowPreviewModal(false)
-                    setDailySummaryPreview(null)
-                  }}
-                  className="p-2 text-gray-400 hover:text-gray-600"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-              <p className="text-sm text-gray-600 mt-1">
-                This is how the notification will appear in Google Chat
-              </p>
-            </div>
-            
-            <div className="p-6 overflow-y-auto max-h-[60vh]">
-              {/* Mock Google Chat Card UI */}
-              <div className="border border-gray-200 rounded-lg bg-gray-50 p-4 max-w-md">
-                <div className="border-b border-gray-200 pb-3 mb-4">
-                  <h4 className="font-semibold text-gray-900 text-lg">
-                    {dailySummaryPreview.title}
-                  </h4>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {dailySummaryPreview.subtitle}
-                  </p>
-                </div>
-                
-                <div className="space-y-4">
-                  {dailySummaryPreview.sections.map((section: any, index: number) => (
-                    <div key={index} className="space-y-2">
-                      <h5 className="font-medium text-gray-900 text-base">
-                        {section.title}
-                      </h5>
-                      <div className="text-sm text-gray-700 whitespace-pre-line bg-white rounded border p-3">
-                        {section.content}
-                      </div>
-                    </div>
-                  ))}
-                  
-                  <div className="border-t border-gray-200 pt-3 mt-4">
-                    <button className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700">
-                      View League
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <div className="p-6 border-t border-gray-200 bg-gray-50">
-              <div className="flex justify-between items-center">
-                <p className="text-sm text-gray-600">
-                  Ready to send this notification?
-                </p>
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => {
-                      setShowPreviewModal(false)
-                      setDailySummaryPreview(null)
-                    }}
-                    className="btn-outline"
-                  >
-                    Close
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowPreviewModal(false)
-                      setDailySummaryPreview(null)
-                      handleSendDailySummary()
-                    }}
-                    className="btn-primary"
-                    disabled={sendingDailySummary}
-                  >
-                    {sendingDailySummary ? (
-                      <>
-                        <Clock className="h-4 w-4 mr-2 animate-spin" />
-                        Sending...
-                      </>
-                    ) : (
-                      <>
-                        <MessageSquare className="h-4 w-4 mr-2" />
-                        Send Now
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
