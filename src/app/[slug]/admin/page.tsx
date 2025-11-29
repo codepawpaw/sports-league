@@ -1348,73 +1348,77 @@ export default function AdminPage() {
 
       {/* Tabs */}
       <div className="border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <nav className="flex space-x-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 nav-gradient">
+          <nav className="flex space-x-4 sm:space-x-8 overflow-x-auto scrollbar-hide nav-scroll">
             <button
               onClick={() => setActiveTab('participants')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              className={`flex-shrink-0 py-4 px-1 sm:px-2 border-b-2 font-medium text-sm whitespace-nowrap ${
                 activeTab === 'participants'
                   ? 'border-black text-black'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              <Users className="h-4 w-4 inline mr-2" />
-              Participants
+              <Users className="h-4 w-4 inline mr-1 sm:mr-2" />
+              <span className="hidden xs:inline">Participants</span>
+              <span className="xs:hidden">People</span>
             </button>
             <button
               onClick={() => setActiveTab('matches')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              className={`flex-shrink-0 py-4 px-1 sm:px-2 border-b-2 font-medium text-sm whitespace-nowrap ${
                 activeTab === 'matches'
                   ? 'border-black text-black'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              <Calendar className="h-4 w-4 inline mr-2" />
+              <Calendar className="h-4 w-4 inline mr-1 sm:mr-2" />
               Matches
             </button>
             <button
               onClick={() => setActiveTab('seasons')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              className={`flex-shrink-0 py-4 px-1 sm:px-2 border-b-2 font-medium text-sm whitespace-nowrap ${
                 activeTab === 'seasons'
                   ? 'border-black text-black'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              <Calendar className="h-4 w-4 inline mr-2" />
+              <Calendar className="h-4 w-4 inline mr-1 sm:mr-2" />
               Seasons
             </button>
             <button
               onClick={() => setActiveTab('registration-requests')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              className={`flex-shrink-0 py-4 px-1 sm:px-2 border-b-2 font-medium text-sm whitespace-nowrap ${
                 activeTab === 'registration-requests'
                   ? 'border-black text-black'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              <UserPlus className="h-4 w-4 inline mr-2" />
-              Player Requests
+              <UserPlus className="h-4 w-4 inline mr-1 sm:mr-2" />
+              <span className="hidden xs:inline">Player Requests</span>
+              <span className="xs:hidden">Requests</span>
             </button>
             <button
               onClick={() => setActiveTab('admins')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              className={`flex-shrink-0 py-4 px-1 sm:px-2 border-b-2 font-medium text-sm whitespace-nowrap ${
                 activeTab === 'admins'
                   ? 'border-black text-black'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              <Shield className="h-4 w-4 inline mr-2" />
-              Administrators
+              <Shield className="h-4 w-4 inline mr-1 sm:mr-2" />
+              <span className="hidden xs:inline">Administrators</span>
+              <span className="xs:hidden">Admins</span>
             </button>
             <button
               onClick={() => setActiveTab('integrations')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              className={`flex-shrink-0 py-4 px-1 sm:px-2 border-b-2 font-medium text-sm whitespace-nowrap ${
                 activeTab === 'integrations'
                   ? 'border-black text-black'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              <Settings className="h-4 w-4 inline mr-2" />
-              Integrations
+              <Settings className="h-4 w-4 inline mr-1 sm:mr-2" />
+              <span className="hidden xs:inline">Integrations</span>
+              <span className="xs:hidden">Settings</span>
             </button>
           </nav>
         </div>

@@ -48,6 +48,44 @@ body {
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+  
+  .scroll-smooth {
+    scroll-behavior: smooth;
+  }
+  
+  /* Mobile navigation scrolling improvements */
+  .nav-scroll {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .nav-scroll::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Add subtle gradient for scroll indication on mobile */
+  .nav-gradient {
+    position: relative;
+  }
+  
+  .nav-gradient::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 20px;
+    background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.8));
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  
+  @media (max-width: 640px) {
+    .nav-gradient::after {
+      opacity: 1;
+    }
+  }
 }
 
 @layer components {
