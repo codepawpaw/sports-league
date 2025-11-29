@@ -124,33 +124,35 @@ export default function PlayerMatchHistoryModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-hidden">
+      <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-xl">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-black">
-          <div>
-            <h2 className="text-2xl font-bold text-black">
-              {player?.name} - Match History
-            </h2>
-            {data && (
-              <p className="text-sm text-black mt-2">
-                <span className="text-green-600 font-medium">{getMatchStats().wins} wins</span>, <span className="text-red-600 font-medium">{getMatchStats().losses} losses</span> from {getMatchStats().total} completed matches
-              </p>
-            )}
+        <div className="bg-gray-800 text-white px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold">
+                {player?.name} - Match History
+              </h2>
+              {data && (
+                <p className="text-sm text-gray-300 mt-1">
+                  <span className="text-green-400 font-medium">{getMatchStats().wins} wins</span>, <span className="text-red-400 font-medium">{getMatchStats().losses} losses</span> from {getMatchStats().total} completed matches
+                </p>
+              )}
+            </div>
+            <button
+              onClick={onClose}
+              className="text-white hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors font-medium"
+            >
+              Close
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="text-black hover:bg-black hover:text-white px-4 py-2 border border-black rounded transition-colors font-medium"
-          >
-            Close
-          </button>
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+        <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)] bg-gray-50">
           {loading && (
             <div className="flex items-center justify-center py-12">
               <div className="spinner mr-4"></div>
-              <p className="text-black">Loading match history...</p>
+              <p className="text-gray-600">Loading match history...</p>
             </div>
           )}
 
@@ -159,7 +161,7 @@ export default function PlayerMatchHistoryModal({
               <p className="text-red-600 mb-4">{error}</p>
               <button
                 onClick={fetchPlayerMatches}
-                className="text-black border border-black px-6 py-3 rounded-lg font-medium hover:bg-black hover:text-white transition-colors duration-200"
+                className="bg-white hover:bg-gray-50 text-gray-800 border-2 border-gray-200 hover:border-gray-300 px-6 py-3 rounded-lg font-medium transition-all duration-200"
               >
                 Try Again
               </button>
@@ -167,48 +169,79 @@ export default function PlayerMatchHistoryModal({
           )}
 
           {data && !loading && (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {data.matches.length === 0 ? (
                 <div className="text-center py-12">
-                  <h3 className="text-lg font-medium text-black mb-2">No matches found</h3>
-                  <p className="text-black">{data.player.name} hasn't played any matches yet.</p>
+                  <h3 className="text-lg font-medium text-gray-800 mb-2">No matches found</h3>
+                  <p className="text-gray-600">{data.player.name} hasn't played any matches yet.</p>
                 </div>
               ) : (
-                data.matches.map((match) => (
-                  <div key={match.id} className="bg-white border border-black p-6 rounded-lg">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-3">
-                          <h3 className="text-lg font-bold text-black">
-                            vs {match.opponent.name}
-                          </h3>
-                          {getStatusText(match.status)}
+                <div className="grid gap-3 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                  {data.matches.map((match) => {
+                    const isWin = match.result === 'win';
+                    const isCompleted = match.status === 'completed';
+                    
+                    return (
+                      <div 
+                        key={match.id} 
+                        className="bg-white rounded-lg border-2 border-gray-200 hover:border-green-300 hover:shadow-md transition-all duration-200 overflow-hidden"
+                      >
+                        {/* Match Header */}
+                        <div className={`px-4 py-2 text-xs font-medium text-center ${
+                          isCompleted 
+                            ? (isWin ? 'bg-green-600 text-white' : 'bg-red-500 text-white')
+                            : 'bg-gray-200 text-gray-700'
+                        }`}>
+                          {isCompleted 
+                            ? (isWin ? 'WIN' : 'LOSS')
+                            : getStatusText(match.status)
+                          }
                         </div>
-                        
-                        {match.status === 'completed' && (
-                          <div className="mb-3">
-                            <span className="text-2xl font-bold text-black mr-3">
-                              {match.player_score} - {match.opponent_score}
-                            </span>
-                            <span className={`text-lg font-bold ${match.result === 'win' ? 'text-green-600' : 'text-red-600'}`}>
-                              {match.result === 'win' ? 'WIN' : 'LOSS'}
-                            </span>
-                          </div>
-                        )}
 
-                        <div className="text-sm text-black">
-                          {match.completed_at ? (
-                            <span>Completed {formatDate(match.completed_at)}</span>
-                          ) : match.scheduled_at ? (
-                            <span>Scheduled {formatDateTime(match.scheduled_at)}</span>
-                          ) : (
-                            <span>No date scheduled</span>
+                        {/* Match Content */}
+                        <div className="p-4 space-y-3">
+                          {/* Opponent */}
+                          <div className="flex items-center space-x-3">
+                            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-sm font-bold text-gray-600 flex-shrink-0">
+                              {match.opponent.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-sm font-medium text-gray-900 truncate">
+                                vs {match.opponent.name}
+                              </h3>
+                            </div>
+                          </div>
+
+                          {/* Score Display for Completed Matches */}
+                          {isCompleted && (
+                            <div className="flex items-center justify-center py-2">
+                              <div className="flex items-center space-x-3">
+                                <span className={`text-lg font-bold ${isWin ? 'text-green-600' : 'text-gray-600'}`}>
+                                  {match.player_score}
+                                </span>
+                                <span className="text-gray-400 text-sm">-</span>
+                                <span className={`text-lg font-bold ${!isWin ? 'text-green-600' : 'text-gray-600'}`}>
+                                  {match.opponent_score}
+                                </span>
+                              </div>
+                            </div>
                           )}
+
+                          {/* Date */}
+                          <div className="text-xs text-gray-500 text-center border-t border-gray-100 pt-2">
+                            {match.completed_at ? (
+                              formatDate(match.completed_at)
+                            ) : match.scheduled_at ? (
+                              `Scheduled ${formatDateTime(match.scheduled_at)}`
+                            ) : (
+                              'No date scheduled'
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </div>
-                ))
+                    )
+                  })}
+                </div>
               )}
             </div>
           )}
