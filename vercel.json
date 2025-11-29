@@ -34,11 +34,19 @@
       ]
     },
     {
-      "source": "/((?!api|_next|favicon.ico).+)",
+      "source": "/([a-z0-9-]+)$",
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0"
+          "value": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, s-maxage=0"
+        },
+        {
+          "key": "CDN-Cache-Control",
+          "value": "no-store"
+        },
+        {
+          "key": "Cloudflare-CDN-Cache-Control",
+          "value": "no-store"
         },
         {
           "key": "Pragma",
@@ -55,11 +63,60 @@
         {
           "key": "X-Vercel-Cache",
           "value": "SKIP"
+        },
+        {
+          "key": "Vary",
+          "value": "*"
+        },
+        {
+          "key": "X-Cache-Control",
+          "value": "no-store"
         }
       ]
     },
     {
-      "source": "/((?!api|_next|favicon.ico).+)/(.*)",
+      "source": "/([a-z0-9-]+)/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, s-maxage=0"
+        },
+        {
+          "key": "CDN-Cache-Control",
+          "value": "no-store"
+        },
+        {
+          "key": "Cloudflare-CDN-Cache-Control",
+          "value": "no-store"
+        },
+        {
+          "key": "Pragma",
+          "value": "no-cache"
+        },
+        {
+          "key": "Expires",
+          "value": "0"
+        },
+        {
+          "key": "Surrogate-Control",
+          "value": "no-store"
+        },
+        {
+          "key": "X-Vercel-Cache",
+          "value": "SKIP"
+        },
+        {
+          "key": "Vary",
+          "value": "*"
+        },
+        {
+          "key": "X-Cache-Control",
+          "value": "no-store"
+        }
+      ]
+    },
+    {
+      "source": "/((?!api|_next|favicon.ico|[a-z0-9-]+$|[a-z0-9-]+/.+).+)",
       "headers": [
         {
           "key": "Cache-Control",

@@ -71,32 +71,34 @@ export default function MatchTabs({ upcomingMatches, recentMatches, slug }: Matc
         <div className="flex">
           <button
             onClick={() => setActiveTab('incoming')}
-            className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+            className={`px-3 md:px-6 py-3 md:py-4 text-xs md:text-sm font-medium border-b-2 transition-colors flex-1 md:flex-none ${
               activeTab === 'incoming'
                 ? 'border-green-600 text-green-600 bg-green-50'
                 : 'border-transparent text-gray-600 hover:text-gray-800 hover:bg-gray-50'
             }`}
           >
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4" />
-              Incoming Match
-              <span className="bg-gray-200 text-gray-700 px-2 py-1 rounded-full text-xs">
+            <div className="flex items-center justify-center md:justify-start gap-1 md:gap-2">
+              <Clock className="h-3 w-3 md:h-4 md:w-4" />
+              <span className="hidden sm:inline">Incoming Match</span>
+              <span className="sm:hidden">Incoming</span>
+              <span className="bg-gray-200 text-gray-700 px-1.5 md:px-2 py-0.5 md:py-1 rounded-full text-xs">
                 {upcomingMatches.length}
               </span>
             </div>
           </button>
           <button
             onClick={() => setActiveTab('completed')}
-            className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+            className={`px-3 md:px-6 py-3 md:py-4 text-xs md:text-sm font-medium border-b-2 transition-colors flex-1 md:flex-none ${
               activeTab === 'completed'
                 ? 'border-green-600 text-green-600 bg-green-50'
                 : 'border-transparent text-gray-600 hover:text-gray-800 hover:bg-gray-50'
             }`}
           >
-            <div className="flex items-center gap-2">
-              <Trophy className="h-4 w-4" />
-              Completed Match
-              <span className="bg-gray-200 text-gray-700 px-2 py-1 rounded-full text-xs">
+            <div className="flex items-center justify-center md:justify-start gap-1 md:gap-2">
+              <Trophy className="h-3 w-3 md:h-4 md:w-4" />
+              <span className="hidden sm:inline">Completed Match</span>
+              <span className="sm:hidden">Completed</span>
+              <span className="bg-gray-200 text-gray-700 px-1.5 md:px-2 py-0.5 md:py-1 rounded-full text-xs">
                 {recentMatches.length}
               </span>
             </div>
