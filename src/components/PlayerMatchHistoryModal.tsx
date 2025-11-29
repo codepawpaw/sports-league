@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { X, Trophy, Calendar, Clock } from 'lucide-react'
 
 interface PlayerMatch {
   id: string
@@ -94,14 +93,7 @@ export default function PlayerMatchHistoryModal({
     })
   }
 
-  const getStatusBadge = (status: string) => {
-    const badges = {
-      scheduled: 'bg-blue-100 text-blue-800',
-      in_progress: 'bg-yellow-100 text-yellow-800',
-      completed: 'bg-green-100 text-green-800',
-      cancelled: 'bg-red-100 text-red-800'
-    }
-    
+  const getStatusText = (status: string) => {
     const displayText = {
       scheduled: 'Scheduled',
       in_progress: 'In Progress',
@@ -109,8 +101,10 @@ export default function PlayerMatchHistoryModal({
       cancelled: 'Cancelled'
     }
 
+    const textColor = status === 'cancelled' ? 'text-red-600' : 'text-black'
+
     return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${badges[status as keyof typeof badges] || badges.scheduled}`}>
+      <span className={`text-xs font-medium ${textColor}`}>
         {displayText[status as keyof typeof displayText] || status}
       </span>
     )
@@ -132,25 +126,22 @@ export default function PlayerMatchHistoryModal({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <div className="flex items-center">
-            <Trophy className="h-6 w-6 text-black mr-3" />
-            <div>
-              <h2 className="text-xl font-bold text-black">
-                {player?.name} - Match History
-              </h2>
-              {data && (
-                <p className="text-sm text-gray-600 mt-1">
-                  {getMatchStats().wins} wins, {getMatchStats().losses} losses from {getMatchStats().total} completed matches
-                </p>
-              )}
-            </div>
+        <div className="flex items-center justify-between p-6 border-b border-black">
+          <div>
+            <h2 className="text-2xl font-bold text-black">
+              {player?.name} - Match History
+            </h2>
+            {data && (
+              <p className="text-sm text-black mt-2">
+                <span className="text-green-600 font-medium">{getMatchStats().wins} wins</span>, <span className="text-red-600 font-medium">{getMatchStats().losses} losses</span> from {getMatchStats().total} completed matches
+              </p>
+            )}
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-black hover:bg-black hover:text-white px-4 py-2 border border-black rounded transition-colors font-medium"
           >
-            <X className="h-6 w-6" />
+            Close
           </button>
         </div>
 
@@ -159,7 +150,7 @@ export default function PlayerMatchHistoryModal({
           {loading && (
             <div className="flex items-center justify-center py-12">
               <div className="spinner mr-4"></div>
-              <p className="text-gray-600">Loading match history...</p>
+              <p className="text-black">Loading match history...</p>
             </div>
           )}
 
@@ -168,7 +159,7 @@ export default function PlayerMatchHistoryModal({
               <p className="text-red-600 mb-4">{error}</p>
               <button
                 onClick={fetchPlayerMatches}
-                className="btn-outline"
+                className="text-black border border-black px-6 py-3 rounded-lg font-medium hover:bg-black hover:text-white transition-colors duration-200"
               >
                 Try Again
               </button>
@@ -179,63 +170,42 @@ export default function PlayerMatchHistoryModal({
             <div className="space-y-4">
               {data.matches.length === 0 ? (
                 <div className="text-center py-12">
-                  <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-600 mb-2">No matches found</h3>
-                  <p className="text-gray-500">{data.player.name} hasn't played any matches yet.</p>
+                  <h3 className="text-lg font-medium text-black mb-2">No matches found</h3>
+                  <p className="text-black">{data.player.name} hasn't played any matches yet.</p>
                 </div>
               ) : (
                 data.matches.map((match) => (
-                  <div key={match.id} className="card p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-center justify-between">
+                  <div key={match.id} className="bg-white border border-black p-6 rounded-lg">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                       <div className="flex-1">
-                        <div className="flex items-center gap-4 mb-2">
-                          <h3 className="font-semibold text-black">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-3">
+                          <h3 className="text-lg font-bold text-black">
                             vs {match.opponent.name}
                           </h3>
-                          {getStatusBadge(match.status)}
+                          {getStatusText(match.status)}
                         </div>
                         
                         {match.status === 'completed' && (
-                          <div className="flex items-center gap-4 mb-2">
-                            <div className="flex items-center gap-2">
-                              <span className="text-lg font-bold text-black">
-                                {match.player_score} - {match.opponent_score}
-                              </span>
-                              <span className={`font-medium ${match.result === 'win' ? 'text-green-600' : 'text-red-600'}`}>
-                                ({match.result === 'win' ? 'Win' : 'Loss'})
-                              </span>
-                            </div>
+                          <div className="mb-3">
+                            <span className="text-2xl font-bold text-black mr-3">
+                              {match.player_score} - {match.opponent_score}
+                            </span>
+                            <span className={`text-lg font-bold ${match.result === 'win' ? 'text-green-600' : 'text-red-600'}`}>
+                              {match.result === 'win' ? 'WIN' : 'LOSS'}
+                            </span>
                           </div>
                         )}
 
-                        <div className="flex items-center text-sm text-gray-500">
+                        <div className="text-sm text-black">
                           {match.completed_at ? (
-                            <>
-                              <Calendar className="h-4 w-4 mr-1" />
-                              Completed {formatDate(match.completed_at)}
-                            </>
+                            <span>Completed {formatDate(match.completed_at)}</span>
                           ) : match.scheduled_at ? (
-                            <>
-                              <Clock className="h-4 w-4 mr-1" />
-                              Scheduled {formatDateTime(match.scheduled_at)}
-                            </>
+                            <span>Scheduled {formatDateTime(match.scheduled_at)}</span>
                           ) : (
-                            <span className="text-gray-400">No date scheduled</span>
+                            <span>No date scheduled</span>
                           )}
                         </div>
                       </div>
-
-                      {match.status === 'completed' && (
-                        <div className="flex-shrink-0 ml-4">
-                          <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                            match.result === 'win' 
-                              ? 'bg-green-100 text-green-600' 
-                              : 'bg-red-100 text-red-600'
-                          }`}>
-                            {match.result === 'win' ? '✓' : '✗'}
-                          </div>
-                        </div>
-                      )}
                     </div>
                   </div>
                 ))
