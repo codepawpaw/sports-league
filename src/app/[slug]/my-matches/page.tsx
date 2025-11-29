@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { Trophy, Calendar, ArrowLeft, Clock, User, CalendarPlus, Bell, Check, X, Trash2 } from 'lucide-react'
 import { createSupabaseComponentClient } from '@/lib/supabase'
 import RegisterAsPlayerModal from '@/components/RegisterAsPlayerModal'
 import ScheduleRequestModal from '@/components/ScheduleRequestModal'
@@ -206,6 +205,23 @@ export default function MyMatchesPage() {
     })
   }
 
+  const formatDateShort = (dateString: string | null) => {
+    if (!dateString) return 'TBD'
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric'
+    })
+  }
+
+  const formatTime = (dateString: string | null) => {
+    if (!dateString) return 'TBD'
+    return new Date(dateString).toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    })
+  }
+
   const formatNotificationDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       weekday: 'short',
@@ -279,13 +295,13 @@ export default function MyMatchesPage() {
     switch (status) {
       case 'scheduled':
         return (
-          <span className="inline-block px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 border border-blue-200">
+          <span className="inline-block px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 border border-green-200">
             Scheduled
           </span>
         )
       case 'in_progress':
         return (
-          <span className="inline-block px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800 border border-yellow-200">
+          <span className="inline-block px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 border border-green-200">
             In Progress
           </span>
         )
@@ -297,7 +313,7 @@ export default function MyMatchesPage() {
         )
       default:
         return (
-          <span className="inline-block px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800 border border-gray-200">
+          <span className="inline-block px-2 py-1 rounded-full text-xs bg-black text-white border border-gray-200">
             {status}
           </span>
         )
@@ -320,7 +336,7 @@ export default function MyMatchesPage() {
     switch (status) {
       case 'pending':
         return (
-          <span className="inline-block px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800 border border-yellow-200">
+          <span className="inline-block px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 border border-green-200">
             Pending
           </span>
         )
@@ -338,7 +354,7 @@ export default function MyMatchesPage() {
         )
       default:
         return (
-          <span className="inline-block px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800 border border-gray-200">
+          <span className="inline-block px-2 py-1 rounded-full text-xs bg-black text-white border border-gray-200">
             {status}
           </span>
         )
@@ -346,7 +362,6 @@ export default function MyMatchesPage() {
   }
 
   const handleRegisterSuccess = () => {
-    // Refresh the data after successful registration
     fetchMyMatches()
   }
 
@@ -369,7 +384,6 @@ export default function MyMatchesPage() {
   }
 
   const handleScheduleRequestSuccess = () => {
-    // Refresh the data after successful schedule request
     fetchMyMatches()
   }
 
@@ -389,7 +403,6 @@ export default function MyMatchesPage() {
         throw new Error(data.error || 'Failed to respond to request')
       }
 
-      // Refresh the requests and matches after successful response
       fetchScoreRequests()
       fetchMyMatches()
     } catch (err) {
@@ -410,7 +423,6 @@ export default function MyMatchesPage() {
         throw new Error(data.error || 'Failed to delete request')
       }
 
-      // Refresh the requests after successful deletion
       fetchScoreRequests()
     } catch (err) {
       console.error('Error deleting score request:', err)
@@ -419,7 +431,6 @@ export default function MyMatchesPage() {
   }
 
   const handleOpenScoreModal = (match: any) => {
-    // Create a compatible match object for the ScoreRequestModal
     const scoreMatch = {
       id: match.id,
       opponent: match.opponent,
@@ -442,7 +453,6 @@ export default function MyMatchesPage() {
   }
 
   const handleScoreRequestSuccess = () => {
-    // Refresh the data after successful score request
     fetchMyMatches()
   }
 
@@ -493,13 +503,12 @@ export default function MyMatchesPage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center h-16">
               <div className="flex items-center">
-                <Link href="/" className="flex items-center text-black hover:text-gray-600">
-                  <Trophy className="h-8 w-8" />
+                <Link href="/" className="flex items-center text-black hover:text-gray-600 font-bold text-xl">
+                  PingPong
                 </Link>
               </div>
               <div className="flex items-center gap-4">
                 <Link href={`/${slug}`} className="btn-mobile">
-                  <ArrowLeft className="h-3 w-3 mr-1 sm:h-4 sm:w-4 sm:mr-2" />
                   Back to League
                 </Link>
               </div>
@@ -510,14 +519,16 @@ export default function MyMatchesPage() {
         {/* Content */}
         <div className="max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <div className="w-12 h-12 bg-gray-100 rounded-full mx-auto mb-4 flex items-center justify-center">
+              <span className="text-gray-400 font-bold">?</span>
+            </div>
             <h1 className="text-2xl font-bold text-black mb-4">Sign In Required</h1>
             <p className="text-gray-600 mb-6">
               You need to sign in to view your matches.
             </p>
             <Link
               href={`/${slug}/auth`}
-              className="bg-black text-white px-6 py-3 rounded-md hover:bg-gray-800 transition-colors inline-flex items-center"
+              className="bg-black text-white px-6 py-3 rounded-md hover:bg-gray-800 transition-colors"
             >
               Sign In with Google
             </Link>
@@ -534,13 +545,12 @@ export default function MyMatchesPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <Link href="/" className="flex items-center text-black hover:text-gray-600">
-                <Trophy className="h-8 w-8" />
+              <Link href="/" className="flex items-center text-black hover:text-gray-600 font-bold text-xl">
+                PingPong
               </Link>
             </div>
             <div className="flex items-center gap-4">
               <Link href={`/${slug}`} className="btn-mobile">
-                <ArrowLeft className="h-3 w-3 mr-1 sm:h-4 sm:w-4 sm:mr-2" />
                 Back to League
               </Link>
             </div>
@@ -573,7 +583,9 @@ export default function MyMatchesPage() {
         {/* Handle user player status */}
         {!data?.user_player ? (
           <div className="text-center py-16">
-            <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <div className="w-12 h-12 bg-gray-100 rounded-full mx-auto mb-4 flex items-center justify-center">
+              <span className="text-gray-400 font-bold">?</span>
+            </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">No Player Associated</h3>
             <p className="text-gray-500 mb-6">
               Your email is not associated with any player in this league. You can request to register as a player or contact a league admin.
@@ -581,13 +593,12 @@ export default function MyMatchesPage() {
             <div className="space-y-4">
               <button
                 onClick={handleOpenRegisterModal}
-                className="bg-black text-white px-6 py-3 rounded-md hover:bg-gray-800 transition-colors inline-flex items-center"
+                className="bg-black text-white px-6 py-3 rounded-md hover:bg-gray-800 transition-colors"
               >
-                <User className="h-4 w-4 mr-2" />
                 Register as Player
               </button>
-              <div className="bg-blue-50 border border-blue-200 rounded-md p-4 max-w-md mx-auto">
-                <p className="text-blue-700 text-sm">
+              <div className="bg-green-50 border border-green-200 rounded-md p-4 max-w-md mx-auto">
+                <p className="text-green-700 text-sm">
                   You can also ask league admins to manually add your email to a player profile.
                 </p>
               </div>
@@ -599,141 +610,162 @@ export default function MyMatchesPage() {
             <div className="card">
               <div className="p-6">
                 <div className="flex items-center">
-                  <User className="h-6 w-6 text-black mr-2" />
+                  <div className="w-8 h-8 bg-green-100 rounded-full mr-3 flex items-center justify-center">
+                    <span className="text-green-700 font-bold text-sm">
+                      {data.user_player.name.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
                   <h2 className="text-xl font-bold text-black">Playing as: {data.user_player.name}</h2>
                 </div>
               </div>
             </div>
 
-            {/* Upcoming Matches */}
-            <div className="card">
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex items-center">
-                  <Calendar className="h-6 w-6 text-black mr-2" />
-                  <h2 className="text-xl font-bold text-black">
-                    Upcoming Matches ({data.upcoming_matches.length})
-                  </h2>
+            {/* Upcoming Matches - Horizontal Carousel */}
+            <div className="bg-gray-50 border border-gray-200 rounded-lg">
+              <div className="px-6 py-4">
+                {/* Header */}
+                <div className="flex items-center mb-4">
+                  <div className="bg-green-600 text-white px-3 py-1 text-sm font-bold tracking-wide rounded">
+                    UPCOMING
+                  </div>
+                  <span className="ml-2 text-lg font-bold text-black">
+                    ({data.upcoming_matches.length})
+                  </span>
                 </div>
-              </div>
-              {data.upcoming_matches.length === 0 ? (
-                <div className="p-8 text-center">
-                  <Clock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No upcoming matches</h3>
-                  <p className="text-gray-500">
-                    You have no scheduled matches at the moment.
-                  </p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-full">
-                    <thead>
-                      <tr>
-                        <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
-                          Opponent
-                        </th>
-                        <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
-                          Status
-                        </th>
-                        <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
-                          Scheduled
-                        </th>
-                        <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
-                          Score
-                        </th>
-                        <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
+
+                {data.upcoming_matches.length === 0 ? (
+                  <div className="text-center py-8">
+                    <div className="w-12 h-12 bg-gray-100 rounded-full mx-auto mb-4 flex items-center justify-center">
+                      <span className="text-gray-400 font-bold">!</span>
+                    </div>
+                    <p className="text-gray-600 mb-2">No upcoming matches</p>
+                    <p className="text-sm text-gray-500">
+                      Check back later for upcoming scheduled matches.
+                    </p>
+                  </div>
+                ) : (
+                  /* Horizontal Scrollable Container */
+                  <div className="relative">
+                    <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2" style={{ scrollBehavior: 'smooth' }}>
                       {data.upcoming_matches.map((match) => (
-                        <tr key={match.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 border-b border-gray-200">
-                            <div className="font-medium text-gray-900">
-                              vs {match.opponent.name}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 border-b border-gray-200">
-                            {getStatusBadge(match.status)}
-                          </td>
-                          <td className="px-6 py-4 border-b border-gray-200 text-sm text-gray-500">
-                            {match.scheduled_at ? (
-                              formatDate(match.scheduled_at)
-                            ) : (
-                              <span className="text-gray-400 italic">Not scheduled</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 border-b border-gray-200 text-sm">
-                            {match.status === 'in_progress' && match.player_score !== null && match.opponent_score !== null ? (
-                              <div className="font-medium text-gray-900">
-                                {match.player_score} - {match.opponent_score}
+                        <div 
+                          key={match.id} 
+                          className="flex-shrink-0 w-48 sm:w-56 bg-white rounded-lg border-2 border-gray-200 overflow-hidden hover:border-green-300 hover:shadow-md transition-all duration-200"
+                        >
+                          {/* Date Header */}
+                          <div className="bg-green-600 text-white px-3 py-1 text-xs font-medium flex items-center justify-center">
+                            {formatDateShort(match.scheduled_at)}
+                          </div>
+
+                          {/* Match Content */}
+                          <div className="p-3 space-y-3">
+                            {/* Current Player */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-2 flex-1 min-w-0">
+                                <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 bg-green-100 text-green-700">
+                                  {data.user_player?.name.charAt(0).toUpperCase()}
+                                </div>
+                                <span className="text-sm font-medium truncate text-black">
+                                  {data.user_player?.name && data.user_player.name.length > 12 
+                                    ? data.user_player.name.substring(0, 12) + '...' 
+                                    : data.user_player?.name}
+                                </span>
                               </div>
-                            ) : (
-                              <span className="text-gray-400 italic">
-                                {match.status === 'scheduled' ? 'Not started' : 'No score'}
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 border-b border-gray-200">
-                            <div className="flex flex-col gap-2">
-                              {match.status === 'scheduled' && (
-                                <button
-                                  onClick={() => handleOpenScheduleModal(match)}
-                                  className="text-sm bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-2 rounded-md font-medium transition-colors border border-blue-200 hover:border-blue-300 flex items-center"
-                                >
-                                  <CalendarPlus className="h-4 w-4 mr-1" />
-                                  Request Schedule
-                                </button>
-                              )}
-                              {match.status === 'scheduled' && isMatchScheduledForToday(match.scheduled_at) && (
-                                <button
-                                  onClick={() => handleOpenScoreModal(match)}
-                                  className="text-sm bg-green-100 hover:bg-green-200 text-green-800 px-3 py-2 rounded-md font-medium transition-colors border border-green-200 hover:border-green-300 flex items-center"
-                                >
-                                  <Trophy className="h-4 w-4 mr-1" />
-                                  Set Score
-                                </button>
-                              )}
                             </div>
-                          </td>
-                        </tr>
+
+                            {/* VS Divider */}
+                            <div className="text-center">
+                              <span className="text-gray-400 font-medium text-xs">VS</span>
+                            </div>
+
+                            {/* Opponent */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-2 flex-1 min-w-0">
+                                <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 bg-gray-100 text-gray-600">
+                                  {match.opponent.name.charAt(0).toUpperCase()}
+                                </div>
+                                <span className="text-sm font-medium truncate text-black">
+                                  {match.opponent.name.length > 12 
+                                    ? match.opponent.name.substring(0, 12) + '...' 
+                                    : match.opponent.name}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Match Status and Time */}
+                            <div className="border-t border-gray-100 pt-3 space-y-2">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="font-medium text-green-600">
+                                  {match.status === 'scheduled' ? 'Scheduled' : 'In Progress'}
+                                </span>
+                                <span className="text-gray-500">
+                                  {formatTime(match.scheduled_at)}
+                                </span>
+                              </div>
+                              
+                              {/* Action Buttons */}
+                              <div className="space-y-1">
+                                {match.status === 'scheduled' && (
+                                  <button
+                                    onClick={() => handleOpenScheduleModal(match)}
+                                    className="w-full bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 hover:border-green-300 px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
+                                  >
+                                    Request Schedule
+                                  </button>
+                                )}
+                                {match.status === 'scheduled' && isMatchScheduledForToday(match.scheduled_at) && (
+                                  <button
+                                    onClick={() => handleOpenScoreModal(match)}
+                                    className="w-full bg-black hover:bg-gray-800 text-white px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
+                                  >
+                                    Set Score
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                    </div>
+
+                    {/* Scroll indicators for better UX */}
+                    <div className="absolute top-1/2 -translate-y-1/2 left-0 w-4 h-full bg-gradient-to-r from-gray-50 to-transparent pointer-events-none opacity-50 sm:opacity-0"></div>
+                    <div className="absolute top-1/2 -translate-y-1/2 right-0 w-4 h-full bg-gradient-to-l from-gray-50 to-transparent pointer-events-none opacity-50 sm:opacity-0"></div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Score and Schedule Requests */}
             <div className="space-y-6">
-              {/* Received Score Requests */}
+              {/* Received Score Requests - Modern Notification List */}
               <div className="card">
                 <div className="p-4 border-b border-gray-200">
-                  <div className="flex items-center">
-                    <Bell className="h-5 w-5 text-green-600 mr-2" />
+                  <div className="flex items-center justify-between">
                     <h3 className="font-semibold text-black">Score Requests</h3>
-                    <span className="ml-2 bg-green-100 text-green-800 text-xs font-medium px-2 py-1 rounded-full">
+                    <span className="bg-green-100 text-green-800 text-xs font-medium px-2 py-1 rounded-full">
                       {scoreRequests.received.filter(r => r.status === 'pending').length}
                     </span>
                   </div>
                 </div>
                 {scoreRequests.received.filter(r => r.status === 'pending').length === 0 ? (
                   <div className="p-8 text-center">
-                    <Bell className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <div className="w-12 h-12 bg-gray-100 rounded-full mx-auto mb-4 flex items-center justify-center">
+                      <span className="text-gray-400 font-bold">!</span>
+                    </div>
                     <h3 className="text-lg font-medium text-gray-900 mb-2">No pending requests</h3>
                     <p className="text-gray-500">
                       You haven't received any pending score requests.
                     </p>
                   </div>
                 ) : (
-                  <div className="divide-y divide-gray-100">
+                  <div className="space-y-4 p-4">
                     {scoreRequests.received.filter(r => r.status === 'pending').map((request) => (
-                      <div key={request.id} className="p-4">
-                        <div className="flex items-start justify-between">
+                      <div key={request.id} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                        <div className="flex justify-between items-start">
                           <div className="flex-1">
                             <div className="flex items-center mb-2">
-                              <Trophy className="h-4 w-4 text-gray-400 mr-2" />
-                              <span className="text-sm font-medium text-gray-900">
+                              <span className="font-medium text-black">
                                 Score Request from {request.requester.name}
                               </span>
                               <span className="ml-2 text-xs text-gray-500">
@@ -745,8 +777,7 @@ export default function MyMatchesPage() {
                               Match: {request.match.player1.name} vs {request.match.player2.name}
                             </p>
                             
-                            <div className="flex items-center text-sm text-gray-600 mb-2">
-                              <Trophy className="h-4 w-4 text-gray-400 mr-1" />
+                            <div className="text-sm text-gray-600 mb-2">
                               Proposed result: {request.match.player1.name} {request.player1_score} - {request.player2_score} {request.match.player2.name}
                               {request.player1_score !== request.player2_score && (
                                 <span className="ml-1 text-green-600 font-medium">
@@ -765,16 +796,14 @@ export default function MyMatchesPage() {
                           <div className="flex space-x-2 ml-4">
                             <button
                               onClick={() => handleScoreRequestResponse(request.id, 'approve')}
-                              className="bg-green-100 hover:bg-green-200 text-green-800 px-3 py-1 rounded-md text-xs font-medium transition-colors border border-green-200 hover:border-green-300 flex items-center"
+                              className="bg-green-100 hover:bg-green-200 text-green-800 px-3 py-1 rounded-md text-xs font-medium transition-colors border border-green-200 hover:border-green-300"
                             >
-                              <Check className="h-3 w-3 mr-1" />
                               Approve
                             </button>
                             <button
                               onClick={() => handleScoreRequestResponse(request.id, 'reject')}
-                              className="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded-md text-xs font-medium transition-colors border border-red-200 hover:border-red-300 flex items-center"
+                              className="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded-md text-xs font-medium transition-colors border border-red-200 hover:border-red-300"
                             >
-                              <X className="h-3 w-3 mr-1" />
                               Reject
                             </button>
                           </div>
@@ -785,121 +814,34 @@ export default function MyMatchesPage() {
                 )}
               </div>
 
-              {/* Sent Score Requests */}
-              <div className="card">
-                <div className="p-6 border-b border-gray-200">
-                  <div className="flex items-center">
-                    <Trophy className="h-6 w-6 text-green-600 mr-2" />
-                    <h2 className="text-xl font-bold text-black">
-                      Pending Score Requests Sent ({scoreRequests.sent.filter(r => r.status === 'pending').length})
-                    </h2>
-                  </div>
-                </div>
-                {scoreRequests.sent.filter(r => r.status === 'pending').length === 0 ? (
-                  <div className="p-8 text-center">
-                    <Trophy className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No pending requests</h3>
-                    <p className="text-gray-500">
-                      You haven't sent any pending score requests.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-full">
-                      <thead>
-                        <tr>
-                          <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
-                            To
-                          </th>
-                          <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
-                            Match
-                          </th>
-                          <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
-                            Proposed Score
-                          </th>
-                          <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
-                            Message
-                          </th>
-                          <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
-                            Requested
-                          </th>
-                          <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
-                            Actions
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {scoreRequests.sent.filter(r => r.status === 'pending').map((request) => (
-                          <tr key={request.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 border-b border-gray-200">
-                              <div className="font-medium text-gray-900">
-                                {request.opponent.name}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 border-b border-gray-200">
-                              <div className="text-sm text-gray-900">
-                                {request.match.player1.name} vs {request.match.player2.name}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 border-b border-gray-200">
-                              <div className="text-sm text-gray-900 font-medium">
-                                {request.player1_score} - {request.player2_score}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 border-b border-gray-200">
-                              <div className="text-sm text-gray-500 max-w-xs truncate">
-                                {request.message || <span className="italic">No message</span>}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 border-b border-gray-200 text-sm text-gray-500">
-                              {getTimeAgo(request.requested_at)}
-                            </td>
-                            <td className="px-6 py-4 border-b border-gray-200">
-                              <button
-                                onClick={() => handleDeleteScoreRequest(request.id)}
-                                className="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded-md text-xs font-medium transition-colors border border-red-200 hover:border-red-300 flex items-center"
-                                title="Delete request"
-                              >
-                                <Trash2 className="h-3 w-3 mr-1" />
-                                Delete
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-
-              {/* Received Schedule Requests */}
+              {/* Received Schedule Requests - Modern Notification List */}
               <div className="card">
                 <div className="p-4 border-b border-gray-200">
-                  <div className="flex items-center">
-                    <Bell className="h-5 w-5 text-blue-600 mr-2" />
+                  <div className="flex items-center justify-between">
                     <h3 className="font-semibold text-black">Schedule Requests</h3>
-                    <span className="ml-2 bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded-full">
+                    <span className="bg-green-100 text-green-800 text-xs font-medium px-2 py-1 rounded-full">
                       {scheduleRequests.received.filter(r => r.status === 'pending').length}
                     </span>
                   </div>
                 </div>
                 {scheduleRequests.received.filter(r => r.status === 'pending').length === 0 ? (
                   <div className="p-8 text-center">
-                    <Bell className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <div className="w-12 h-12 bg-gray-100 rounded-full mx-auto mb-4 flex items-center justify-center">
+                      <span className="text-gray-400 font-bold">!</span>
+                    </div>
                     <h3 className="text-lg font-medium text-gray-900 mb-2">No pending requests</h3>
                     <p className="text-gray-500">
                       You haven't received any pending schedule requests.
                     </p>
                   </div>
                 ) : (
-                  <div className="divide-y divide-gray-100">
+                  <div className="space-y-4 p-4">
                     {scheduleRequests.received.filter(r => r.status === 'pending').map((request) => (
-                      <div key={request.id} className="p-4">
-                        <div className="flex items-start justify-between">
+                      <div key={request.id} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                        <div className="flex justify-between items-start">
                           <div className="flex-1">
                             <div className="flex items-center mb-2">
-                              <Calendar className="h-4 w-4 text-gray-400 mr-2" />
-                              <span className="text-sm font-medium text-gray-900">
+                              <span className="font-medium text-black">
                                 Schedule Request from {request.requester.name}
                               </span>
                               <span className="ml-2 text-xs text-gray-500">
@@ -911,8 +853,7 @@ export default function MyMatchesPage() {
                               Match: {request.match.player1.name} vs {request.match.player2.name}
                             </p>
                             
-                            <div className="flex items-center text-sm text-gray-600 mb-2">
-                              <Clock className="h-4 w-4 text-gray-400 mr-1" />
+                            <div className="text-sm text-gray-600 mb-2">
                               Proposed time: {formatNotificationDate(request.requested_date)}
                             </div>
                             
@@ -926,16 +867,14 @@ export default function MyMatchesPage() {
                           <div className="flex space-x-2 ml-4">
                             <button
                               onClick={() => handleScheduleRequestResponse(request.id, 'approve')}
-                              className="bg-green-100 hover:bg-green-200 text-green-800 px-3 py-1 rounded-md text-xs font-medium transition-colors border border-green-200 hover:border-green-300 flex items-center"
+                              className="bg-green-100 hover:bg-green-200 text-green-800 px-3 py-1 rounded-md text-xs font-medium transition-colors border border-green-200 hover:border-green-300"
                             >
-                              <Check className="h-3 w-3 mr-1" />
                               Approve
                             </button>
                             <button
                               onClick={() => handleScheduleRequestResponse(request.id, 'reject')}
-                              className="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded-md text-xs font-medium transition-colors border border-red-200 hover:border-red-300 flex items-center"
+                              className="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded-md text-xs font-medium transition-colors border border-red-200 hover:border-red-300"
                             >
-                              <X className="h-3 w-3 mr-1" />
                               Reject
                             </button>
                           </div>
@@ -946,19 +885,82 @@ export default function MyMatchesPage() {
                 )}
               </div>
 
-              {/* Sent Schedule Requests */}
+              {/* Sent Score Requests - Modern Table */}
               <div className="card">
-                <div className="p-6 border-b border-gray-200">
-                  <div className="flex items-center">
-                    <Calendar className="h-6 w-6 text-blue-600 mr-2" />
-                    <h2 className="text-xl font-bold text-black">
-                      Pending Schedule Requests Sent ({scheduleRequests.sent.filter(r => r.status === 'pending').length})
-                    </h2>
+                <div className="p-4 border-b border-gray-200">
+                  <h3 className="font-semibold text-black">
+                    Pending Score Requests Sent ({scoreRequests.sent.filter(r => r.status === 'pending').length})
+                  </h3>
+                </div>
+                {scoreRequests.sent.filter(r => r.status === 'pending').length === 0 ? (
+                  <div className="p-8 text-center">
+                    <div className="w-12 h-12 bg-gray-100 rounded-full mx-auto mb-4 flex items-center justify-center">
+                      <span className="text-gray-400 font-bold">!</span>
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No pending requests</h3>
+                    <p className="text-gray-500">
+                      You haven't sent any pending score requests.
+                    </p>
                   </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-gray-200">
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">To</th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">Match</th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">Score</th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">Message</th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">Requested</th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {scoreRequests.sent.filter(r => r.status === 'pending').map((request) => (
+                          <tr key={request.id} className="border-b border-gray-100 hover:bg-gray-50">
+                            <td className="py-3 px-4 font-medium text-gray-900">
+                              {request.opponent.name}
+                            </td>
+                            <td className="py-3 px-4 text-sm text-gray-600">
+                              {request.match.player1.name} vs {request.match.player2.name}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-medium text-gray-900">
+                              {request.player1_score} - {request.player2_score}
+                            </td>
+                            <td className="py-3 px-4 text-sm text-gray-500 max-w-xs truncate">
+                              {request.message || <span className="italic text-gray-400">No message</span>}
+                            </td>
+                            <td className="py-3 px-4 text-sm text-gray-500">
+                              {getTimeAgo(request.requested_at)}
+                            </td>
+                            <td className="py-3 px-4">
+                              <button
+                                onClick={() => handleDeleteScoreRequest(request.id)}
+                                className="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded-md text-xs font-medium transition-colors border border-red-200 hover:border-red-300"
+                              >
+                                Delete
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Sent Schedule Requests - Modern Table */}
+              <div className="card">
+                <div className="p-4 border-b border-gray-200">
+                  <h3 className="font-semibold text-black">
+                    Pending Schedule Requests Sent ({scheduleRequests.sent.filter(r => r.status === 'pending').length})
+                  </h3>
                 </div>
                 {scheduleRequests.sent.filter(r => r.status === 'pending').length === 0 ? (
                   <div className="p-8 text-center">
-                    <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <div className="w-12 h-12 bg-gray-100 rounded-full mx-auto mb-4 flex items-center justify-center">
+                      <span className="text-gray-400 font-bold">!</span>
+                    </div>
                     <h3 className="text-lg font-medium text-gray-900 mb-2">No pending requests</h3>
                     <p className="text-gray-500">
                       You haven't sent any pending schedule requests.
@@ -966,62 +968,40 @@ export default function MyMatchesPage() {
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="w-full min-w-full">
+                    <table className="w-full">
                       <thead>
-                        <tr>
-                          <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
-                            To
-                          </th>
-                          <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
-                            Match
-                          </th>
-                          <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
-                            Requested Date
-                          </th>
-                          <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
-                            Message
-                          </th>
-                          <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
-                            Requested
-                          </th>
-                          <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
-                            Actions
-                          </th>
+                        <tr className="border-b border-gray-200">
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">To</th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">Match</th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">Requested Date</th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">Message</th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">Requested</th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
                         {scheduleRequests.sent.filter(r => r.status === 'pending').map((request) => (
-                          <tr key={request.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 border-b border-gray-200">
-                              <div className="font-medium text-gray-900">
-                                {request.opponent.name}
-                              </div>
+                          <tr key={request.id} className="border-b border-gray-100 hover:bg-gray-50">
+                            <td className="py-3 px-4 font-medium text-gray-900">
+                              {request.opponent.name}
                             </td>
-                            <td className="px-6 py-4 border-b border-gray-200">
-                              <div className="text-sm text-gray-900">
-                                {request.match.player1.name} vs {request.match.player2.name}
-                              </div>
+                            <td className="py-3 px-4 text-sm text-gray-600">
+                              {request.match.player1.name} vs {request.match.player2.name}
                             </td>
-                            <td className="px-6 py-4 border-b border-gray-200">
-                              <div className="text-sm text-gray-900">
-                                {formatDate(request.requested_date)}
-                              </div>
+                            <td className="py-3 px-4 text-sm text-gray-900">
+                              {formatDate(request.requested_date)}
                             </td>
-                            <td className="px-6 py-4 border-b border-gray-200">
-                              <div className="text-sm text-gray-500 max-w-xs truncate">
-                                {request.message || <span className="italic">No message</span>}
-                              </div>
+                            <td className="py-3 px-4 text-sm text-gray-500 max-w-xs truncate">
+                              {request.message || <span className="italic text-gray-400">No message</span>}
                             </td>
-                            <td className="px-6 py-4 border-b border-gray-200 text-sm text-gray-500">
+                            <td className="py-3 px-4 text-sm text-gray-500">
                               {formatDate(request.requested_at)}
                             </td>
-                            <td className="px-6 py-4 border-b border-gray-200">
+                            <td className="py-3 px-4">
                               <button
                                 onClick={() => handleDeleteScheduleRequest(request.id)}
-                                className="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded-md text-xs font-medium transition-colors border border-red-200 hover:border-red-300 flex items-center"
-                                title="Delete request"
+                                className="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded-md text-xs font-medium transition-colors border border-red-200 hover:border-red-300"
                               >
-                                <Trash2 className="h-3 w-3 mr-1" />
                                 Delete
                               </button>
                             </td>
@@ -1034,19 +1014,18 @@ export default function MyMatchesPage() {
               </div>
             </div>
 
-            {/* Completed Matches */}
+            {/* Match History - Modern Table */}
             <div className="card">
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex items-center">
-                  <Trophy className="h-6 w-6 text-black mr-2" />
-                  <h2 className="text-xl font-bold text-black">
-                    Match History ({data.completed_matches.length})
-                  </h2>
-                </div>
+              <div className="p-4 border-b border-gray-200">
+                <h3 className="font-semibold text-black">
+                  Match History ({data.completed_matches.length})
+                </h3>
               </div>
               {data.completed_matches.length === 0 ? (
                 <div className="p-8 text-center">
-                  <Trophy className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <div className="w-12 h-12 bg-gray-100 rounded-full mx-auto mb-4 flex items-center justify-center">
+                    <span className="text-gray-400 font-bold">!</span>
+                  </div>
                   <h3 className="text-lg font-medium text-gray-900 mb-2">No completed matches</h3>
                   <p className="text-gray-500">
                     You haven't completed any matches yet.
@@ -1054,40 +1033,28 @@ export default function MyMatchesPage() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-full">
+                  <table className="w-full">
                     <thead>
-                      <tr>
-                        <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
-                          Result
-                        </th>
-                        <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
-                          Opponent
-                        </th>
-                        <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
-                          Score
-                        </th>
-                        <th className="bg-gray-50 border-b border-gray-200 px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
-                          Date
-                        </th>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-3 px-4 font-medium text-gray-900">Result</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-900">Opponent</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-900">Score</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-900">Date</th>
                       </tr>
                     </thead>
                     <tbody>
                       {data.completed_matches.map((match) => (
-                        <tr key={match.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 border-b border-gray-200">
+                        <tr key={match.id} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="py-3 px-4">
                             {match.result && getResultBadge(match.result)}
                           </td>
-                          <td className="px-6 py-4 border-b border-gray-200">
-                            <div className="font-medium text-gray-900">
-                              vs {match.opponent.name}
-                            </div>
+                          <td className="py-3 px-4 font-medium text-gray-900">
+                            vs {match.opponent.name}
                           </td>
-                          <td className="px-6 py-4 border-b border-gray-200">
-                            <div className="font-medium text-gray-900">
-                              {match.player_score} - {match.opponent_score}
-                            </div>
+                          <td className="py-3 px-4 font-medium text-gray-900">
+                            {match.player_score} - {match.opponent_score}
                           </td>
-                          <td className="px-6 py-4 border-b border-gray-200 text-sm text-gray-500">
+                          <td className="py-3 px-4 text-sm text-gray-500">
                             {match.completed_at && formatDate(match.completed_at)}
                           </td>
                         </tr>
