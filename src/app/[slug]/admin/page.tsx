@@ -1920,6 +1920,681 @@ export default function AdminPage() {
             </div>
           </div>
         )}
+
+        {activeTab === 'seasons' && (
+          <div>
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-black mb-4">Season Management</h2>
+              
+              {/* Add Season Form */}
+              <div className="card p-6 mb-6">
+                <h3 className="text-lg font-semibold text-black mb-4">Create New Season</h3>
+                <form onSubmit={handleAddSeason} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Season Name</label>
+                      <input
+                        type="text"
+                        placeholder="Season name"
+                        value={newSeason.name}
+                        onChange={(e) => setNewSeason(prev => ({ ...prev, name: e.target.value }))}
+                        className="input-field"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
+                      <input
+                        type="date"
+                        value={newSeason.startDate}
+                        onChange={(e) => setNewSeason(prev => ({ ...prev, startDate: e.target.value }))}
+                        className="input-field"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                    <textarea
+                      placeholder="Season description (optional)"
+                      value={newSeason.description}
+                      onChange={(e) => setNewSeason(prev => ({ ...prev, description: e.target.value }))}
+                      className="input-field"
+                      rows={3}
+                    />
+                  </div>
+
+                  <div className="flex flex-wrap gap-4">
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={newSeason.makeActive}
+                        onChange={(e) => setNewSeason(prev => ({ ...prev, makeActive: e.target.checked }))}
+                        className="mr-2"
+                      />
+                      Make this season active immediately
+                    </label>
+                    
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={newSeason.convertExisting}
+                        onChange={(e) => setNewSeason(prev => ({ ...prev, convertExisting: e.target.checked }))}
+                        className="mr-2"
+                      />
+                      Copy participants from current active season
+                    </label>
+                  </div>
+
+                  <button 
+                    type="submit" 
+                    className="btn-primary"
+                    disabled={addingSeason}
+                  >
+                    {addingSeason ? (
+                      <>
+                        <Clock className="h-4 w-4 mr-2 animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Create Season
+                      </>
+                    )}
+                  </button>
+                </form>
+              </div>
+
+              {/* Seasons List */}
+              <div className="card">
+                <div className="p-6 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-black">All Seasons</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr>
+                        <th className="table-header">Name</th>
+                        <th className="table-header">Status</th>
+                        <th className="table-header">Start Date</th>
+                        <th className="table-header">Created</th>
+                        <th className="table-header">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {seasons.map((season) => (
+                        <tr key={season.id}>
+                          <td className="table-cell">
+                            <div>
+                              <div className="font-medium">{season.name}</div>
+                              {season.description && (
+                                <div className="text-sm text-gray-500">{season.description}</div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="table-cell">
+                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                              season.is_active ? 'bg-green-100 text-green-800' :
+                              season.is_finished ? 'bg-gray-100 text-gray-800' :
+                              'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {season.is_active ? 'Active' : season.is_finished ? 'Finished' : 'Inactive'}
+                            </span>
+                          </td>
+                          <td className="table-cell">
+                            {season.start_date ? formatDate(season.start_date) : 'Not set'}
+                          </td>
+                          <td className="table-cell">
+                            {formatDate(season.created_at)}
+                          </td>
+                          <td className="table-cell">
+                            <div className="flex gap-2">
+                              {!season.is_active && !season.is_finished && (
+                                <button
+                                  onClick={() => handleActivateSeason(season.slug)}
+                                  className="p-2 text-green-600 hover:text-green-800"
+                                  title="Activate season"
+                                >
+                                  <CheckCircle className="h-4 w-4" />
+                                </button>
+                              )}
+                              {season.is_active && (
+                                <button
+                                  onClick={() => handleFinishSeason(season.slug)}
+                                  className="p-2 text-orange-600 hover:text-orange-800"
+                                  title="Finish season"
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {seasons.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="table-cell text-center text-gray-500">
+                            No seasons yet. Create your first season above.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'registration-requests' && (
+          <div>
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-black mb-4">Player Registration Requests</h2>
+              
+              <div className="card">
+                <div className="p-6 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-black">Pending Requests</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr>
+                        <th className="table-header">Player</th>
+                        <th className="table-header">Requester Email</th>
+                        <th className="table-header">Status</th>
+                        <th className="table-header">Requested Date</th>
+                        <th className="table-header">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {registrationRequests.map((request) => (
+                        <tr key={request.id}>
+                          <td className="table-cell">
+                            <div className="font-medium">{request.player.name}</div>
+                          </td>
+                          <td className="table-cell">
+                            {request.claimer_email}
+                          </td>
+                          <td className="table-cell">
+                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                              request.status === 'approved' ? 'bg-green-100 text-green-800' :
+                              request.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                              'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                            </span>
+                          </td>
+                          <td className="table-cell">
+                            {formatDate(request.requested_at)}
+                          </td>
+                          <td className="table-cell">
+                            {request.status === 'pending' && (
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleApproveRequest(request.id)}
+                                  className="p-2 text-green-600 hover:text-green-800"
+                                  title="Approve request"
+                                >
+                                  <CheckCircle className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleRejectRequest(request.id)}
+                                  className="p-2 text-red-600 hover:text-red-800"
+                                  title="Reject request"
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                </button>
+                              </div>
+                            )}
+                            {request.status !== 'pending' && (
+                              <span className="text-gray-500 text-sm">
+                                {request.status === 'approved' ? 'Approved' : 'Rejected'}
+                                {request.reviewed_at && ` on ${formatDate(request.reviewed_at)}`}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                      {registrationRequests.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="table-cell text-center text-gray-500">
+                            No registration requests found.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'admins' && (
+          <div>
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-black mb-4">Administrator Management</h2>
+              
+              {/* Add Admin Form */}
+              <div className="card p-6 mb-6">
+                <h3 className="text-lg font-semibold text-black mb-4">Add New Administrator</h3>
+                <form onSubmit={handleAddAdmin} className="flex gap-4">
+                  <input
+                    type="email"
+                    placeholder="Administrator email"
+                    value={newAdminEmail}
+                    onChange={(e) => setNewAdminEmail(e.target.value)}
+                    className="input-field flex-1"
+                    required
+                  />
+                  <button 
+                    type="submit" 
+                    className="btn-primary"
+                    disabled={addingAdmin}
+                  >
+                    {addingAdmin ? (
+                      <>
+                        <Clock className="h-4 w-4 mr-2 animate-spin" />
+                        Adding...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Admin
+                      </>
+                    )}
+                  </button>
+                </form>
+              </div>
+
+              {/* Admins List */}
+              <div className="card">
+                <div className="p-6 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-black">Current Administrators</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr>
+                        <th className="table-header">Email</th>
+                        <th className="table-header">Added Date</th>
+                        <th className="table-header">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {admins.map((admin) => (
+                        <tr key={admin.id}>
+                          <td className="table-cell">
+                            <div className="flex items-center gap-2">
+                              <span>{admin.email}</span>
+                              {admin.email === currentUserEmail && (
+                                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                                  You
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="table-cell">
+                            {formatDate(admin.created_at)}
+                          </td>
+                          <td className="table-cell">
+                            {admin.email !== currentUserEmail && (
+                              <button
+                                onClick={() => handleRemoveAdmin(admin)}
+                                className="p-2 text-red-600 hover:text-red-800"
+                                title="Remove administrator"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                      {admins.length === 0 && (
+                        <tr>
+                          <td colSpan={3} className="table-cell text-center text-gray-500">
+                            No administrators found.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'integrations' && (
+          <div>
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-black mb-4">Integrations</h2>
+              
+              {/* Google Chat Integration */}
+              <div className="card p-6 mb-6">
+                <h3 className="text-lg font-semibold text-black mb-4 flex items-center">
+                  <MessageSquare className="h-5 w-5 mr-2" />
+                  Google Chat Integration
+                </h3>
+                
+                {chatIntegration ? (
+                  <div className="space-y-6">
+                    {/* Configuration Form */}
+                    <form onSubmit={handleSaveChatConfig} className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Webhook URL
+                        </label>
+                        <input
+                          type="url"
+                          placeholder="https://chat.googleapis.com/v1/spaces/..."
+                          value={chatConfig.webhook_url}
+                          onChange={(e) => setChatConfig(prev => ({ ...prev, webhook_url: e.target.value }))}
+                          className="input-field"
+                          required
+                        />
+                      </div>
+
+                      {/* Notification Settings */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-3">
+                          Notification Settings
+                        </label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <label className="flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={chatConfig.enabled}
+                              onChange={(e) => setChatConfig(prev => ({ ...prev, enabled: e.target.checked }))}
+                              className="mr-2"
+                            />
+                            Enable integration
+                          </label>
+                          
+                          <label className="flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={chatConfig.notify_new_matches}
+                              onChange={(e) => setChatConfig(prev => ({ ...prev, notify_new_matches: e.target.checked }))}
+                              className="mr-2"
+                            />
+                            Notify on new matches
+                          </label>
+                          
+                          <label className="flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={chatConfig.notify_approved_schedules}
+                              onChange={(e) => setChatConfig(prev => ({ ...prev, notify_approved_schedules: e.target.checked }))}
+                              className="mr-2"
+                            />
+                            Notify on approved schedules
+                          </label>
+                          
+                          <label className="flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={chatConfig.notify_schedule_requests}
+                              onChange={(e) => setChatConfig(prev => ({ ...prev, notify_schedule_requests: e.target.checked }))}
+                              className="mr-2"
+                            />
+                            Notify on schedule requests
+                          </label>
+                          
+                          <label className="flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={chatConfig.notify_match_completions}
+                              onChange={(e) => setChatConfig(prev => ({ ...prev, notify_match_completions: e.target.checked }))}
+                              className="mr-2"
+                            />
+                            Notify on match completions
+                          </label>
+                        </div>
+                      </div>
+
+                      {/* Daily Summary Settings */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-3">
+                          Daily Summary
+                        </label>
+                        <div className="space-y-3">
+                          <label className="flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={chatConfig.daily_summary_enabled}
+                              onChange={(e) => setChatConfig(prev => ({ ...prev, daily_summary_enabled: e.target.checked }))}
+                              className="mr-2"
+                            />
+                            Enable daily summary
+                          </label>
+                          
+                          {chatConfig.daily_summary_enabled && (
+                            <div className="ml-6 space-y-3">
+                              <div>
+                                <label className="block text-sm text-gray-600 mb-1">
+                                  Summary Time
+                                </label>
+                                <input
+                                  type="time"
+                                  value={chatConfig.daily_summary_time}
+                                  onChange={(e) => setChatConfig(prev => ({ ...prev, daily_summary_time: e.target.value }))}
+                                  className="input-field w-32"
+                                />
+                              </div>
+                              
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <label className="flex items-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={chatConfig.summary_include_streaks}
+                                    onChange={(e) => setChatConfig(prev => ({ ...prev, summary_include_streaks: e.target.checked }))}
+                                    className="mr-2"
+                                  />
+                                  Include streaks
+                                </label>
+                                
+                                <label className="flex items-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={chatConfig.summary_include_rankings}
+                                    onChange={(e) => setChatConfig(prev => ({ ...prev, summary_include_rankings: e.target.checked }))}
+                                    className="mr-2"
+                                  />
+                                  Include rankings
+                                </label>
+                                
+                                <label className="flex items-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={chatConfig.summary_include_schedule}
+                                    onChange={(e) => setChatConfig(prev => ({ ...prev, summary_include_schedule: e.target.checked }))}
+                                    className="mr-2"
+                                  />
+                                  Include schedule
+                                </label>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex gap-3">
+                        <button 
+                          type="submit" 
+                          className="btn-primary"
+                          disabled={savingChatConfig}
+                        >
+                          {savingChatConfig ? (
+                            <>
+                              <Clock className="h-4 w-4 mr-2 animate-spin" />
+                              Saving...
+                            </>
+                          ) : (
+                            <>
+                              <Save className="h-4 w-4 mr-2" />
+                              Save Settings
+                            </>
+                          )}
+                        </button>
+                        
+                        <button 
+                          type="button"
+                          onClick={handleTestChat}
+                          disabled={testingChat}
+                          className="btn-secondary"
+                        >
+                          {testingChat ? (
+                            <>
+                              <Clock className="h-4 w-4 mr-2 animate-spin" />
+                              Testing...
+                            </>
+                          ) : (
+                            'Test Integration'
+                          )}
+                        </button>
+                        
+                        <button 
+                          type="button"
+                          onClick={handleRemoveChatIntegration}
+                          className="btn-danger"
+                        >
+                          Remove Integration
+                        </button>
+                      </div>
+                    </form>
+
+                    {/* Quick Actions */}
+                    <div className="border-t pt-6">
+                      <h4 className="text-md font-medium text-black mb-4">Quick Actions</h4>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Send Daily Summary */}
+                        <div className="space-y-3">
+                          <button 
+                            onClick={handleSendDailySummary}
+                            disabled={sendingDailySummary}
+                            className="btn-secondary w-full"
+                          >
+                            {sendingDailySummary ? (
+                              <>
+                                <Clock className="h-4 w-4 mr-2 animate-spin" />
+                                Sending...
+                              </>
+                            ) : (
+                              'Send Daily Summary Now'
+                            )}
+                          </button>
+                          
+                          <button 
+                            onClick={handlePreviewDailySummary}
+                            disabled={previewingDailySummary}
+                            className="btn-secondary w-full"
+                          >
+                            {previewingDailySummary ? (
+                              <>
+                                <Clock className="h-4 w-4 mr-2 animate-spin" />
+                                Generating...
+                              </>
+                            ) : (
+                              <>
+                                <Eye className="h-4 w-4 mr-2" />
+                                Preview Daily Summary
+                              </>
+                            )}
+                          </button>
+                        </div>
+
+                        {/* Send Announcement */}
+                        <div className="space-y-3">
+                          <form onSubmit={handleSendAnnouncement}>
+                            <textarea
+                              placeholder="Type your announcement..."
+                              value={announcementText}
+                              onChange={(e) => setAnnouncementText(e.target.value)}
+                              className="input-field mb-3"
+                              rows={3}
+                              required
+                            />
+                            <button 
+                              type="submit"
+                              disabled={sendingAnnouncement}
+                              className="btn-primary w-full"
+                            >
+                              {sendingAnnouncement ? (
+                                <>
+                                  <Clock className="h-4 w-4 mr-2 animate-spin" />
+                                  Sending...
+                                </>
+                              ) : (
+                                'Send Announcement'
+                              )}
+                            </button>
+                          </form>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <MessageSquare className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+                    <h4 className="text-lg font-medium text-gray-900 mb-2">No Google Chat Integration</h4>
+                    <p className="text-gray-500 mb-6">
+                      Connect your league to Google Chat to receive notifications about matches, schedules, and more.
+                    </p>
+                    <form onSubmit={handleSaveChatConfig} className="max-w-md mx-auto">
+                      <input
+                        type="url"
+                        placeholder="https://chat.googleapis.com/v1/spaces/..."
+                        value={chatConfig.webhook_url}
+                        onChange={(e) => setChatConfig(prev => ({ ...prev, webhook_url: e.target.value }))}
+                        className="input-field mb-4"
+                        required
+                      />
+                      <button 
+                        type="submit" 
+                        className="btn-primary w-full"
+                        disabled={savingChatConfig}
+                      >
+                        {savingChatConfig ? (
+                          <>
+                            <Clock className="h-4 w-4 mr-2 animate-spin" />
+                            Setting up...
+                          </>
+                        ) : (
+                          'Set up Google Chat Integration'
+                        )}
+                      </button>
+                    </form>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Daily Summary Preview Modal */}
+        {showPreviewModal && dailySummaryPreview && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg max-w-2xl w-full max-h-[80vh] overflow-hidden">
+              <div className="flex justify-between items-center p-6 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-black">Daily Summary Preview</h3>
+                <button 
+                  onClick={() => setShowPreviewModal(false)}
+                  className="p-2 text-gray-600 hover:text-black"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="p-6 overflow-y-auto">
+                <div className="bg-gray-50 p-4 rounded-lg whitespace-pre-wrap font-mono text-sm">
+                  {dailySummaryPreview.message || 'No preview available'}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
 
       {/* Match Edit Modal */}
