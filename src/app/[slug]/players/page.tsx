@@ -76,7 +76,10 @@ export default function PlayersPage() {
   const fetchPlayers = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`/api/leagues/${slug}/players`)
+      // Add cache-busting parameter
+      const response = await fetch(`/api/leagues/${slug}/players?_t=${Date.now()}`, {
+        cache: 'no-store'
+      })
       
       if (!response.ok) {
         throw new Error('Failed to fetch players')

@@ -234,6 +234,7 @@ export default function LeaguePage() {
         })
         if (playersResponse.ok) {
           const playersData = await playersResponse.json()
+          console.log("playersData ===== ", playersData)
           console.log(`[${new Date().toISOString()}] [${requestId}] Received players data:`, {
             players_count: playersData.players?.length || 0,
             generated_at: playersData.generated_at,

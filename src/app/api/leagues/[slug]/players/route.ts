@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+// Force dynamic behavior to prevent caching
+export const dynamic = 'force-dynamic'
+export const fetchCache = 'force-no-store'
+export const revalidate = 0
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 const supabase = createClient(supabaseUrl, supabaseKey)
@@ -109,10 +114,13 @@ export async function GET(
       })
 
       // Set cache-control headers to prevent caching
-      emptyResponse.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0')
+      emptyResponse.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, s-maxage=0')
+      emptyResponse.headers.set('CDN-Cache-Control', 'no-store')
+      emptyResponse.headers.set('Vercel-CDN-Cache-Control', 'no-store')
       emptyResponse.headers.set('Pragma', 'no-cache')
       emptyResponse.headers.set('Expires', '0')
       emptyResponse.headers.set('Surrogate-Control', 'no-store')
+      emptyResponse.headers.set('Vary', '*')
 
       return emptyResponse
     }
@@ -129,6 +137,7 @@ export async function GET(
       `)
       .eq('league_id', league.id)
       .in('id', participantIds)
+      .order('updated_at', { ascending: false }) // Force fresh query by adding ordering
 
     if (participantsError) {
       console.error(`[${timestamp}] [${requestId}] Error fetching participants:`, participantsError)
@@ -288,7 +297,9 @@ export async function GET(
     })
 
     // Set comprehensive cache-control headers to prevent caching
-    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0')
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, s-maxage=0')
+    response.headers.set('CDN-Cache-Control', 'no-store')
+    response.headers.set('Vercel-CDN-Cache-Control', 'no-store')
     response.headers.set('Pragma', 'no-cache')
     response.headers.set('Expires', '0')
     response.headers.set('Surrogate-Control', 'no-store')
