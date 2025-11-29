@@ -437,16 +437,16 @@ export default function LeaguePage() {
         {/* Rankings - Full Width */}
         <div className="space-y-8">
           <div className="card">
-            <div className="p-6 border-b border-gray-200">
+            <div className="p-8 border-b border-gray-100">
               <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <Trophy className="h-6 w-6 text-black mr-2" />
-                  <h2 className="text-xl font-bold text-black">Current Rankings</h2>
+                <div>
+                  <h2 className="text-2xl font-bold text-black tracking-tight">Current Rankings</h2>
+                  <p className="text-gray-600 text-sm mt-1">Live standings and player statistics</p>
                 </div>
                 <button
                   onClick={handleManualRefresh}
                   disabled={refreshing}
-                  className={`btn-compact flex items-center gap-2 ${refreshing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors duration-200 ${refreshing ? 'opacity-50 cursor-not-allowed' : ''}`}
                   title="Refresh rankings and match data"
                 >
                   <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
@@ -457,69 +457,87 @@ export default function LeaguePage() {
             <div className="overflow-x-auto">
               <table className="w-full min-w-full">
                 <thead>
-                  <tr>
-                    <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Rank</th>
-                    <th className="bg-gray-50 border-b border-gray-200 px-4 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Player</th>
-                    <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Rating</th>
-                    <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Total Matches</th>
-                    <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">W</th>
-                    <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">L</th>
-                    <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Sets W</th>
-                    <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Sets L</th>
-                    <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Set Diff</th>
-                    <th className="bg-gray-50 border-b border-gray-200 px-3 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Points</th>
-                    <th className="bg-gray-50 border-b border-gray-200 px-4 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">Actions</th>
+                  <tr className="border-b-2 border-black">
+                    <th className="bg-white px-6 py-4 text-left text-sm font-bold text-black">#</th>
+                    <th className="bg-white px-6 py-4 text-left text-sm font-bold text-black">Player</th>
+                    <th className="bg-white px-4 py-4 text-left text-sm font-bold text-black">Rating</th>
+                    <th className="bg-white px-4 py-4 text-left text-sm font-bold text-black hidden sm:table-cell">Matches</th>
+                    <th className="bg-white px-3 py-4 text-left text-sm font-bold text-green-700">W</th>
+                    <th className="bg-white px-3 py-4 text-left text-sm font-bold text-black">L</th>
+                    <th className="bg-white px-3 py-4 text-left text-sm font-bold text-green-700 hidden md:table-cell">Sets W</th>
+                    <th className="bg-white px-3 py-4 text-left text-sm font-bold text-black hidden md:table-cell">Sets L</th>
+                    <th className="bg-white px-4 py-4 text-left text-sm font-bold text-black hidden lg:table-cell">Set Diff</th>
+                    <th className="bg-white px-4 py-4 text-left text-sm font-bold text-black">Points</th>
+                    <th className="bg-white px-6 py-4 text-left text-sm font-bold text-black">Action</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-gray-100">
                   {participants.map((participant, index) => (
-                    <tr key={participant.id}>
-                      <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">
-                        <span className="font-bold text-lg">#{index + 1}</span>
-                      </td>
-                      <td className="px-4 py-4 border-b border-gray-200 text-sm text-gray-900">
-                        <span className="font-medium">{participant.name}</span>
-                      </td>
-                      <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-lg">{participant.current_rating || 1200}</span>
-                          {participant.is_provisional && (
-                            <span className="text-xs text-gray-500">Provisional</span>
+                    <tr key={participant.id} className="hover:bg-green-50 transition-colors duration-150 group">
+                      <td className="px-6 py-6">
+                        <div className="flex items-center">
+                          <span className={`text-lg font-bold ${index < 3 ? 'text-green-700' : 'text-black'}`}>
+                            #{index + 1}
+                          </span>
+                          {index === 0 && (
+                            <div className="ml-2 w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                           )}
                         </div>
                       </td>
-                      <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">
-                        <span className="font-medium">{participant.wins + participant.losses}</span>
+                      <td className="px-6 py-6">
+                        <div className="font-semibold text-black text-base group-hover:text-green-800 transition-colors">
+                          {participant.name}
+                        </div>
                       </td>
-                      <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">{participant.wins}</td>
-                      <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">{participant.losses}</td>
-                      <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">{participant.sets_won}</td>
-                      <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">{participant.sets_lost}</td>
-                      <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">
-                        <span className={`font-medium ${participant.set_diff >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      <td className="px-4 py-6">
+                        <div className="flex flex-col">
+                          <span className="font-bold text-base text-black">{participant.current_rating || 1200}</span>
+                          {participant.is_provisional && (
+                            <span className="text-xs text-gray-500 font-medium">Provisional</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-6 hidden sm:table-cell">
+                        <span className="font-medium text-black">{participant.wins + participant.losses}</span>
+                      </td>
+                      <td className="px-3 py-6">
+                        <span className="font-bold text-green-700 text-base">{participant.wins}</span>
+                      </td>
+                      <td className="px-3 py-6">
+                        <span className="font-medium text-black">{participant.losses}</span>
+                      </td>
+                      <td className="px-3 py-6 hidden md:table-cell">
+                        <span className="font-bold text-green-700">{participant.sets_won}</span>
+                      </td>
+                      <td className="px-3 py-6 hidden md:table-cell">
+                        <span className="font-medium text-black">{participant.sets_lost}</span>
+                      </td>
+                      <td className="px-4 py-6 hidden lg:table-cell">
+                        <span className={`font-bold ${participant.set_diff >= 0 ? 'text-green-700' : 'text-black'}`}>
                           {participant.set_diff >= 0 ? '+' : ''}{participant.set_diff}
                         </span>
                       </td>
-                      <td className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900">
-                        <span className="font-semibold">{participant.points}</span>
+                      <td className="px-4 py-6">
+                        <span className="font-bold text-black text-base">{participant.points}</span>
                       </td>
-                      <td className="px-4 py-4 border-b border-gray-200 text-sm text-gray-900">
+                      <td className="px-6 py-6">
                         <button
                           onClick={() => {
                             setSelectedPlayer({ id: participant.id, name: participant.name })
                             setIsHistoryModalOpen(true)
                           }}
-                          className="text-sm bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-2 rounded-md font-medium transition-colors border border-blue-200 hover:border-blue-300"
+                          className="inline-flex items-center px-4 py-2 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 hover:text-green-800 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
                         >
-                          History
+                          View History
                         </button>
                       </td>
                     </tr>
                   ))}
                   {participants.length === 0 && (
                     <tr>
-                      <td colSpan={11} className="px-3 py-4 border-b border-gray-200 text-sm text-gray-900 text-center text-gray-500">
-                        No participants yet
+                      <td colSpan={11} className="px-6 py-12 text-center">
+                        <div className="text-gray-500 font-medium">No participants yet</div>
+                        <div className="text-gray-400 text-sm mt-1">Players will appear here once they join the league</div>
                       </td>
                     </tr>
                   )}
