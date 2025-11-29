@@ -1724,11 +1724,31 @@ export default function AdminPage() {
               {/* Matches List */}
               <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
                 <div className="p-6 border-b border-gray-200">
-                  <div className="flex justify-between items-center mb-6">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
                     <h3 className="text-xl font-semibold text-black">Match Overview</h3>
-                    <span className="text-sm text-gray-500">
-                      Showing {filteredMatches.length} of {matches.length} matches
-                    </span>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                      {/* Player Filter */}
+                      <div className="flex items-center gap-3">
+                        <label className="text-sm font-medium text-gray-700 whitespace-nowrap">
+                          Filter by player:
+                        </label>
+                        <select
+                          value={selectedPlayerFilter}
+                          onChange={(e) => setSelectedPlayerFilter(e.target.value)}
+                          className="input-field min-w-[150px]"
+                        >
+                          <option value="all">All Players</option>
+                          {participants.map(participant => (
+                            <option key={participant.id} value={participant.id}>
+                              {participant.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <span className="text-sm text-gray-500 whitespace-nowrap">
+                        Showing {filteredMatches.length} of {matches.length} matches
+                      </span>
+                    </div>
                   </div>
                   
                   {/* Match Tabs */}
