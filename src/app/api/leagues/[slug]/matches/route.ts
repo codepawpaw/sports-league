@@ -53,17 +53,6 @@ export async function POST(
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
-    // Get active season
-    const { data: activeSeason } = await supabase
-      .from('seasons')
-      .select('id, name')
-      .eq('league_id', league.id)
-      .eq('is_active', true)
-      .single()
-
-    if (!activeSeason) {
-      return NextResponse.json({ error: 'No active season found' }, { status: 400 })
-    }
 
     // Verify both players exist in this league
     const { data: players, error: playersError } = await supabase
@@ -88,7 +77,6 @@ export async function POST(
       .from('matches')
       .insert({
         league_id: league.id,
-        season_id: activeSeason.id,
         player1_id: player1_id,
         player2_id: player2_id,
         scheduled_at: scheduled_at ? convertLocalToUTC(scheduled_at) : null,
@@ -116,7 +104,6 @@ export async function POST(
         
         await GoogleChatNotifier.notifyNewMatch(chatIntegration.webhook_url, {
           leagueName: league.name,
-          seasonName: activeSeason.name,
           player1Name: player1.name,
           player2Name: player2.name,
           scheduledAt: scheduled_at || undefined,

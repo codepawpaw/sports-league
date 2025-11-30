@@ -19,7 +19,6 @@ interface Participant {
   id: string
   name: string
   email: string | null
-  in_current_season?: boolean
 }
 
 interface Match {
@@ -38,17 +37,6 @@ interface Admin {
   created_at: string
 }
 
-interface Season {
-  id: string
-  name: string
-  slug: string
-  description: string | null
-  is_active: boolean
-  is_finished: boolean
-  start_date: string | null
-  end_date: string | null
-  created_at: string
-}
 
 interface RegistrationRequest {
   id: string
@@ -131,8 +119,6 @@ export default function AdminPage() {
   const [participants, setParticipants] = useState<Participant[]>([])
   const [matches, setMatches] = useState<Match[]>([])
   const [admins, setAdmins] = useState<Admin[]>([])
-  const [seasons, setSeasons] = useState<Season[]>([])
-  const [activeSeason, setActiveSeason] = useState<Season | null>(null)
   const [registrationRequests, setRegistrationRequests] = useState<RegistrationRequest[]>([])
   const [chatIntegration, setChatIntegration] = useState<ChatIntegration | null>(null)
   const [tournaments, setTournaments] = useState<Tournament[]>([])
@@ -149,15 +135,6 @@ export default function AdminPage() {
   const [newAdminEmail, setNewAdminEmail] = useState('')
   const [addingAdmin, setAddingAdmin] = useState(false)
   
-  // Season forms state
-  const [newSeason, setNewSeason] = useState({
-    name: '',
-    description: '',
-    startDate: '',
-    makeActive: false,
-    convertExisting: false
-  })
-  const [addingSeason, setAddingSeason] = useState(false)
   
   // Chat integration forms state
   const [chatConfig, setChatConfig] = useState({
@@ -287,7 +264,6 @@ export default function AdminPage() {
       setLeague(leagueData)
       await fetchData(leagueData.id)
       await fetchAdmins()
-      await fetchSeasons()
       await fetchRegistrationRequests()
       await fetchChatIntegration()
       await fetchTournaments()
@@ -301,14 +277,6 @@ export default function AdminPage() {
 
   const fetchData = async (leagueId: string) => {
     try {
-      // Get active season
-      const { data: activeSeasonData } = await supabase
-        .from('seasons')
-        .select('id')
-        .eq('league_id', leagueId)
-        .eq('is_active', true)
-        .single()
-
       // Fetch all participants for the league
       const { data: participantsData } = await supabase
         .from('participants')
@@ -316,25 +284,7 @@ export default function AdminPage() {
         .eq('league_id', leagueId)
         .order('name')
 
-      if (participantsData && activeSeasonData) {
-        // Get participants in current season
-        const { data: seasonParticipants } = await supabase
-          .from('season_participants')
-          .select('participant_id')
-          .eq('season_id', activeSeasonData.id)
-
-        const participantIds = new Set(seasonParticipants?.map(sp => sp.participant_id) || [])
-
-        // Mark which participants are in current season
-        const enhancedParticipants = participantsData.map(p => ({
-          ...p,
-          in_current_season: participantIds.has(p.id)
-        }))
-
-        setParticipants(enhancedParticipants)
-      } else {
-        setParticipants(participantsData || [])
-      }
+      setParticipants(participantsData || [])
 
       // Fetch matches
       const { data: matchesData } = await supabase
@@ -375,21 +325,6 @@ export default function AdminPage() {
     }
   }
 
-  const fetchSeasons = async () => {
-    try {
-      const response = await fetch(`/api/leagues/${slug}/seasons`)
-      if (response.ok) {
-        const data = await response.json()
-        setSeasons(data.seasons)
-        
-        // Find the active season
-        const active = data.seasons.find((s: Season) => s.is_active)
-        setActiveSeason(active || null)
-      }
-    } catch (error) {
-      console.error('Error fetching seasons:', error)
-    }
-  }
 
   const fetchRegistrationRequests = async () => {
     try {
@@ -448,40 +383,17 @@ export default function AdminPage() {
     e.preventDefault()
     if (!league || !newParticipant.name.trim()) return
 
-    if (!activeSeason) {
-      alert('No active season found. Please create and activate a season first.')
-      return
-    }
-
     try {
-      // First, add participant to league
-      const { data: newParticipantData, error: participantError } = await supabase
+      const { error: participantError } = await supabase
         .from('participants')
         .insert({
           league_id: league.id,
           name: newParticipant.name.trim(),
           email: newParticipant.email.trim() || null
         })
-        .select()
-        .single()
 
       if (participantError) {
         alert('Error adding participant: ' + participantError.message)
-        return
-      }
-
-      // Then, add participant to active season
-      const { error: seasonParticipantError } = await supabase
-        .from('season_participants')
-        .insert({
-          season_id: activeSeason.id,
-          participant_id: newParticipantData.id
-        })
-
-      if (seasonParticipantError) {
-        // If adding to season fails, remove the participant
-        await supabase.from('participants').delete().eq('id', newParticipantData.id)
-        alert('Error adding participant to season: ' + seasonParticipantError.message)
         return
       }
 
@@ -899,94 +811,6 @@ export default function AdminPage() {
 
   const filteredMatches = getFilteredMatches()
 
-  // Season management functions
-  const handleAddSeason = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!newSeason.name.trim()) return
-
-    setAddingSeason(true)
-
-    try {
-      const response = await fetch(`/api/leagues/${slug}/seasons`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newSeason)
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        setNewSeason({
-          name: '',
-          description: '',
-          startDate: '',
-          makeActive: false,
-          convertExisting: false
-        })
-        await fetchSeasons()
-        if (newSeason.makeActive) {
-          await fetchData(league!.id)
-        }
-        alert('Season created successfully!')
-      } else {
-        alert(data.error || 'Failed to create season')
-      }
-    } catch (error) {
-      console.error('Error creating season:', error)
-      alert('Failed to create season')
-    } finally {
-      setAddingSeason(false)
-    }
-  }
-
-  const handleActivateSeason = async (seasonSlug: string) => {
-    if (!confirm('Are you sure you want to activate this season? This will deactivate the current active season.')) {
-      return
-    }
-
-    try {
-      const response = await fetch(`/api/leagues/${slug}/seasons/${seasonSlug}/activate`, {
-        method: 'POST'
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        await fetchSeasons()
-        await fetchData(league!.id)
-        alert('Season activated successfully!')
-      } else {
-        alert(data.error || 'Failed to activate season')
-      }
-    } catch (error) {
-      console.error('Error activating season:', error)
-      alert('Failed to activate season')
-    }
-  }
-
-  const handleFinishSeason = async (seasonSlug: string) => {
-    if (!confirm('Are you sure you want to finish this season? This action cannot be undone.')) {
-      return
-    }
-
-    try {
-      const response = await fetch(`/api/leagues/${slug}/seasons/${seasonSlug}/finish`, {
-        method: 'POST'
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        await fetchSeasons()
-        alert('Season finished successfully!')
-      } else {
-        alert(data.error || 'Failed to finish season')
-      }
-    } catch (error) {
-      console.error('Error finishing season:', error)
-      alert('Failed to finish season')
-    }
-  }
 
   // Admin management functions
   const handleAddAdmin = async (e: React.FormEvent) => {
@@ -1241,65 +1065,6 @@ export default function AdminPage() {
     }
   }
 
-  // Season participant management functions
-  const handleAddToSeason = async (participantId: string) => {
-    if (!activeSeason) {
-      alert('No active season found')
-      return
-    }
-
-    try {
-      const { error } = await supabase
-        .from('season_participants')
-        .insert({
-          season_id: activeSeason.id,
-          participant_id: participantId
-        })
-
-      if (!error) {
-        await fetchData(league!.id)
-        alert('Participant added to current season successfully!')
-      } else {
-        if (error.code === '23505') { // Unique constraint violation
-          alert('Participant is already in the current season')
-        } else {
-          alert('Error adding participant to season: ' + error.message)
-        }
-      }
-    } catch (error) {
-      console.error('Error adding participant to season:', error)
-      alert('Failed to add participant to season')
-    }
-  }
-
-  const handleRemoveFromSeason = async (participantId: string) => {
-    if (!activeSeason) {
-      alert('No active season found')
-      return
-    }
-
-    if (!confirm('Are you sure you want to remove this participant from the current season?')) {
-      return
-    }
-
-    try {
-      const { error } = await supabase
-        .from('season_participants')
-        .delete()
-        .eq('season_id', activeSeason.id)
-        .eq('participant_id', participantId)
-
-      if (!error) {
-        await fetchData(league!.id)
-        alert('Participant removed from current season successfully!')
-      } else {
-        alert('Error removing participant from season: ' + error.message)
-      }
-    } catch (error) {
-      console.error('Error removing participant from season:', error)
-      alert('Failed to remove participant from season')
-    }
-  }
 
   // Player rating recalculation function
   const handleRecalculateRatings = async () => {
@@ -1651,17 +1416,6 @@ export default function AdminPage() {
               Matches
             </button>
             <button
-              onClick={() => setActiveTab('seasons')}
-              className={`flex-shrink-0 py-4 px-1 sm:px-2 border-b-2 font-medium text-sm whitespace-nowrap ${
-                activeTab === 'seasons'
-                  ? 'border-black text-black'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <Calendar className="h-4 w-4 inline mr-1 sm:mr-2" />
-              Seasons
-            </button>
-            <button
               onClick={() => setActiveTab('tournaments')}
               className={`flex-shrink-0 py-4 px-1 sm:px-2 border-b-2 font-medium text-sm whitespace-nowrap ${
                 activeTab === 'tournaments'
@@ -1757,7 +1511,6 @@ export default function AdminPage() {
                       <tr>
                         <th className="table-header">Name</th>
                         <th className="table-header">Email</th>
-                        <th className="table-header">Current Season</th>
                         <th className="table-header">Actions</th>
                       </tr>
                     </thead>
@@ -1789,17 +1542,6 @@ export default function AdminPage() {
                             )}
                           </td>
                           <td className="table-cell">
-                            {participant.in_current_season ? (
-                              <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
-                                In Season
-                              </span>
-                            ) : (
-                              <span className="px-2 py-1 bg-gray-100 text-gray-800 text-xs font-medium rounded-full">
-                                Not in Season
-                              </span>
-                            )}
-                          </td>
-                          <td className="table-cell">
                             <div className="flex gap-2">
                               {editingParticipant === participant.id ? (
                                 <>
@@ -1820,23 +1562,6 @@ export default function AdminPage() {
                                 </>
                               ) : (
                                 <>
-                                  {participant.in_current_season ? (
-                                    <button
-                                      onClick={() => handleRemoveFromSeason(participant.id)}
-                                      className="p-2 text-orange-600 hover:text-orange-800"
-                                      title="Remove from current season"
-                                    >
-                                      <X className="h-4 w-4" />
-                                    </button>
-                                  ) : (
-                                    <button
-                                      onClick={() => handleAddToSeason(participant.id)}
-                                      className="p-2 text-green-600 hover:text-green-800"
-                                      title="Add to current season"
-                                    >
-                                      <Plus className="h-4 w-4" />
-                                    </button>
-                                  )}
                                   <button
                                     onClick={() => startEditingParticipant(participant)}
                                     className="p-2 text-blue-600 hover:text-blue-800"
@@ -1859,7 +1584,7 @@ export default function AdminPage() {
                       ))}
                       {participants.length === 0 && (
                         <tr>
-                          <td colSpan={3} className="table-cell text-center text-gray-500">
+                          <td colSpan={2} className="table-cell text-center text-gray-500">
                             No participants yet
                           </td>
                         </tr>
@@ -2230,171 +1955,6 @@ export default function AdminPage() {
           </div>
         )}
 
-        {activeTab === 'seasons' && (
-          <div>
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-black mb-4">Season Management</h2>
-              
-              {/* Add Season Form */}
-              <div className="card p-6 mb-6">
-                <h3 className="text-lg font-semibold text-black mb-4">Create New Season</h3>
-                <form onSubmit={handleAddSeason} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Season Name</label>
-                      <input
-                        type="text"
-                        placeholder="Season name"
-                        value={newSeason.name}
-                        onChange={(e) => setNewSeason(prev => ({ ...prev, name: e.target.value }))}
-                        className="input-field"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
-                      <input
-                        type="date"
-                        value={newSeason.startDate}
-                        onChange={(e) => setNewSeason(prev => ({ ...prev, startDate: e.target.value }))}
-                        className="input-field"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                    <textarea
-                      placeholder="Season description (optional)"
-                      value={newSeason.description}
-                      onChange={(e) => setNewSeason(prev => ({ ...prev, description: e.target.value }))}
-                      className="input-field"
-                      rows={3}
-                    />
-                  </div>
-
-                  <div className="flex flex-wrap gap-4">
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={newSeason.makeActive}
-                        onChange={(e) => setNewSeason(prev => ({ ...prev, makeActive: e.target.checked }))}
-                        className="mr-2"
-                      />
-                      Make this season active immediately
-                    </label>
-                    
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={newSeason.convertExisting}
-                        onChange={(e) => setNewSeason(prev => ({ ...prev, convertExisting: e.target.checked }))}
-                        className="mr-2"
-                      />
-                      Copy participants from current active season
-                    </label>
-                  </div>
-
-                  <button 
-                    type="submit" 
-                    className="btn-primary"
-                    disabled={addingSeason}
-                  >
-                    {addingSeason ? (
-                      <>
-                        <Clock className="h-4 w-4 mr-2 animate-spin" />
-                        Creating...
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Create Season
-                      </>
-                    )}
-                  </button>
-                </form>
-              </div>
-
-              {/* Seasons List */}
-              <div className="card">
-                <div className="p-6 border-b border-gray-200">
-                  <h3 className="text-lg font-semibold text-black">All Seasons</h3>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr>
-                        <th className="table-header">Name</th>
-                        <th className="table-header">Status</th>
-                        <th className="table-header">Start Date</th>
-                        <th className="table-header">Created</th>
-                        <th className="table-header">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {seasons.map((season) => (
-                        <tr key={season.id}>
-                          <td className="table-cell">
-                            <div>
-                              <div className="font-medium">{season.name}</div>
-                              {season.description && (
-                                <div className="text-sm text-gray-500">{season.description}</div>
-                              )}
-                            </div>
-                          </td>
-                          <td className="table-cell">
-                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                              season.is_active ? 'bg-green-100 text-green-800' :
-                              season.is_finished ? 'bg-gray-100 text-gray-800' :
-                              'bg-yellow-100 text-yellow-800'
-                            }`}>
-                              {season.is_active ? 'Active' : season.is_finished ? 'Finished' : 'Inactive'}
-                            </span>
-                          </td>
-                          <td className="table-cell">
-                            {season.start_date ? formatDate(season.start_date) : 'Not set'}
-                          </td>
-                          <td className="table-cell">
-                            {formatDate(season.created_at)}
-                          </td>
-                          <td className="table-cell">
-                            <div className="flex gap-2">
-                              {!season.is_active && !season.is_finished && (
-                                <button
-                                  onClick={() => handleActivateSeason(season.slug)}
-                                  className="p-2 text-green-600 hover:text-green-800"
-                                  title="Activate season"
-                                >
-                                  <CheckCircle className="h-4 w-4" />
-                                </button>
-                              )}
-                              {season.is_active && (
-                                <button
-                                  onClick={() => handleFinishSeason(season.slug)}
-                                  className="p-2 text-orange-600 hover:text-orange-800"
-                                  title="Finish season"
-                                >
-                                  <XCircle className="h-4 w-4" />
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                      {seasons.length === 0 && (
-                        <tr>
-                          <td colSpan={5} className="table-cell text-center text-gray-500">
-                            No seasons yet. Create your first season above.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         {activeTab === 'tournaments' && (
           <div>

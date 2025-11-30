@@ -84,7 +84,7 @@ export default function TopPlayersBanner({ participants, upcomingMatches }: TopP
           <div className="lg:col-span-3">
             <div className="text-center mb-6">
               <h2 className="text-2xl font-bold">🏆 Top Players</h2>
-              <p className="text-gray-300">Current season leaders</p>
+              <p className="text-gray-300">Current leaders</p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {top3Players.map((player, index) => (
