@@ -22,20 +22,45 @@ interface PredictionData {
   totalPlayers: number
 }
 
-export default function LeaguePredictionCard({ slug }: { slug: string }) {
+interface Tournament {
+  id: string
+  name: string
+  slug: string
+  status: 'upcoming' | 'active' | 'completed' | 'cancelled'
+  tournament_type?: string
+}
+
+export default function LeaguePredictionCard({ 
+  slug, 
+  selectedTournament 
+}: { 
+  slug: string
+  selectedTournament: Tournament | null
+}) {
   const [predictions, setPredictions] = useState<PredictionData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showFormula, setShowFormula] = useState(false)
 
   useEffect(() => {
-    fetchPredictions()
-  }, [slug])
+    if (selectedTournament) {
+      fetchPredictions()
+    } else {
+      setPredictions(null)
+      setLoading(false)
+    }
+  }, [slug, selectedTournament])
 
   const fetchPredictions = async () => {
+    if (!selectedTournament) {
+      setLoading(false)
+      return
+    }
+
     try {
       setLoading(true)
-      const response = await fetch(`/api/leagues/${slug}/predictions`, {
+      setError(null)
+      const response = await fetch(`/api/leagues/${slug}/predictions?tournamentId=${selectedTournament.id}`, {
         method: 'GET',
         cache: 'no-store',
         headers: {
@@ -55,6 +80,15 @@ export default function LeaguePredictionCard({ slug }: { slug: string }) {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (!selectedTournament) {
+    return null // Don't show component if no tournament is selected
+  }
+
+  // Hide Championship Readiness Score for non-round robin tournaments
+  if (selectedTournament.tournament_type !== 'round_robin') {
+    return null
   }
 
   if (loading) {

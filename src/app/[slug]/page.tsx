@@ -1,9 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Trophy, Calendar, Users, Settings, LogIn, Plus, RefreshCw } from 'lucide-react'
+import { Trophy, Calendar, Users, Settings, LogIn, Plus, RefreshCw, ChevronDown } from 'lucide-react'
 import { createSupabaseComponentClient } from '@/lib/supabase'
 import HeadToHeadComparison from '@/components/HeadToHeadComparison'
 import PlayerMatchHistoryModal from '@/components/PlayerMatchHistoryModal'
@@ -25,13 +25,16 @@ interface League {
   created_at: string
 }
 
-interface Season {
+
+interface Tournament {
   id: string
   name: string
   slug: string
   description: string | null
-  is_active: boolean
-  is_finished: boolean
+  status: 'upcoming' | 'active' | 'completed' | 'cancelled'
+  start_date: string | null
+  end_date: string | null
+  tournament_type?: string
 }
 
 interface Participant {
@@ -83,7 +86,6 @@ export default function LeaguePage() {
   const supabase = createSupabaseComponentClient()
   
   const [league, setLeague] = useState<League | null>(null)
-  const [activeSeason, setActiveSeason] = useState<Season | null>(null)
   const [participants, setParticipants] = useState<Participant[]>([])
   const [upcomingMatches, setUpcomingMatches] = useState<Match[]>([])
   const [recentMatches, setRecentMatches] = useState<Match[]>([])
@@ -98,11 +100,167 @@ export default function LeaguePage() {
   const [hasShownAutoModal, setHasShownAutoModal] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
 
+  // Tournament-based rankings state
+  const [tournaments, setTournaments] = useState<Tournament[]>([])
+  const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null)
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [currentTournament, setCurrentTournament] = useState<Tournament | null>(null)
+
   useEffect(() => {
     if (slug) {
       fetchLeagueData()
+      fetchTournaments()
     }
   }, [slug])
+
+  // Fetch tournament data when selectedTournament changes
+  useEffect(() => {
+    if (selectedTournament) {
+      fetchTournamentRankings()
+      fetchTournamentMatches()
+    } else {
+      // Clear matches when no tournament is selected
+      setUpcomingMatches([])
+      setRecentMatches([])
+    }
+  }, [selectedTournament])
+
+  const fetchTournaments = async () => {
+    try {
+      const response = await fetch(`/api/leagues/${slug}/tournaments`, {
+        method: 'GET',
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setTournaments(data.tournaments || [])
+        
+        // Auto-select the first active tournament or latest tournament
+        if (data.tournaments && data.tournaments.length > 0) {
+          const activeTournament = data.tournaments.find((t: Tournament) => t.status === 'active')
+          const selectedTournament = activeTournament || data.tournaments[0]
+          setSelectedTournament(selectedTournament)
+          setCurrentTournament(selectedTournament)
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching tournaments:', error)
+    }
+  }
+
+  const fetchTournamentRankings = async () => {
+    if (!selectedTournament) return
+
+    const timestamp = Date.now()
+    const requestId = Math.random().toString(36).substring(7)
+    
+    try {
+      const playersUrl = `/api/leagues/${slug}/players-v2?tournamentId=${selectedTournament.id}&t=${timestamp}&r=${requestId}`
+      console.log(`Fetching tournament rankings from: ${playersUrl}`)
+      
+      const playersResponse = await fetch(playersUrl, {
+        method: 'GET',
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      })
+      
+      if (playersResponse.ok) {
+        const playersData = await playersResponse.json()
+        console.log("Tournament rankings data:", playersData)
+        setParticipants(playersData.players || [])
+        setCurrentTournament(playersData.tournament || selectedTournament)
+      } else {
+        console.error('Failed to fetch tournament rankings:', playersResponse.status, playersResponse.statusText)
+        setParticipants([])
+      }
+    } catch (error) {
+      console.error('Error fetching tournament rankings:', error)
+      setParticipants([])
+    }
+  }
+
+  const fetchTournamentMatches = async () => {
+    if (!selectedTournament || !league) return
+
+    try {
+      // Fetch upcoming matches for the tournament
+      const { data: upcomingData } = await supabase
+        .from('matches')
+        .select(`
+          *,
+          player1:participants!matches_player1_id_fkey(id, name),
+          player2:participants!matches_player2_id_fkey(id, name)
+        `)
+        .eq('league_id', league.id)
+        .eq('tournament_id', selectedTournament.id)
+        .in('status', ['scheduled', 'in_progress'])
+        .order('scheduled_at', { ascending: true })
+        .limit(5)
+
+      if (upcomingData) {
+        setUpcomingMatches(upcomingData
+          .filter(m => m && m.player1 && m.player2 && m.player1.name && m.player2.name) // Filter out invalid matches
+          .map(m => ({
+            id: m.id,
+            player1: { id: m.player1.id, name: m.player1.name || 'Unknown Player' },
+            player2: { id: m.player2.id, name: m.player2.name || 'Unknown Player' },
+            player1_score: m.player1_score,
+            player2_score: m.player2_score,
+            status: m.status,
+            scheduled_at: m.scheduled_at,
+            completed_at: m.completed_at
+          })))
+      }
+
+      // Fetch recent completed matches for the tournament
+      const { data: recentData } = await supabase
+        .from('matches')
+        .select(`
+          *,
+          player1:participants!matches_player1_id_fkey(id, name),
+          player2:participants!matches_player2_id_fkey(id, name)
+        `)
+        .eq('league_id', league.id)
+        .eq('tournament_id', selectedTournament.id)
+        .eq('status', 'completed')
+        .order('completed_at', { ascending: false })
+        .limit(5)
+
+      if (recentData) {
+        setRecentMatches(recentData
+          .filter(m => m && m.player1 && m.player2 && m.player1.name && m.player2.name) // Filter out invalid matches
+          .map(m => ({
+            id: m.id,
+            player1: { id: m.player1.id, name: m.player1.name || 'Unknown Player' },
+            player2: { id: m.player2.id, name: m.player2.name || 'Unknown Player' },
+            player1_score: m.player1_score,
+            player2_score: m.player2_score,
+            status: m.status,
+            scheduled_at: m.scheduled_at,
+            completed_at: m.completed_at
+          })))
+      }
+    } catch (error) {
+      console.error('Error fetching tournament matches:', error)
+      setUpcomingMatches([])
+      setRecentMatches([])
+    }
+  }
+
+  const handleTournamentSelect = (tournament: Tournament) => {
+    setSelectedTournament(tournament)
+    setIsDropdownOpen(false)
+  }
 
   // Auto-modal logic: show modal when user is authenticated but not a participant
   useEffect(() => {
@@ -171,29 +329,6 @@ export default function LeaguePage() {
 
       setLeague(leagueData)
 
-      // Fetch active season info with stronger cache busting
-      try {
-        const seasonUrl = `/api/leagues/${slug}/seasons?t=${timestamp}&r=${requestId}`
-        console.log(`[${new Date().toISOString()}] [${requestId}] Fetching season data from: ${seasonUrl}`)
-        
-        const response = await fetch(seasonUrl, {
-          method: 'GET',
-          cache: 'no-store',
-          headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0'
-          }
-        })
-        if (response.ok) {
-          const data = await response.json()
-          const activeSeasonData = data.seasons.find((s: Season) => s.is_active)
-          setActiveSeason(activeSeasonData || null)
-          console.log(`[${new Date().toISOString()}] [${requestId}] Found active season:`, activeSeasonData?.name || 'None')
-        }
-      } catch (error) {
-        console.error(`[${new Date().toISOString()}] [${requestId}] Error fetching season data:`, error)
-      }
 
       // Check if current user is admin and participant
       const { data: { user } } = await supabase.auth.getUser()
@@ -220,94 +355,10 @@ export default function LeaguePage() {
         setIsParticipant(!!participantData)
       }
 
-      // Fetch participants with ratings from API with stronger cache busting
-      try {
-        const playersUrl = `/api/leagues/${slug}/players?t=${timestamp}&r=${requestId}`
-        console.log(`[${new Date().toISOString()}] [${requestId}] Fetching players data from: ${playersUrl}`)
-        
-        const playersResponse = await fetch(playersUrl, {
-          method: 'GET',
-          cache: 'no-store',
-          headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0'
-          }
-        })
-        if (playersResponse.ok) {
-          const playersData = await playersResponse.json()
-          console.log("playersData ===== ", playersData)
-          console.log(`[${new Date().toISOString()}] [${requestId}] Received players data:`, {
-            players_count: playersData.players?.length || 0,
-            generated_at: playersData.generated_at,
-            request_id: playersData.request_id
-          })
-          setParticipants(playersData.players || [])
-        } else {
-          console.error(`[${new Date().toISOString()}] [${requestId}] Failed to fetch players:`, playersResponse.status, playersResponse.statusText)
-          setParticipants([])
-        }
-      } catch (error) {
-        console.error(`[${new Date().toISOString()}] [${requestId}] Error fetching players:`, error)
-        // Fallback to empty array
-        setParticipants([])
-      }
-
-      // Fetch upcoming matches
-      const { data: upcomingData } = await supabase
-        .from('matches')
-        .select(`
-          *,
-          player1:participants!matches_player1_id_fkey(id, name),
-          player2:participants!matches_player2_id_fkey(id, name)
-        `)
-        .eq('league_id', leagueData.id)
-        .in('status', ['scheduled', 'in_progress'])
-        .order('scheduled_at', { ascending: true })
-        .limit(5)
-
-      if (upcomingData) {
-        setUpcomingMatches(upcomingData
-          .filter(m => m && m.player1 && m.player2 && m.player1.name && m.player2.name) // Filter out invalid matches
-          .map(m => ({
-            id: m.id,
-            player1: { id: m.player1.id, name: m.player1.name || 'Unknown Player' },
-            player2: { id: m.player2.id, name: m.player2.name || 'Unknown Player' },
-            player1_score: m.player1_score,
-            player2_score: m.player2_score,
-            status: m.status,
-            scheduled_at: m.scheduled_at,
-            completed_at: m.completed_at
-          })))
-      }
-
-      // Fetch recent completed matches
-      const { data: recentData } = await supabase
-        .from('matches')
-        .select(`
-          *,
-          player1:participants!matches_player1_id_fkey(id, name),
-          player2:participants!matches_player2_id_fkey(id, name)
-        `)
-        .eq('league_id', leagueData.id)
-        .eq('status', 'completed')
-        .order('completed_at', { ascending: false })
-        .limit(5)
-
-      if (recentData) {
-        setRecentMatches(recentData
-          .filter(m => m && m.player1 && m.player2 && m.player1.name && m.player2.name) // Filter out invalid matches
-          .map(m => ({
-            id: m.id,
-            player1: { id: m.player1.id, name: m.player1.name || 'Unknown Player' },
-            player2: { id: m.player2.id, name: m.player2.name || 'Unknown Player' },
-            player1_score: m.player1_score,
-            player2_score: m.player2_score,
-            status: m.status,
-            scheduled_at: m.scheduled_at,
-            completed_at: m.completed_at
-          })))
-      }
+      // Clear participants and matches initially - they'll be loaded when tournament is selected
+      setParticipants([])
+      setUpcomingMatches([])
+      setRecentMatches([])
 
     } catch (err) {
       console.error('Error fetching league data:', err)
@@ -391,13 +442,77 @@ export default function LeaguePage() {
         </div>
       </header>
 
-      {/* League Title */}
+      {/* League Title with Tournament Selection */}
       <div className="border-b border-gray-100 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-black break-words">{league?.name}</h1>
-            {activeSeason && (
-              <h2 className="text-lg font-medium text-gray-600 mt-1">{activeSeason.name}</h2>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-black break-words">{league?.name}</h1>
+              {currentTournament && (
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="text-sm font-medium text-gray-700">Tournament:</span>
+                  <span className="text-sm font-semibold text-green-700">{currentTournament.name}</span>
+                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                    currentTournament.status === 'active' ? 'bg-green-100 text-green-800' :
+                    currentTournament.status === 'completed' ? 'bg-gray-100 text-gray-800' :
+                    currentTournament.status === 'upcoming' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-red-100 text-red-800'
+                  }`}>
+                    {currentTournament.status.charAt(0).toUpperCase() + currentTournament.status.slice(1)}
+                  </span>
+                </div>
+              )}
+            </div>
+            
+            {/* Tournament Selector */}
+            {tournaments.length > 0 && (
+              <div className="relative">
+                <button
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors duration-200"
+                >
+                  Select Tournament
+                  <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {isDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-60 overflow-y-auto">
+                    {tournaments.map((tournament) => (
+                      <button
+                        key={tournament.id}
+                        onClick={() => handleTournamentSelect(tournament)}
+                        className={`w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors duration-150 ${
+                          selectedTournament?.id === tournament.id ? 'bg-blue-50 border-l-4 border-blue-500' : ''
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-medium text-gray-900">{tournament.name}</div>
+                            {tournament.description && (
+                              <div className="text-sm text-gray-600 mt-1">{tournament.description}</div>
+                            )}
+                          </div>
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            tournament.status === 'active' ? 'bg-green-100 text-green-800' :
+                            tournament.status === 'completed' ? 'bg-gray-100 text-gray-800' :
+                            tournament.status === 'upcoming' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
+                            {tournament.status.charAt(0).toUpperCase() + tournament.status.slice(1)}
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                    
+                    {tournaments.length === 0 && (
+                      <div className="px-4 py-6 text-center text-gray-500">
+                        <div className="font-medium">No tournaments available</div>
+                        <div className="text-sm mt-1">Tournaments will appear here once created</div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -432,26 +547,37 @@ export default function LeaguePage() {
         <ScheduleRequestNotifications slug={slug} />
 
         {/* Championship Predictions */}
-        <LeaguePredictionCard slug={slug} />
+        <LeaguePredictionCard slug={slug} selectedTournament={currentTournament} />
 
-        {/* Rankings - Full Width */}
+        {/* Tournament Rankings - Full Width */}
         <div className="space-y-8">
           <div className="card">
             <div className="p-8 border-b border-gray-100">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold text-black tracking-tight">Current Rankings</h2>
-                  <p className="text-gray-600 text-sm mt-1">Live standings and player statistics</p>
+                  <h2 className="text-2xl font-bold text-black tracking-tight">
+                    Tournament Rankings
+                  </h2>
+                  <p className="text-gray-600 text-sm mt-1">
+                    Tournament standings and player statistics
+                  </p>
+                  {!currentTournament && tournaments.length === 0 && (
+                    <p className="text-sm text-orange-600 mt-2">
+                      No tournaments found. Please create a tournament to view rankings.
+                    </p>
+                  )}
                 </div>
-                <button
-                  onClick={handleManualRefresh}
-                  disabled={refreshing}
-                  className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors duration-200 ${refreshing ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  title="Refresh rankings and match data"
-                >
-                  <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-                  {refreshing ? 'Refreshing...' : 'Refresh'}
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleManualRefresh}
+                    disabled={refreshing}
+                    className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors duration-200 ${refreshing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    title="Refresh rankings and match data"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                    {refreshing ? 'Refreshing...' : 'Refresh'}
+                  </button>
+                </div>
               </div>
             </div>
             <div className="overflow-x-auto">
@@ -461,13 +587,24 @@ export default function LeaguePage() {
                     <th className="bg-white px-6 py-4 text-left text-sm font-bold text-black">#</th>
                     <th className="bg-white px-6 py-4 text-left text-sm font-bold text-black">Player</th>
                     <th className="bg-white px-4 py-4 text-left text-sm font-bold text-black">Rating</th>
-                    <th className="bg-white px-4 py-4 text-left text-sm font-bold text-black hidden sm:table-cell">Matches</th>
-                    <th className="bg-white px-3 py-4 text-left text-sm font-bold text-green-700">W</th>
-                    <th className="bg-white px-3 py-4 text-left text-sm font-bold text-black">L</th>
-                    <th className="bg-white px-3 py-4 text-left text-sm font-bold text-green-700 hidden md:table-cell">Sets W</th>
-                    <th className="bg-white px-3 py-4 text-left text-sm font-bold text-black hidden md:table-cell">Sets L</th>
-                    <th className="bg-white px-4 py-4 text-left text-sm font-bold text-black hidden lg:table-cell">Set Diff</th>
-                    <th className="bg-white px-4 py-4 text-left text-sm font-bold text-black">Points</th>
+                    {currentTournament?.tournament_type !== 'exhibition' && (
+                      <>
+                        <th className="bg-white px-4 py-4 text-left text-sm font-bold text-black hidden sm:table-cell">Matches</th>
+                        <th className="bg-white px-3 py-4 text-left text-sm font-bold text-green-700">W</th>
+                        <th className="bg-white px-3 py-4 text-left text-sm font-bold text-black">L</th>
+                        <th className="bg-white px-3 py-4 text-left text-sm font-bold text-green-700 hidden md:table-cell">Sets W</th>
+                        <th className="bg-white px-3 py-4 text-left text-sm font-bold text-black hidden md:table-cell">Sets L</th>
+                        <th className="bg-white px-4 py-4 text-left text-sm font-bold text-black hidden lg:table-cell">Set Diff</th>
+                        <th className="bg-white px-4 py-4 text-left text-sm font-bold text-black">Points</th>
+                      </>
+                    )}
+                    {currentTournament?.tournament_type === 'exhibition' && (
+                      <>
+                        <th className="bg-white px-4 py-4 text-left text-sm font-bold text-black hidden sm:table-cell">Matches Played</th>
+                        <th className="bg-white px-4 py-4 text-left text-sm font-bold text-gray-600 hidden md:table-cell">Win Rate</th>
+                        <th className="bg-white px-4 py-4 text-left text-sm font-bold text-blue-600 hidden lg:table-cell">Winning Streak</th>
+                      </>
+                    )}
                     <th className="bg-white px-6 py-4 text-left text-sm font-bold text-black">Action</th>
                   </tr>
                 </thead>
@@ -476,10 +613,10 @@ export default function LeaguePage() {
                     <tr key={participant.id} className="hover:bg-green-50 transition-colors duration-150 group">
                       <td className="px-6 py-6">
                         <div className="flex items-center">
-                          <span className={`text-lg font-bold ${index < 3 ? 'text-green-700' : 'text-black'}`}>
+                          <span className={`text-lg font-bold ${currentTournament?.tournament_type === 'exhibition' ? 'text-blue-700' : index < 3 ? 'text-green-700' : 'text-black'}`}>
                             #{index + 1}
                           </span>
-                          {index === 0 && (
+                          {currentTournament?.tournament_type !== 'exhibition' && index === 0 && (
                             <div className="ml-2 w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                           )}
                         </div>
@@ -491,35 +628,66 @@ export default function LeaguePage() {
                       </td>
                       <td className="px-4 py-6">
                         <div className="flex flex-col">
-                          <span className="font-bold text-base text-black">{participant.current_rating || 1200}</span>
+                          <span className={`font-bold text-base ${currentTournament?.tournament_type === 'exhibition' ? 'text-blue-700' : 'text-black'}`}>
+                            {participant.current_rating || 1200}
+                          </span>
                           {participant.is_provisional && (
                             <span className="text-xs text-gray-500 font-medium">Provisional</span>
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-6 hidden sm:table-cell">
-                        <span className="font-medium text-black">{participant.wins + participant.losses}</span>
-                      </td>
-                      <td className="px-3 py-6">
-                        <span className="font-bold text-green-700 text-base">{participant.wins}</span>
-                      </td>
-                      <td className="px-3 py-6">
-                        <span className="font-medium text-black">{participant.losses}</span>
-                      </td>
-                      <td className="px-3 py-6 hidden md:table-cell">
-                        <span className="font-bold text-green-700">{participant.sets_won}</span>
-                      </td>
-                      <td className="px-3 py-6 hidden md:table-cell">
-                        <span className="font-medium text-black">{participant.sets_lost}</span>
-                      </td>
-                      <td className="px-4 py-6 hidden lg:table-cell">
-                        <span className={`font-bold ${participant.set_diff >= 0 ? 'text-green-700' : 'text-black'}`}>
-                          {participant.set_diff >= 0 ? '+' : ''}{participant.set_diff}
-                        </span>
-                      </td>
-                      <td className="px-4 py-6">
-                        <span className="font-bold text-black text-base">{participant.points}</span>
-                      </td>
+                      {currentTournament?.tournament_type !== 'exhibition' && (
+                        <>
+                          <td className="px-4 py-6 hidden sm:table-cell">
+                            <span className="font-medium text-black">{participant.wins + participant.losses}</span>
+                          </td>
+                          <td className="px-3 py-6">
+                            <span className="font-bold text-green-700 text-base">{participant.wins}</span>
+                          </td>
+                          <td className="px-3 py-6">
+                            <span className="font-medium text-black">{participant.losses}</span>
+                          </td>
+                          <td className="px-3 py-6 hidden md:table-cell">
+                            <span className="font-bold text-green-700">{participant.sets_won}</span>
+                          </td>
+                          <td className="px-3 py-6 hidden md:table-cell">
+                            <span className="font-medium text-black">{participant.sets_lost}</span>
+                          </td>
+                          <td className="px-4 py-6 hidden lg:table-cell">
+                            <span className={`font-bold ${participant.set_diff >= 0 ? 'text-green-700' : 'text-black'}`}>
+                              {participant.set_diff >= 0 ? '+' : ''}{participant.set_diff}
+                            </span>
+                          </td>
+                          <td className="px-4 py-6">
+                            <span className="font-bold text-black text-base">{participant.points}</span>
+                          </td>
+                        </>
+                      )}
+                      {currentTournament?.tournament_type === 'exhibition' && (
+                        <>
+                          <td className="px-4 py-6 hidden sm:table-cell">
+                            <span className="font-medium text-black">{participant.wins + participant.losses}</span>
+                          </td>
+                          <td className="px-4 py-6 hidden md:table-cell">
+                            <span className="font-medium text-gray-600">
+                              {participant.wins + participant.losses > 0 ? 
+                                `${Math.round((participant.wins / (participant.wins + participant.losses)) * 100)}%` : 
+                                'N/A'
+                              }
+                            </span>
+                          </td>
+                          <td className="px-4 py-6 hidden lg:table-cell">
+                            <div className="flex items-center">
+                              <span className={`font-bold ${participant.winning_streak > 0 ? 'text-blue-700' : 'text-gray-500'}`}>
+                                {participant.winning_streak || 0}
+                              </span>
+                              {participant.winning_streak >= 3 && (
+                                <div className="ml-1 w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></div>
+                              )}
+                            </div>
+                          </td>
+                        </>
+                      )}
                       <td className="px-6 py-6">
                         <button
                           onClick={() => {
@@ -535,7 +703,7 @@ export default function LeaguePage() {
                   ))}
                   {participants.length === 0 && (
                     <tr>
-                      <td colSpan={11} className="px-6 py-12 text-center">
+                      <td colSpan={currentTournament?.tournament_type === 'exhibition' ? 6 : 11} className="px-6 py-12 text-center">
                         <div className="text-gray-500 font-medium">No participants yet</div>
                         <div className="text-gray-400 text-sm mt-1">Players will appear here once they join the league</div>
                       </td>

@@ -35,6 +35,8 @@ export async function GET(
   
   try {
     const { slug } = params
+    const url = new URL(request.url)
+    const tournamentId = url.searchParams.get('tournamentId')
 
     // Fetch league info
     const { data: league, error: leagueError } = await supabase
@@ -51,24 +53,16 @@ export async function GET(
       )
     }
 
-    // Get active season
-    const { data: activeSeason, error: seasonError } = await supabase
-      .from('seasons')
-      .select('id')
-      .eq('league_id', league.id)
-      .eq('is_active', true)
-      .single()
-
-    if (seasonError || !activeSeason) {
-      console.log(`[${timestamp}] [${requestId}] No active season found`)
+    if (!tournamentId) {
+      console.log(`[${timestamp}] [${requestId}] No tournament ID provided`)
       return NextResponse.json(
-        { error: 'No active season found' },
-        { status: 404 }
+        { error: 'Tournament ID is required' },
+        { status: 400 }
       )
     }
 
-    // Get current standings (reuse the logic from players API)
-    const standingsResponse = await fetch(`${request.nextUrl.origin}/api/leagues/${slug}/players`, {
+    // Get current standings from tournament
+    const standingsResponse = await fetch(`${request.nextUrl.origin}/api/leagues/${slug}/players-v2?tournamentId=${tournamentId}`, {
       method: 'GET',
       headers: {
         'Cache-Control': 'no-cache'
@@ -89,7 +83,7 @@ export async function GET(
       })
     }
 
-    // Get all upcoming matches for the active season
+    // Get all upcoming matches for the tournament
     const { data: upcomingMatches, error: matchesError } = await supabase
       .from('matches')
       .select(`
@@ -101,7 +95,7 @@ export async function GET(
         player2:participants!matches_player2_id_fkey(id, name)
       `)
       .eq('league_id', league.id)
-      .eq('season_id', activeSeason.id)
+      .eq('tournament_id', tournamentId)
       .in('status', ['scheduled', 'in_progress'])
 
     if (matchesError) {
