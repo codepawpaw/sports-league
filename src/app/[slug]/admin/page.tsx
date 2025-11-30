@@ -187,10 +187,16 @@ export default function AdminPage() {
   const [selectedParticipantsToAdd, setSelectedParticipantsToAdd] = useState<string[]>([])
   const [addingParticipants, setAddingParticipants] = useState(false)
   
+  // Tournament match scheduling state
+  const [selectedTournamentForMatch, setSelectedTournamentForMatch] = useState<string>('')
+  const [tournamentMatches, setTournamentMatches] = useState<Match[]>([])
+  const [loadingTournamentMatches, setLoadingTournamentMatches] = useState(false)
+  
   const [newMatch, setNewMatch] = useState({
     player1Id: '',
     player2Id: '',
-    scheduledAt: ''
+    scheduledAt: '',
+    tournamentId: ''
   })
   
   // Modal state
@@ -377,6 +383,25 @@ export default function AdminPage() {
     }
   }
 
+  const fetchTournamentMatches = async (tournamentSlug: string) => {
+    setLoadingTournamentMatches(true)
+    try {
+      const response = await fetch(`/api/leagues/${slug}/tournaments/${tournamentSlug}/matches`)
+      if (response.ok) {
+        const data = await response.json()
+        setTournamentMatches(data.matches || [])
+      } else {
+        console.error('Error fetching tournament matches')
+        setTournamentMatches([])
+      }
+    } catch (error) {
+      console.error('Error fetching tournament matches:', error)
+      setTournamentMatches([])
+    } finally {
+      setLoadingTournamentMatches(false)
+    }
+  }
+
 
 
   const handleAddParticipant = async (e: React.FormEvent) => {
@@ -484,21 +509,52 @@ export default function AdminPage() {
     }
 
     try {
-      const response = await fetch(`/api/leagues/${slug}/matches`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          player1_id: newMatch.player1Id,
-          player2_id: newMatch.player2Id,
-          scheduled_at: newMatch.scheduledAt || undefined
-        })
-      })
+      let response, data
 
-      const data = await response.json()
+      if (newMatch.tournamentId) {
+        // Create tournament match
+        const tournament = tournaments.find(t => t.id === newMatch.tournamentId)
+        if (!tournament) {
+          alert('Tournament not found')
+          return
+        }
+
+        response = await fetch(`/api/leagues/${slug}/tournaments/${tournament.slug}/matches`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            player1_id: newMatch.player1Id,
+            player2_id: newMatch.player2Id,
+            scheduled_at: newMatch.scheduledAt || undefined
+          })
+        })
+      } else {
+        // Create regular league match
+        response = await fetch(`/api/leagues/${slug}/matches`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            player1_id: newMatch.player1Id,
+            player2_id: newMatch.player2Id,
+            scheduled_at: newMatch.scheduledAt || undefined
+          })
+        })
+      }
+
+      data = await response.json()
 
       if (response.ok) {
-        setNewMatch({ player1Id: '', player2Id: '', scheduledAt: '' })
+        setNewMatch({ player1Id: '', player2Id: '', scheduledAt: '', tournamentId: '' })
         await fetchData(league.id)
+        
+        // Refresh tournament matches if we were viewing a specific tournament
+        if (selectedTournamentForMatch && newMatch.tournamentId === selectedTournamentForMatch) {
+          const tournament = tournaments.find(t => t.id === selectedTournamentForMatch)
+          if (tournament) {
+            await fetchTournamentMatches(tournament.slug)
+          }
+        }
+        
         alert('Match created successfully!')
       } else {
         alert(data.error || 'Failed to create match')
@@ -787,11 +843,27 @@ export default function AdminPage() {
     return days[dayNumber]
   }
 
+  // Get tournament participants for match creation
+  const getTournamentParticipants = (tournamentId: string) => {
+    const tournament = tournaments.find(t => t.id === tournamentId)
+    if (!tournament || !tournamentParticipants || selectedTournament?.id !== tournamentId) {
+      return []
+    }
+    return tournamentParticipants.tournament_participants.map(tp => tp.participant)
+  }
+
   // Filter matches based on selected player and active tab
   const getFilteredMatches = () => {
+    let matchesToFilter = matches
+    
+    // If viewing tournament matches, use tournament matches instead
+    if (selectedTournamentForMatch) {
+      matchesToFilter = tournamentMatches
+    }
+    
     let filtered = selectedPlayerFilter === 'all' 
-      ? matches 
-      : matches.filter(match => 
+      ? matchesToFilter 
+      : matchesToFilter.filter(match => 
           match.player1.id === selectedPlayerFilter || 
           match.player2.id === selectedPlayerFilter
         )
@@ -1682,11 +1754,83 @@ export default function AdminPage() {
               <div className="bg-white border border-gray-200 rounded-xl p-6 mb-8">
                 <h3 className="text-xl font-semibold text-black mb-6">Quick Actions</h3>
                 
+                {/* Tournament Selection */}
+                <div className="mb-6">
+                  <h4 className="text-lg font-medium text-black mb-4">Tournament Match Management</h4>
+                  <div className="flex flex-col sm:flex-row gap-4 items-end">
+                    <div className="flex-1">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Select Tournament (Optional)</label>
+                      <select
+                        value={selectedTournamentForMatch}
+                        onChange={(e) => {
+                          setSelectedTournamentForMatch(e.target.value)
+                          if (e.target.value) {
+                            const tournament = tournaments.find(t => t.id === e.target.value)
+                            if (tournament) {
+                              fetchTournamentMatches(tournament.slug)
+                            }
+                          } else {
+                            setTournamentMatches([])
+                          }
+                        }}
+                        className="input-field"
+                      >
+                        <option value="">View all league matches</option>
+                        {tournaments.map(tournament => (
+                          <option key={tournament.id} value={tournament.id}>
+                            {tournament.name} ({tournament.tournament_type.replace('_', ' ')})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {selectedTournamentForMatch && (
+                      <div className="text-sm text-gray-600">
+                        {loadingTournamentMatches ? (
+                          <span className="flex items-center">
+                            <Clock className="h-4 w-4 mr-1 animate-spin" />
+                            Loading...
+                          </span>
+                        ) : (
+                          <span>{tournamentMatches.length} tournament matches</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
                 {/* Add Match Form */}
                 <div className="mb-6">
-                  <h4 className="text-lg font-medium text-black mb-4">Schedule New Match</h4>
+                  <h4 className="text-lg font-medium text-black mb-4">
+                    {selectedTournamentForMatch ? 'Schedule Tournament Match' : 'Schedule New Match'}
+                  </h4>
                   <form onSubmit={handleAddMatch} className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+                      {selectedTournamentForMatch && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Tournament</label>
+                          <select
+                            value={newMatch.tournamentId}
+                            onChange={(e) => {
+                              setNewMatch(prev => ({ ...prev, tournamentId: e.target.value }))
+                              // Reset player selections when tournament changes
+                              setNewMatch(prev => ({ 
+                                ...prev, 
+                                tournamentId: e.target.value,
+                                player1Id: '',
+                                player2Id: ''
+                              }))
+                            }}
+                            className="input-field"
+                          >
+                            <option value="">Regular League Match</option>
+                            {tournaments.map(tournament => (
+                              <option key={tournament.id} value={tournament.id}>
+                                {tournament.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Player 1</label>
                         <select
@@ -1696,7 +1840,7 @@ export default function AdminPage() {
                           required
                         >
                           <option value="">Select Player 1</option>
-                          {participants.map(p => (
+                          {(newMatch.tournamentId ? getTournamentParticipants(newMatch.tournamentId) : participants).map(p => (
                             <option key={p.id} value={p.id}>{p.name}</option>
                           ))}
                         </select>
@@ -1710,7 +1854,7 @@ export default function AdminPage() {
                           required
                         >
                           <option value="">Select Player 2</option>
-                          {participants.map(p => (
+                          {(newMatch.tournamentId ? getTournamentParticipants(newMatch.tournamentId) : participants).map(p => (
                             <option key={p.id} value={p.id}>{p.name}</option>
                           ))}
                         </select>
@@ -1727,10 +1871,15 @@ export default function AdminPage() {
                       <div className="flex items-end">
                         <button type="submit" className="btn-primary w-full">
                           <Plus className="h-4 w-4 mr-2" />
-                          Schedule Match
+                          {newMatch.tournamentId ? 'Schedule Tournament Match' : 'Schedule Match'}
                         </button>
                       </div>
                     </div>
+                    {newMatch.tournamentId && getTournamentParticipants(newMatch.tournamentId).length === 0 && (
+                      <div className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded p-3">
+                        <strong>Note:</strong> No participants found for selected tournament. Please add participants to the tournament first.
+                      </div>
+                    )}
                   </form>
                 </div>
               </div>
@@ -1739,7 +1888,19 @@ export default function AdminPage() {
               <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
                 <div className="p-6 border-b border-gray-200">
                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
-                    <h3 className="text-xl font-semibold text-black">Match Overview</h3>
+                    <div>
+                      <h3 className="text-xl font-semibold text-black">
+                        {selectedTournamentForMatch ? 
+                          `${tournaments.find(t => t.id === selectedTournamentForMatch)?.name} Matches` : 
+                          'Match Overview'
+                        }
+                      </h3>
+                      {selectedTournamentForMatch && (
+                        <p className="text-sm text-gray-600">
+                          Tournament matches only • {tournaments.find(t => t.id === selectedTournamentForMatch)?.tournament_type.replace('_', ' ')}
+                        </p>
+                      )}
+                    </div>
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                       {/* Player Filter */}
                       <div className="flex items-center gap-3">
@@ -1752,7 +1913,10 @@ export default function AdminPage() {
                           className="input-field min-w-[150px]"
                         >
                           <option value="all">All Players</option>
-                          {participants.map(participant => (
+                          {(selectedTournamentForMatch && tournamentParticipants && selectedTournament?.id === selectedTournamentForMatch ? 
+                            tournamentParticipants.tournament_participants.map(tp => tp.participant) : 
+                            participants
+                          ).map(participant => (
                             <option key={participant.id} value={participant.id}>
                               {participant.name}
                             </option>
@@ -1760,7 +1924,7 @@ export default function AdminPage() {
                         </select>
                       </div>
                       <span className="text-sm text-gray-500 whitespace-nowrap">
-                        Showing {filteredMatches.length} of {matches.length} matches
+                        Showing {filteredMatches.length} of {selectedTournamentForMatch ? tournamentMatches.length : matches.length} matches
                       </span>
                     </div>
                   </div>
@@ -1776,7 +1940,7 @@ export default function AdminPage() {
                             : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                         }`}
                       >
-                        Scheduled ({matches.filter(m => m.status === 'scheduled').length})
+                        Scheduled ({(selectedTournamentForMatch ? tournamentMatches : matches).filter(m => m.status === 'scheduled').length})
                       </button>
                       <button
                         onClick={() => setActiveMatchTab('ongoing')}
@@ -1786,7 +1950,7 @@ export default function AdminPage() {
                             : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                         }`}
                       >
-                        Ongoing ({matches.filter(m => m.status === 'in_progress').length})
+                        Ongoing ({(selectedTournamentForMatch ? tournamentMatches : matches).filter(m => m.status === 'in_progress').length})
                       </button>
                       <button
                         onClick={() => setActiveMatchTab('completed')}
@@ -1796,7 +1960,7 @@ export default function AdminPage() {
                             : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                         }`}
                       >
-                        Completed ({matches.filter(m => m.status === 'completed').length})
+                        Completed ({(selectedTournamentForMatch ? tournamentMatches : matches).filter(m => m.status === 'completed').length})
                       </button>
                     </nav>
                   </div>
@@ -1807,13 +1971,13 @@ export default function AdminPage() {
                   {filteredMatches.length === 0 ? (
                     <div className="p-8 text-center">
                       <Calendar className="h-12 w-12 mx-auto text-gray-300 mb-4" />
-                      <p className="text-lg font-medium text-gray-900 mb-2">No matches found</p>
-                      <p className="text-gray-500">
-                      {matches.length === 0 ? 
-                        "Create your first match above to get started." :
-                        `No ${activeMatchTab} matches found.`
-                      }
-                      </p>
+                            <p className="text-lg font-medium text-gray-900 mb-2">No matches found</p>
+                            <p className="text-gray-500">
+                            {(selectedTournamentForMatch ? tournamentMatches.length : matches.length) === 0 ? 
+                              (selectedTournamentForMatch ? "No matches in this tournament yet." : "Create your first match above to get started.") :
+                              `No ${activeMatchTab} matches found.`
+                            }
+                            </p>
                     </div>
                   ) : (
                     <div className="divide-y divide-gray-200">
@@ -1939,8 +2103,8 @@ export default function AdminPage() {
                             <Calendar className="h-12 w-12 mx-auto text-gray-300 mb-4" />
                             <p className="text-lg font-medium text-gray-900 mb-2">No matches found</p>
                             <p className="text-gray-500">
-                              {matches.length === 0 ? 
-                                "Create your first match above to get started." :
+                              {(selectedTournamentForMatch ? tournamentMatches.length : matches.length) === 0 ? 
+                                (selectedTournamentForMatch ? "No matches in this tournament yet." : "Create your first match above to get started.") :
                                 `No ${activeMatchTab} matches found.`
                               }
                             </p>
