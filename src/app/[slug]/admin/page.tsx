@@ -112,6 +112,13 @@ interface TournamentParticipant {
   seed_position: number | null
 }
 
+interface TournamentParticipantsData {
+  tournament_participants: TournamentParticipant[]
+  available_participants: Participant[]
+  max_participants: number | null
+  current_count: number
+}
+
 
 
 export default function AdminPage() {
@@ -195,6 +202,13 @@ export default function AdminPage() {
     description: '',
     status: 'upcoming' as Tournament['status']
   })
+  
+  // Tournament participants state
+  const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null)
+  const [tournamentParticipants, setTournamentParticipants] = useState<TournamentParticipantsData | null>(null)
+  const [loadingParticipants, setLoadingParticipants] = useState(false)
+  const [selectedParticipantsToAdd, setSelectedParticipantsToAdd] = useState<string[]>([])
+  const [addingParticipants, setAddingParticipants] = useState(false)
   
   const [newMatch, setNewMatch] = useState({
     player1Id: '',
@@ -1419,6 +1433,99 @@ export default function AdminPage() {
     }
   }
 
+  // Tournament participant management functions
+  const fetchTournamentParticipants = async (tournament: Tournament) => {
+    setLoadingParticipants(true)
+    try {
+      const response = await fetch(`/api/leagues/${slug}/tournaments/${tournament.slug}/participants`)
+      if (response.ok) {
+        const data = await response.json()
+        setTournamentParticipants(data)
+      } else {
+        console.error('Error fetching tournament participants')
+        setTournamentParticipants(null)
+      }
+    } catch (error) {
+      console.error('Error fetching tournament participants:', error)
+      setTournamentParticipants(null)
+    } finally {
+      setLoadingParticipants(false)
+    }
+  }
+
+  const handleSelectTournament = async (tournament: Tournament) => {
+    setSelectedTournament(tournament)
+    setSelectedParticipantsToAdd([])
+    await fetchTournamentParticipants(tournament)
+  }
+
+  const handleAddParticipantsToTournament = async () => {
+    if (!selectedTournament || selectedParticipantsToAdd.length === 0) return
+
+    setAddingParticipants(true)
+
+    try {
+      const response = await fetch(`/api/leagues/${slug}/tournaments/${selectedTournament.slug}/participants`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          participant_ids: selectedParticipantsToAdd
+        })
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setSelectedParticipantsToAdd([])
+        await fetchTournamentParticipants(selectedTournament)
+        await fetchTournaments()
+        alert(`Successfully added ${selectedParticipantsToAdd.length} participant(s) to the tournament!`)
+      } else {
+        alert(data.error || 'Failed to add participants to tournament')
+      }
+    } catch (error) {
+      console.error('Error adding participants to tournament:', error)
+      alert('Failed to add participants to tournament')
+    } finally {
+      setAddingParticipants(false)
+    }
+  }
+
+  const handleRemoveParticipantFromTournament = async (participantId: string, participantName: string) => {
+    if (!selectedTournament) return
+
+    if (!confirm(`Are you sure you want to remove ${participantName} from this tournament?`)) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/leagues/${slug}/tournaments/${selectedTournament.slug}/participants?participant_id=${participantId}`, {
+        method: 'DELETE'
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        await fetchTournamentParticipants(selectedTournament)
+        await fetchTournaments()
+        alert(`${participantName} removed from tournament successfully!`)
+      } else {
+        alert(data.error || 'Failed to remove participant from tournament')
+      }
+    } catch (error) {
+      console.error('Error removing participant from tournament:', error)
+      alert('Failed to remove participant from tournament')
+    }
+  }
+
+  const handleParticipantToggle = (participantId: string) => {
+    setSelectedParticipantsToAdd(prev =>
+      prev.includes(participantId)
+        ? prev.filter(id => id !== participantId)
+        : [...prev, participantId]
+    )
+  }
+
   const startEditingTournament = (tournament: Tournament) => {
     setEditingTournament(tournament.id)
     setEditTournamentData({
@@ -2466,10 +2573,13 @@ export default function AdminPage() {
                             )}
                           </td>
                           <td className="table-cell">
-                            <span className="text-sm">
+                            <button
+                              onClick={() => handleSelectTournament(tournament)}
+                              className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                            >
                               {tournament.participant_count || 0}
-                              {tournament.max_participants && ` / ${tournament.max_participants}`}
-                            </span>
+                              {tournament.max_participants && ` / ${tournament.max_participants}`} participants
+                            </button>
                           </td>
                           <td className="table-cell">
                             <span className="text-sm">
@@ -2497,6 +2607,13 @@ export default function AdminPage() {
                                 </>
                               ) : (
                                 <>
+                                  <button
+                                    onClick={() => handleSelectTournament(tournament)}
+                                    className="p-2 text-purple-600 hover:text-purple-800"
+                                    title="Manage participants"
+                                  >
+                                    <Users className="h-4 w-4" />
+                                  </button>
                                   <button
                                     onClick={() => startEditingTournament(tournament)}
                                     className="p-2 text-blue-600 hover:text-blue-800"
@@ -2530,6 +2647,166 @@ export default function AdminPage() {
                   </table>
                 </div>
               </div>
+
+              {/* Tournament Participant Management */}
+              {selectedTournament && (
+                <div className="card p-6">
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-lg font-semibold text-black">
+                      {selectedTournament.name} - Participant Management
+                    </h3>
+                    <button
+                      onClick={() => {
+                        setSelectedTournament(null)
+                        setTournamentParticipants(null)
+                        setSelectedParticipantsToAdd([])
+                      }}
+                      className="btn-secondary"
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Close
+                    </button>
+                  </div>
+
+                  {loadingParticipants ? (
+                    <div className="text-center py-8">
+                      <div className="spinner mx-auto mb-4"></div>
+                      <p className="text-gray-600">Loading participants...</p>
+                    </div>
+                  ) : tournamentParticipants ? (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                      {/* Current Participants */}
+                      <div>
+                        <div className="flex justify-between items-center mb-4">
+                          <h4 className="text-md font-medium text-black">
+                            Current Participants ({tournamentParticipants.current_count}
+                            {tournamentParticipants.max_participants && ` / ${tournamentParticipants.max_participants}`})
+                          </h4>
+                          {tournamentParticipants.max_participants && 
+                           tournamentParticipants.current_count >= tournamentParticipants.max_participants && (
+                            <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-full">
+                              Full
+                            </span>
+                          )}
+                        </div>
+                        
+                        <div className="border border-gray-200 rounded-lg">
+                          {tournamentParticipants.tournament_participants.length === 0 ? (
+                            <div className="p-6 text-center text-gray-500">
+                              <Users className="h-8 w-8 mx-auto text-gray-300 mb-2" />
+                              <p>No participants yet</p>
+                            </div>
+                          ) : (
+                            <div className="divide-y divide-gray-200">
+                              {tournamentParticipants.tournament_participants.map((tp) => (
+                                <div key={tp.id} className="p-4 flex justify-between items-center">
+                                  <div>
+                                    <div className="font-medium">{tp.participant.name}</div>
+                                    <div className="text-sm text-gray-500">
+                                      Joined {formatDate(tp.joined_at)}
+                                      {tp.seed_position && ` • Seed #${tp.seed_position}`}
+                                    </div>
+                                  </div>
+                                  <button
+                                    onClick={() => handleRemoveParticipantFromTournament(tp.participant.id, tp.participant.name)}
+                                    className="p-2 text-red-600 hover:text-red-800"
+                                    title="Remove from tournament"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Available Participants */}
+                      <div>
+                        <h4 className="text-md font-medium text-black mb-4">
+                          Available Participants ({tournamentParticipants.available_participants.length})
+                        </h4>
+                        
+                        {tournamentParticipants.available_participants.length === 0 ? (
+                          <div className="border border-gray-200 rounded-lg p-6 text-center text-gray-500">
+                            <Users className="h-8 w-8 mx-auto text-gray-300 mb-2" />
+                            <p>All league participants are already in this tournament</p>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="border border-gray-200 rounded-lg max-h-64 overflow-y-auto">
+                              <div className="divide-y divide-gray-200">
+                                {tournamentParticipants.available_participants.map((participant) => (
+                                  <div key={participant.id} className="p-4">
+                                    <label className="flex items-center space-x-3">
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedParticipantsToAdd.includes(participant.id)}
+                                        onChange={() => handleParticipantToggle(participant.id)}
+                                        className="rounded border-gray-300 text-black focus:ring-black"
+                                        disabled={Boolean(
+                                          tournamentParticipants.max_participants &&
+                                          tournamentParticipants.current_count + selectedParticipantsToAdd.length >= tournamentParticipants.max_participants &&
+                                          !selectedParticipantsToAdd.includes(participant.id)
+                                        )}
+                                      />
+                                      <div>
+                                        <div className="font-medium">{participant.name}</div>
+                                        {participant.email && (
+                                          <div className="text-sm text-gray-500">{participant.email}</div>
+                                        )}
+                                      </div>
+                                    </label>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            {selectedParticipantsToAdd.length > 0 && (
+                              <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                <div className="flex justify-between items-center">
+                                  <span className="text-sm text-blue-800">
+                                    {selectedParticipantsToAdd.length} participant(s) selected
+                                  </span>
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={() => setSelectedParticipantsToAdd([])}
+                                      className="text-sm text-blue-600 hover:text-blue-800"
+                                    >
+                                      Clear
+                                    </button>
+                                    <button
+                                      onClick={handleAddParticipantsToTournament}
+                                      disabled={addingParticipants}
+                                      className="btn-primary btn-sm"
+                                    >
+                                      {addingParticipants ? (
+                                        <>
+                                          <Clock className="h-3 w-3 mr-1 animate-spin" />
+                                          Adding...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Plus className="h-3 w-3 mr-1" />
+                                          Add to Tournament
+                                        </>
+                                      )}
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <p>Failed to load tournament participants. Please try again.</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
