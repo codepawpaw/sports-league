@@ -83,6 +83,35 @@ interface ChatIntegration {
   updated_at: string
 }
 
+interface Tournament {
+  id: string
+  league_id: string
+  name: string
+  slug: string
+  description: string | null
+  tournament_type: 'round_robin' | 'table_system' | 'exhibition' | 'single_elimination' | 'double_elimination'
+  status: 'upcoming' | 'active' | 'completed' | 'cancelled'
+  start_date: string | null
+  end_date: string | null
+  max_participants: number | null
+  auto_generate_matches: boolean
+  settings: any
+  created_at: string
+  updated_at: string
+  participant_count?: number
+}
+
+interface TournamentParticipant {
+  id: string
+  participant: {
+    id: string
+    name: string
+    email: string | null
+  }
+  joined_at: string
+  seed_position: number | null
+}
+
 
 
 export default function AdminPage() {
@@ -99,6 +128,7 @@ export default function AdminPage() {
   const [activeSeason, setActiveSeason] = useState<Season | null>(null)
   const [registrationRequests, setRegistrationRequests] = useState<RegistrationRequest[]>([])
   const [chatIntegration, setChatIntegration] = useState<ChatIntegration | null>(null)
+  const [tournaments, setTournaments] = useState<Tournament[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('participants')
   const [currentUserEmail, setCurrentUserEmail] = useState<string>('')
@@ -147,6 +177,24 @@ export default function AdminPage() {
   // Announcement state
   const [announcementText, setAnnouncementText] = useState('')
   const [sendingAnnouncement, setSendingAnnouncement] = useState(false)
+  
+  // Tournament state
+  const [newTournament, setNewTournament] = useState({
+    name: '',
+    description: '',
+    tournament_type: 'round_robin' as Tournament['tournament_type'],
+    start_date: '',
+    end_date: '',
+    max_participants: '',
+    auto_generate_matches: false
+  })
+  const [addingTournament, setAddingTournament] = useState(false)
+  const [editingTournament, setEditingTournament] = useState<string | null>(null)
+  const [editTournamentData, setEditTournamentData] = useState({
+    name: '',
+    description: '',
+    status: 'upcoming' as Tournament['status']
+  })
   
   const [newMatch, setNewMatch] = useState({
     player1Id: '',
@@ -228,6 +276,7 @@ export default function AdminPage() {
       await fetchSeasons()
       await fetchRegistrationRequests()
       await fetchChatIntegration()
+      await fetchTournaments()
     } catch (error) {
       console.error('Error checking admin access:', error)
       router.push(`/${slug}`)
@@ -364,6 +413,18 @@ export default function AdminPage() {
       }
     } catch (error) {
       console.error('Error fetching chat integration:', error)
+    }
+  }
+
+  const fetchTournaments = async () => {
+    try {
+      const response = await fetch(`/api/leagues/${slug}/tournaments`)
+      if (response.ok) {
+        const data = await response.json()
+        setTournaments(data.tournaments || [])
+      }
+    } catch (error) {
+      console.error('Error fetching tournaments:', error)
     }
   }
 
@@ -1311,6 +1372,115 @@ export default function AdminPage() {
     }
   }
 
+  // Tournament management functions
+  const handleAddTournament = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newTournament.name.trim()) return
+
+    setAddingTournament(true)
+
+    try {
+      const response = await fetch(`/api/leagues/${slug}/tournaments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newTournament.name.trim(),
+          description: newTournament.description.trim() || null,
+          tournament_type: newTournament.tournament_type,
+          start_date: newTournament.start_date || null,
+          end_date: newTournament.end_date || null,
+          max_participants: newTournament.max_participants ? parseInt(newTournament.max_participants) : null,
+          auto_generate_matches: newTournament.auto_generate_matches
+        })
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setNewTournament({
+          name: '',
+          description: '',
+          tournament_type: 'round_robin' as Tournament['tournament_type'],
+          start_date: '',
+          end_date: '',
+          max_participants: '',
+          auto_generate_matches: false
+        })
+        await fetchTournaments()
+        alert('Tournament created successfully!')
+      } else {
+        alert(data.error || 'Failed to create tournament')
+      }
+    } catch (error) {
+      console.error('Error creating tournament:', error)
+      alert('Failed to create tournament')
+    } finally {
+      setAddingTournament(false)
+    }
+  }
+
+  const startEditingTournament = (tournament: Tournament) => {
+    setEditingTournament(tournament.id)
+    setEditTournamentData({
+      name: tournament.name,
+      description: tournament.description || '',
+      status: tournament.status
+    })
+  }
+
+  const handleEditTournament = async (tournamentId: string) => {
+    if (!editTournamentData.name.trim()) return
+
+    try {
+      const response = await fetch(`/api/leagues/${slug}/tournaments/${tournamentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editTournamentData.name.trim(),
+          description: editTournamentData.description.trim() || null,
+          status: editTournamentData.status
+        })
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setEditingTournament(null)
+        await fetchTournaments()
+        alert('Tournament updated successfully!')
+      } else {
+        alert(data.error || 'Failed to update tournament')
+      }
+    } catch (error) {
+      console.error('Error updating tournament:', error)
+      alert('Failed to update tournament')
+    }
+  }
+
+  const handleDeleteTournament = async (tournament: Tournament) => {
+    if (!confirm(`Are you sure you want to delete the tournament "${tournament.name}"? This action cannot be undone.`)) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/leagues/${slug}/tournaments/${tournament.slug}`, {
+        method: 'DELETE'
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        await fetchTournaments()
+        alert('Tournament deleted successfully!')
+      } else {
+        alert(data.error || 'Failed to delete tournament')
+      }
+    } catch (error) {
+      console.error('Error deleting tournament:', error)
+      alert('Failed to delete tournament')
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -1383,6 +1553,18 @@ export default function AdminPage() {
             >
               <Calendar className="h-4 w-4 inline mr-1 sm:mr-2" />
               Seasons
+            </button>
+            <button
+              onClick={() => setActiveTab('tournaments')}
+              className={`flex-shrink-0 py-4 px-1 sm:px-2 border-b-2 font-medium text-sm whitespace-nowrap ${
+                activeTab === 'tournaments'
+                  ? 'border-black text-black'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <Trophy className="h-4 w-4 inline mr-1 sm:mr-2" />
+              <span className="hidden xs:inline">Tournaments</span>
+              <span className="xs:hidden">Tourneys</span>
             </button>
             <button
               onClick={() => setActiveTab('registration-requests')}
@@ -2096,6 +2278,251 @@ export default function AdminPage() {
                         <tr>
                           <td colSpan={5} className="table-cell text-center text-gray-500">
                             No seasons yet. Create your first season above.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'tournaments' && (
+          <div>
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-black mb-4">Tournament Management</h2>
+              
+              {/* Add Tournament Form */}
+              <div className="card p-6 mb-6">
+                <h3 className="text-lg font-semibold text-black mb-4">Create New Tournament</h3>
+                <form onSubmit={handleAddTournament} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Tournament Name</label>
+                      <input
+                        type="text"
+                        placeholder="Tournament name"
+                        value={newTournament.name}
+                        onChange={(e) => setNewTournament(prev => ({ ...prev, name: e.target.value }))}
+                        className="input-field"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Tournament Type</label>
+                      <select
+                        value={newTournament.tournament_type}
+                        onChange={(e) => setNewTournament(prev => ({ ...prev, tournament_type: e.target.value as Tournament['tournament_type'] }))}
+                        className="input-field"
+                        required
+                      >
+                        <option value="round_robin">Round Robin</option>
+                        <option value="table_system">Table System</option>
+                        <option value="exhibition">Exhibition</option>
+                        <option value="single_elimination">Single Elimination</option>
+                        <option value="double_elimination">Double Elimination</option>
+                      </select>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                    <textarea
+                      placeholder="Tournament description (optional)"
+                      value={newTournament.description}
+                      onChange={(e) => setNewTournament(prev => ({ ...prev, description: e.target.value }))}
+                      className="input-field"
+                      rows={3}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
+                      <input
+                        type="datetime-local"
+                        value={newTournament.start_date}
+                        onChange={(e) => setNewTournament(prev => ({ ...prev, start_date: e.target.value }))}
+                        className="input-field"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
+                      <input
+                        type="datetime-local"
+                        value={newTournament.end_date}
+                        onChange={(e) => setNewTournament(prev => ({ ...prev, end_date: e.target.value }))}
+                        className="input-field"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Max Participants</label>
+                      <input
+                        type="number"
+                        placeholder="Leave empty for unlimited"
+                        value={newTournament.max_participants}
+                        onChange={(e) => setNewTournament(prev => ({ ...prev, max_participants: e.target.value }))}
+                        className="input-field"
+                        min="2"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={newTournament.auto_generate_matches}
+                        onChange={(e) => setNewTournament(prev => ({ ...prev, auto_generate_matches: e.target.checked }))}
+                        className="mr-2"
+                      />
+                      Auto-generate matches when tournament starts
+                    </label>
+                  </div>
+
+                  <button 
+                    type="submit" 
+                    className="btn-primary"
+                    disabled={addingTournament}
+                  >
+                    {addingTournament ? (
+                      <>
+                        <Clock className="h-4 w-4 mr-2 animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Create Tournament
+                      </>
+                    )}
+                  </button>
+                </form>
+              </div>
+
+              {/* Tournaments List */}
+              <div className="card">
+                <div className="p-6 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-black">All Tournaments</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr>
+                        <th className="table-header">Name</th>
+                        <th className="table-header">Type</th>
+                        <th className="table-header">Status</th>
+                        <th className="table-header">Participants</th>
+                        <th className="table-header">Start Date</th>
+                        <th className="table-header">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tournaments.map((tournament) => (
+                        <tr key={tournament.id}>
+                          <td className="table-cell">
+                            {editingTournament === tournament.id ? (
+                              <input
+                                type="text"
+                                value={editTournamentData.name}
+                                onChange={(e) => setEditTournamentData(prev => ({ ...prev, name: e.target.value }))}
+                                className="input-field"
+                              />
+                            ) : (
+                              <div>
+                                <div className="font-medium">{tournament.name}</div>
+                                {tournament.description && (
+                                  <div className="text-sm text-gray-500">{tournament.description}</div>
+                                )}
+                              </div>
+                            )}
+                          </td>
+                          <td className="table-cell">
+                            <span className="capitalize">{tournament.tournament_type.replace('_', ' ')}</span>
+                          </td>
+                          <td className="table-cell">
+                            {editingTournament === tournament.id ? (
+                              <select
+                                value={editTournamentData.status}
+                                onChange={(e) => setEditTournamentData(prev => ({ ...prev, status: e.target.value as Tournament['status'] }))}
+                                className="input-field"
+                              >
+                                <option value="upcoming">Upcoming</option>
+                                <option value="active">Active</option>
+                                <option value="completed">Completed</option>
+                                <option value="cancelled">Cancelled</option>
+                              </select>
+                            ) : (
+                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                tournament.status === 'active' ? 'bg-green-100 text-green-800' :
+                                tournament.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+                                tournament.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                                'bg-yellow-100 text-yellow-800'
+                              }`}>
+                                {tournament.status.charAt(0).toUpperCase() + tournament.status.slice(1)}
+                              </span>
+                            )}
+                          </td>
+                          <td className="table-cell">
+                            <span className="text-sm">
+                              {tournament.participant_count || 0}
+                              {tournament.max_participants && ` / ${tournament.max_participants}`}
+                            </span>
+                          </td>
+                          <td className="table-cell">
+                            <span className="text-sm">
+                              {tournament.start_date ? formatDate(tournament.start_date) : 'Not set'}
+                            </span>
+                          </td>
+                          <td className="table-cell">
+                            <div className="flex gap-2">
+                              {editingTournament === tournament.id ? (
+                                <>
+                                  <button
+                                    onClick={() => handleEditTournament(tournament.id)}
+                                    className="p-2 text-green-600 hover:text-green-800"
+                                    title="Save changes"
+                                  >
+                                    <Save className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => setEditingTournament(null)}
+                                    className="p-2 text-gray-600 hover:text-gray-800"
+                                    title="Cancel editing"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => startEditingTournament(tournament)}
+                                    className="p-2 text-blue-600 hover:text-blue-800"
+                                    title="Edit tournament"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteTournament(tournament)}
+                                    className="p-2 text-red-600 hover:text-red-800"
+                                    title="Delete tournament"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {tournaments.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="table-cell text-center text-gray-500 py-8">
+                            <Trophy className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+                            <p className="text-lg font-medium text-gray-900 mb-2">No tournaments yet</p>
+                            <p className="text-gray-500">Create your first tournament above to get started.</p>
                           </td>
                         </tr>
                       )}

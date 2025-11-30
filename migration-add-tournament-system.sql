@@ -112,24 +112,29 @@ CREATE POLICY "League admins can manage matches" ON public.matches FOR ALL USING
   )
 );
 
--- Step 11: Migrate existing active seasons to tournaments (optional)
--- This creates a tournament for each active season
-INSERT INTO public.tournaments (league_id, name, slug, description, tournament_type, status, start_date, settings)
+-- Step 11: Migrate existing seasons to tournaments
+-- This creates a tournament for each season with proper settings
+INSERT INTO public.tournaments (league_id, name, slug, description, tournament_type, status, start_date, end_date, settings)
 SELECT 
   s.league_id,
-  s.name || ' (Migrated Season)',
+  s.name,
   s.slug || '-tournament',
-  s.description || ' - Migrated from season system',
-  'exhibition', -- Default to exhibition type
+  COALESCE(s.description, 'Migrated from season: ' || s.name),
+  'round_robin', -- Assume round robin for existing seasons
   CASE 
     WHEN s.is_active THEN 'active'
     WHEN s.is_finished THEN 'completed'
     ELSE 'upcoming'
   END,
   s.start_date,
+  s.end_date,
   jsonb_build_object(
     'migrated_from_season', true,
-    'original_season_id', s.id
+    'original_season_id', s.id,
+    'points_per_win', 3,
+    'points_per_draw', 1,
+    'points_per_loss', 0,
+    'migration_date', now()
   )
 FROM public.seasons s;
 
@@ -139,20 +144,106 @@ SELECT
   t.id as tournament_id,
   sp.participant_id,
   sp.joined_at
-FROM public.tournament_participants tp_check
-RIGHT JOIN public.tournaments t ON t.settings->>'migrated_from_season' = 'true'
-RIGHT JOIN public.seasons s ON s.id = (t.settings->>'original_season_id')::uuid
+FROM public.tournaments t
+JOIN public.seasons s ON s.id = (t.settings->>'original_season_id')::uuid
 JOIN public.season_participants sp ON sp.season_id = s.id
-WHERE tp_check.id IS NULL; -- Avoid duplicates
+WHERE t.settings->>'migrated_from_season' = 'true';
 
--- Step 13: Create some example tournament settings templates
+-- Step 13: Migrate existing matches from seasons to tournaments
+UPDATE public.matches 
+SET tournament_id = (
+  SELECT t.id 
+  FROM public.tournaments t 
+  WHERE t.settings->>'original_season_id' = matches.season_id::text
+  AND t.settings->>'migrated_from_season' = 'true'
+)
+WHERE matches.season_id IS NOT NULL 
+AND matches.tournament_id IS NULL;
+
+-- Step 14: Remove the constraint temporarily to allow both season_id and tournament_id
+ALTER TABLE public.matches DROP CONSTRAINT IF EXISTS match_belongs_to_season_or_tournament;
+
+-- Step 15: Create a more flexible constraint that allows migration period
+ALTER TABLE public.matches ADD CONSTRAINT match_belongs_to_season_or_tournament_flexible
+CHECK (
+  (season_id IS NOT NULL) OR (tournament_id IS NOT NULL)
+);
+
+-- Step 16: Create some example tournament settings templates
 COMMENT ON COLUMN public.tournaments.settings IS 'JSONB field for tournament-specific settings. Examples:
 - Round Robin: {"points_per_win": 3, "points_per_draw": 1, "points_per_loss": 0}
 - Table System: {"promotion_spots": 2, "relegation_spots": 1, "track_goal_difference": true}
-- Exhibition: {"allow_flexible_scheduling": true, "track_rankings": false}';
+- Exhibition: {"allow_flexible_scheduling": true, "track_rankings": false}
+- Migrated: {"migrated_from_season": true, "original_season_id": "uuid"}';
 
--- Verification queries (uncomment to run after migration):
--- SELECT 'Tournaments created:' as info, COUNT(*) as count FROM tournaments;
--- SELECT 'Tournament participants:' as info, COUNT(*) as count FROM tournament_participants;
--- SELECT 'Matches with season_id:' as info, COUNT(*) as count FROM matches WHERE season_id IS NOT NULL;
--- SELECT 'Matches with tournament_id:' as info, COUNT(*) as count FROM matches WHERE tournament_id IS NOT NULL;
+-- Step 17: Create a migration status tracking function
+CREATE OR REPLACE FUNCTION public.get_migration_status()
+RETURNS TABLE (
+  league_name text,
+  seasons_migrated bigint,
+  participants_migrated bigint,
+  matches_migrated bigint,
+  matches_with_tournament_id bigint,
+  matches_with_season_id bigint
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    l.name::text as league_name,
+    (SELECT count(*) FROM tournaments t WHERE t.league_id = l.id AND t.settings->>'migrated_from_season' = 'true') as seasons_migrated,
+    (SELECT count(*) FROM tournament_participants tp 
+     JOIN tournaments t ON t.id = tp.tournament_id 
+     WHERE t.league_id = l.id AND t.settings->>'migrated_from_season' = 'true') as participants_migrated,
+    (SELECT count(*) FROM matches m 
+     JOIN tournaments t ON t.id = m.tournament_id 
+     WHERE t.league_id = l.id AND t.settings->>'migrated_from_season' = 'true') as matches_migrated,
+    (SELECT count(*) FROM matches m WHERE m.league_id = l.id AND m.tournament_id IS NOT NULL) as matches_with_tournament_id,
+    (SELECT count(*) FROM matches m WHERE m.league_id = l.id AND m.season_id IS NOT NULL) as matches_with_season_id
+  FROM leagues l;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Step 18: Verification and cleanup commands
+-- Run these queries after migration to verify data integrity:
+
+-- Check migration status
+-- SELECT * FROM public.get_migration_status();
+
+-- Verify tournaments were created
+-- SELECT l.name as league_name, t.name as tournament_name, t.tournament_type, t.status, 
+--        (t.settings->>'migrated_from_season')::boolean as is_migrated
+-- FROM tournaments t 
+-- JOIN leagues l ON l.id = t.league_id 
+-- ORDER BY l.name, t.created_at;
+
+-- Verify participants were migrated
+-- SELECT t.name as tournament_name, count(tp.*) as participant_count
+-- FROM tournaments t
+-- LEFT JOIN tournament_participants tp ON tp.tournament_id = t.id
+-- WHERE t.settings->>'migrated_from_season' = 'true'
+-- GROUP BY t.id, t.name
+-- ORDER BY t.name;
+
+-- Verify matches were migrated
+-- SELECT t.name as tournament_name, count(m.*) as match_count,
+--        count(CASE WHEN m.status = 'completed' THEN 1 END) as completed_matches
+-- FROM tournaments t
+-- LEFT JOIN matches m ON m.tournament_id = t.id
+-- WHERE t.settings->>'migrated_from_season' = 'true'
+-- GROUP BY t.id, t.name
+-- ORDER BY t.name;
+
+-- Check for any orphaned matches (should be empty)
+-- SELECT count(*) as orphaned_matches 
+-- FROM matches 
+-- WHERE season_id IS NULL AND tournament_id IS NULL;
+
+COMMIT;
+
+-- Post-migration notes:
+-- 1. All existing seasons have been converted to round_robin tournaments
+-- 2. All season participants have been migrated to tournament participants  
+-- 3. All season matches have been migrated to tournament matches
+-- 4. Original season data is preserved for reference
+-- 5. New tournaments can be created alongside migrated ones
+-- 6. The system supports both legacy season-based and new tournament-based matches during transition
