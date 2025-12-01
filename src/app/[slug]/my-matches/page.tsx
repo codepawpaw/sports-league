@@ -73,6 +73,8 @@ export default function MyMatchesPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [currentUser, setCurrentUser] = useState<any>(null)
+  const [tournaments, setTournaments] = useState<any[]>([])
+  const [selectedTournamentId, setSelectedTournamentId] = useState<string>('')
   const [showRegisterModal, setShowRegisterModal] = useState(false)
   const [showScheduleModal, setShowScheduleModal] = useState(false)
   const [showScoreModal, setShowScoreModal] = useState(false)
@@ -92,6 +94,12 @@ export default function MyMatchesPage() {
       checkUserAndFetchData()
     }
   }, [slug])
+
+  useEffect(() => {
+    if (currentUser && data?.user_player) {
+      fetchMyMatchesWithTournament()
+    }
+  }, [selectedTournamentId])
 
   const checkUserAndFetchData = async () => {
     try {
@@ -132,7 +140,8 @@ export default function MyMatchesPage() {
       const matchData = await response.json()
       setData(matchData)
       
-      // Also fetch schedule and score requests
+      // Also fetch tournaments and schedule and score requests
+      await fetchTournaments()
       await fetchScheduleRequests()
       await fetchScoreRequests()
     } catch (err) {
@@ -141,6 +150,53 @@ export default function MyMatchesPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const fetchMyMatchesWithTournament = async () => {
+    try {
+      const url = selectedTournamentId 
+        ? `/api/leagues/${slug}/my-matches?tournament_id=${selectedTournamentId}`
+        : `/api/leagues/${slug}/my-matches`
+      
+      const response = await fetch(url)
+      
+      if (response.status === 401) {
+        // User is not authenticated, they need to sign in
+        setCurrentUser(null)
+        return
+      }
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch my matches')
+      }
+
+      const matchData = await response.json()
+      setData(matchData)
+    } catch (err) {
+      console.error('Error fetching my matches:', err)
+      setError('Failed to load my matches')
+    }
+  }
+
+  const fetchTournaments = async () => {
+    try {
+      const response = await fetch(`/api/leagues/${slug}/tournaments`)
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch tournaments')
+      }
+
+      const { tournaments } = await response.json()
+      setTournaments(tournaments || [])
+    } catch (err) {
+      console.error('Error fetching tournaments:', err)
+      // Don't show error for tournaments, just keep them empty
+      setTournaments([])
+    }
+  }
+
+  const handleTournamentChange = (tournamentId: string) => {
+    setSelectedTournamentId(tournamentId)
   }
 
   const fetchScheduleRequests = async () => {
@@ -619,6 +675,46 @@ export default function MyMatchesPage() {
                 </div>
               </div>
             </div>
+
+            {/* Tournament Filter */}
+            {tournaments.length > 0 && (
+              <div className="card">
+                <div className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-black">Filter by Tournament</h3>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-4">
+                    <label className="text-sm font-medium text-gray-700">Tournament:</label>
+                    <select 
+                      value={selectedTournamentId}
+                      onChange={(e) => handleTournamentChange(e.target.value)}
+                      className="block w-auto min-w-48 px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
+                    >
+                      <option value="">All Matches</option>
+                      {tournaments.map((tournament) => (
+                        <option key={tournament.id} value={tournament.id}>
+                          {tournament.name}
+                        </option>
+                      ))}
+                    </select>
+                    {selectedTournamentId && (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        Filtered
+                      </span>
+                    )}
+                  </div>
+                  {selectedTournamentId && (
+                    <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-md">
+                      <p className="text-sm text-green-700">
+                        Showing matches for: <span className="font-medium">
+                          {tournaments.find(t => t.id === selectedTournamentId)?.name || 'Selected Tournament'}
+                        </span>
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Upcoming Matches - Horizontal Carousel */}
             <div className="bg-gray-50 border border-gray-200 rounded-lg">

@@ -35,6 +35,8 @@ export async function GET(
 ) {
   try {
     const { slug } = params
+    const { searchParams } = new URL(request.url)
+    const tournamentId = searchParams.get('tournament_id')
 
     const supabase = createSupabaseServerClient()
 
@@ -85,8 +87,8 @@ export async function GET(
       name: participant.name
     }
 
-    // Get all matches for this player
-    const { data: matches, error: matchesError } = await supabase
+    // Build the query for matches
+    let matchQuery = supabase
       .from('matches')
       .select(`
         id,
@@ -97,11 +99,19 @@ export async function GET(
         status,
         scheduled_at,
         completed_at,
+        tournament_id,
         player1:participants!matches_player1_id_fkey(id, name),
         player2:participants!matches_player2_id_fkey(id, name)
       `)
       .eq('league_id', league.id)
       .or(`player1_id.eq.${participant.id},player2_id.eq.${participant.id}`)
+
+    // Filter by tournament if specified
+    if (tournamentId) {
+      matchQuery = matchQuery.eq('tournament_id', tournamentId)
+    }
+
+    const { data: matches, error: matchesError } = await matchQuery
       .order('completed_at', { ascending: false, nullsFirst: false })
       .order('scheduled_at', { ascending: false, nullsFirst: false })
 
