@@ -186,30 +186,6 @@ export async function PUT(
       )
     }
 
-    // Check for active tournament constraint
-    if (filteredData.status === 'active') {
-      const { data: activeTournaments, error: activeCheckError } = await supabase
-        .from('tournaments')
-        .select('id, name')
-        .eq('league_id', league.id)
-        .eq('status', 'active')
-        .neq('id', tournament.id)
-
-      if (activeCheckError) {
-        console.error('Error checking for active tournaments:', activeCheckError)
-        return NextResponse.json(
-          { error: 'Failed to validate tournament status' },
-          { status: 500 }
-        )
-      }
-
-      if (activeTournaments && activeTournaments.length > 0) {
-        return NextResponse.json(
-          { error: `Cannot activate tournament. There is already an active tournament: "${activeTournaments[0].name}". Please complete or cancel the current active tournament first.` },
-          { status: 400 }
-        )
-      }
-    }
 
     // Update tournament
     const { data: updatedTournament, error: updateError } = await supabase
