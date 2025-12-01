@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Trophy, ArrowLeft, Users, Calendar, Plus, Edit, Trash2, Save, X, Shuffle, Eye, Clock, Shield, CheckCircle, XCircle, MessageSquare, UserPlus, Settings, Calculator } from 'lucide-react'
 import { createSupabaseComponentClient } from '@/lib/supabase'
 import MatchEditModal from '@/components/MatchEditModal'
+import TournamentSettingsModal from '@/components/TournamentSettingsModal'
 
 interface League {
   id: string
@@ -186,6 +187,11 @@ export default function AdminPage() {
   const [loadingParticipants, setLoadingParticipants] = useState(false)
   const [selectedParticipantsToAdd, setSelectedParticipantsToAdd] = useState<string[]>([])
   const [addingParticipants, setAddingParticipants] = useState(false)
+  
+  // Tournament settings modal state
+  const [selectedTournamentForSettings, setSelectedTournamentForSettings] = useState<Tournament | null>(null)
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false)
+  const [savingTournamentSettings, setSavingTournamentSettings] = useState(false)
   
   // Tournament match scheduling state
   const [selectedTournamentForMatch, setSelectedTournamentForMatch] = useState<string>('')
@@ -1425,6 +1431,55 @@ export default function AdminPage() {
     }
   }
 
+  // Tournament settings functions
+  const handleOpenTournamentSettings = (tournament: Tournament) => {
+    setSelectedTournamentForSettings(tournament)
+    setIsSettingsModalOpen(true)
+  }
+
+  const handleCloseTournamentSettings = () => {
+    setIsSettingsModalOpen(false)
+    setSelectedTournamentForSettings(null)
+  }
+
+  const handleSaveTournamentSettings = async (tournamentId: string, settings: any) => {
+    setSavingTournamentSettings(true)
+
+    try {
+      const tournament = tournaments.find(t => t.id === tournamentId)
+      if (!tournament) {
+        alert('Tournament not found')
+        return
+      }
+
+      const response = await fetch(`/api/leagues/${slug}/tournaments/${tournament.slug}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          settings: {
+            ...tournament.settings,
+            rating_settings: settings
+          }
+        })
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        await fetchTournaments()
+        handleCloseTournamentSettings()
+        alert('Tournament rating settings saved successfully!')
+      } else {
+        alert(data.error || 'Failed to save tournament settings')
+      }
+    } catch (error) {
+      console.error('Error saving tournament settings:', error)
+      alert('Failed to save tournament settings')
+    } finally {
+      setSavingTournamentSettings(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -2339,6 +2394,13 @@ export default function AdminPage() {
                                     <Users className="h-4 w-4" />
                                   </button>
                                   <button
+                                    onClick={() => handleOpenTournamentSettings(tournament)}
+                                    className="p-2 text-green-600 hover:text-green-800"
+                                    title="Rating settings"
+                                  >
+                                    <Calculator className="h-4 w-4" />
+                                  </button>
+                                  <button
                                     onClick={() => startEditingTournament(tournament)}
                                     className="p-2 text-blue-600 hover:text-blue-800"
                                     title="Edit tournament"
@@ -3051,6 +3113,15 @@ export default function AdminPage() {
         isOpen={isModalOpen}
         onClose={closeModal}
         onSave={handleUpdateMatch}
+      />
+
+      {/* Tournament Settings Modal */}
+      <TournamentSettingsModal
+        tournament={selectedTournamentForSettings}
+        isOpen={isSettingsModalOpen}
+        onClose={handleCloseTournamentSettings}
+        onSave={handleSaveTournamentSettings}
+        loading={savingTournamentSettings}
       />
     </div>
   )
