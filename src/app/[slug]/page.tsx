@@ -404,11 +404,12 @@ export default function LeaguePage() {
       setLeague(leagueData)
 
 
-      // Check if current user is admin and participant
+      // Check if current user is admin/editor and participant
       const { data: { user } } = await supabase.auth.getUser()
       setCurrentUser(user)
       
       if (user) {
+        // Check if user is admin
         const { data: adminData } = await supabase
           .from('league_admins')
           .select('id')
@@ -416,7 +417,21 @@ export default function LeaguePage() {
           .eq('email', user.email)
           .single()
 
-        setIsAdmin(!!adminData)
+        // Check if user is editor (if not admin)
+        let editorData = null
+        if (!adminData) {
+          const { data: editorResult } = await supabase
+            .from('league_editors')
+            .select('id')
+            .eq('league_id', leagueData.id)
+            .eq('email', user.email)
+            .single()
+          
+          editorData = editorResult
+        }
+
+        // User has admin access if they are either admin or editor
+        setIsAdmin(!!(adminData || editorData))
 
         // Check if user is a participant
         const { data: participantData } = await supabase

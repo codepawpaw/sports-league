@@ -251,7 +251,7 @@ export default function AdminPage() {
 
   const checkAdminAccess = async () => {
     try {
-      // Check if user is authenticated and is admin
+      // Check if user is authenticated and is admin or editor
       const { data: { user } } = await supabase.auth.getUser()
       
       if (!user) {
@@ -261,7 +261,7 @@ export default function AdminPage() {
 
       setCurrentUserEmail(user.email || '')
 
-      // Get league and verify admin access
+      // Get league and verify admin/editor access
       const { data: leagueData } = await supabase
         .from('leagues')
         .select('*')
@@ -273,6 +273,7 @@ export default function AdminPage() {
         return
       }
 
+      // Check if user is admin
       const { data: adminData } = await supabase
         .from('league_admins')
         .select('id')
@@ -280,7 +281,21 @@ export default function AdminPage() {
         .eq('email', user.email)
         .single()
 
+      // Check if user is editor (if not admin)
+      let editorData = null
       if (!adminData) {
+        const { data: editorResult } = await supabase
+          .from('league_editors')
+          .select('id')
+          .eq('league_id', leagueData.id)
+          .eq('email', user.email)
+          .single()
+        
+        editorData = editorResult
+      }
+
+      // If user is neither admin nor editor, deny access
+      if (!adminData && !editorData) {
         router.push(`/${slug}`)
         return
       }
