@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase'
 import { NextRequest, NextResponse } from 'next/server'
+import { GoogleChatNotifier } from '@/lib/googleChat'
 
 export async function GET(
   request: NextRequest,
@@ -310,9 +311,6 @@ export async function POST(
           tournament: tournamentData.name,
           league: leagueData.name
         })
-
-        // Import and call the notification function directly instead of making HTTP request
-        const { GoogleChatNotifier } = await import('@/lib/googleChat')
         
         // Get chat integration settings
         const { data: integration, error: integrationError } = await supabase
