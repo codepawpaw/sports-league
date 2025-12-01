@@ -115,6 +115,9 @@ interface DailySummaryData {
 export class GoogleChatNotifier {
   private static async sendMessage(webhookUrl: string, message: GoogleChatMessage): Promise<boolean> {
     try {
+      console.log('Sending Google Chat message to webhook:', webhookUrl.substring(0, 50) + '...')
+      console.log('Message payload:', JSON.stringify(message, null, 2))
+
       const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: {
@@ -124,13 +127,24 @@ export class GoogleChatNotifier {
       })
 
       if (!response.ok) {
-        console.error('Google Chat webhook failed:', response.status, response.statusText)
+        const responseText = await response.text().catch(() => 'Unable to read response')
+        console.error('Google Chat webhook failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          responseBody: responseText,
+          webhookUrl: webhookUrl.substring(0, 50) + '...'
+        })
         return false
       }
 
+      console.log('Google Chat message sent successfully')
       return true
     } catch (error) {
-      console.error('Failed to send Google Chat notification:', error)
+      console.error('Failed to send Google Chat notification:', {
+        error: error instanceof Error ? error.message : String(error),
+        webhookUrl: webhookUrl.substring(0, 50) + '...',
+        messageLength: JSON.stringify(message).length
+      })
       return false
     }
   }

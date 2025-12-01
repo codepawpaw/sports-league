@@ -110,10 +110,22 @@ WHERE l.slug = 'your-league-slug';
 
 ## Recent Improvements Made
 
-1. **Enhanced Error Logging**: The challenge creation endpoint now logs detailed information about notification attempts
-2. **Better Error Handling**: Notifications won't fail silently anymore
-3. **Environment-aware URLs**: Proper handling of production vs development URLs
-4. **Debug Script**: Comprehensive diagnostic tool to identify issues quickly
+1. **Direct Function Calls**: Fixed the main issue where challenge notifications were failing due to serverless HTTP request issues. The system now calls the Google Chat notification function directly instead of making internal HTTP requests.
+
+2. **Enhanced Error Logging**: The challenge creation endpoint now logs detailed information about notification attempts, including:
+   - Which players are involved in the challenge
+   - Tournament and league information  
+   - Chat integration configuration status
+   - Detailed Google Chat webhook response information
+
+3. **Better Error Handling**: Notifications won't fail silently anymore. All errors are logged with context including:
+   - Webhook URL (partially masked for security)
+   - Response status and error messages
+   - Message payload length for debugging
+
+4. **Environment-aware Configuration**: Proper handling of production vs development URLs and environment variables
+
+5. **Debug Script**: Comprehensive diagnostic tool to identify issues quickly
 
 ## Next Steps
 

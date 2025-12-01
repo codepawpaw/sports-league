@@ -304,37 +304,46 @@ export async function POST(
         .single()
 
       if (leagueData && tournamentData && challenge.challenger_participant && challenge.challenged_participant) {
-        // Send notification via our internal API endpoint
-        const notificationPayload = {
-          challengerName: challenge.challenger_participant.name,
-          challengedName: challenge.challenged_participant.name,
-          tournamentName: tournamentData.name,
-          leagueName: leagueData.name,
-          challengeId: challenge.id,
-          appUrl: process.env.NEXT_PUBLIC_APP_URL || 'https://sports-league-tau.vercel.app'
-        }
-
-        console.log('Sending challenge notification:', notificationPayload)
-        
-        // Use absolute URL for internal API calls in production
-        const baseUrl = process.env.NODE_ENV === 'production' 
-          ? (process.env.NEXT_PUBLIC_APP_URL || 'https://sports-league-tau.vercel.app')
-          : 'http://localhost:3000'
-        
-        const notificationUrl = `${baseUrl}/api/leagues/${slug}/chat-integration/notify-challenge`
-        
-        const response = await fetch(notificationUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(notificationPayload)
+        console.log('Sending challenge notification for:', {
+          challenger: challenge.challenger_participant.name,
+          challenged: challenge.challenged_participant.name,
+          tournament: tournamentData.name,
+          league: leagueData.name
         })
 
-        const result = await response.json()
+        // Import and call the notification function directly instead of making HTTP request
+        const { GoogleChatNotifier } = await import('@/lib/googleChat')
         
-        if (!response.ok) {
-          console.error('Challenge notification failed:', response.status, result.error)
+        // Get chat integration settings
+        const { data: integration, error: integrationError } = await supabase
+          .from('league_chat_integrations')
+          .select('webhook_url, enabled, notify_challenge_requests')
+          .eq('league_id', league.id)
+          .eq('enabled', true)
+          .eq('notify_challenge_requests', true)
+          .single()
+
+        if (integrationError || !integration) {
+          console.log('No challenge notification configuration found or disabled')
         } else {
-          console.log('Challenge notification sent successfully:', result.message)
+          const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://sports-league-tau.vercel.app'
+          
+          // Send notification via Google Chat
+          const success = await GoogleChatNotifier.notifyNewChallenge(
+            integration.webhook_url,
+            challenge.challenger_participant.name,
+            challenge.challenged_participant.name,
+            tournamentData.name,
+            leagueData.name,
+            slug,
+            appUrl
+          )
+          
+          if (success) {
+            console.log('Challenge notification sent successfully to Google Chat')
+          } else {
+            console.error('Failed to send challenge notification to Google Chat')
+          }
         }
       }
     } catch (error) {
