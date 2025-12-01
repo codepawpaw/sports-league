@@ -16,6 +16,7 @@ import TabNavigation from '@/components/TabNavigation'
 import CompletedMatchesCarousel from '@/components/CompletedMatchesCarousel'
 import LeaguePredictionCard from '@/components/LeaguePredictionCard'
 import RatingCalculationModal from '@/components/RatingCalculationModal'
+import ChallengeRequestModal from '@/components/ChallengeRequestModal'
 
 interface League {
   id: string
@@ -108,6 +109,11 @@ export default function LeaguePage() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [currentTournament, setCurrentTournament] = useState<Tournament | null>(null)
 
+  // Challenge request state
+  const [pendingChallenge, setPendingChallenge] = useState<any>(null)
+  const [isChallengeModalOpen, setIsChallengeModalOpen] = useState(false)
+  const [hasCheckedChallenges, setHasCheckedChallenges] = useState(false)
+
   useEffect(() => {
     if (slug) {
       fetchLeagueData()
@@ -120,12 +126,20 @@ export default function LeaguePage() {
     if (selectedTournament) {
       fetchTournamentRankings()
       fetchTournamentMatches()
+      checkForPendingChallenges()
     } else {
       // Clear matches when no tournament is selected
       setUpcomingMatches([])
       setRecentMatches([])
     }
   }, [selectedTournament])
+
+  // Check for pending challenges when user and participant status change
+  useEffect(() => {
+    if (currentUser && isParticipant && selectedTournament && !hasCheckedChallenges) {
+      checkForPendingChallenges()
+    }
+  }, [currentUser, isParticipant, selectedTournament, hasCheckedChallenges])
 
   const fetchTournaments = async () => {
     try {
@@ -297,11 +311,69 @@ export default function LeaguePage() {
     setIsRegisterModalOpen(false)
   }
 
+  const checkForPendingChallenges = async () => {
+    if (!selectedTournament || !currentUser || !isParticipant || hasCheckedChallenges) {
+      return
+    }
+
+    // Only check for challenges in exhibition tournaments
+    if (selectedTournament.tournament_type !== 'exhibition') {
+      setHasCheckedChallenges(true)
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/leagues/${slug}/tournaments/${selectedTournament.slug}/challenges`, {
+        method: 'GET',
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        const receivedChallenges = data.received_challenges || []
+        
+        // Find the most recent pending challenge
+        const pendingChallenge = receivedChallenges.find((challenge: any) => challenge.status === 'pending')
+        
+        if (pendingChallenge) {
+          // Check if we've already shown this specific challenge to avoid repetition
+          const storageKey = `challenge_shown_${pendingChallenge.id}`
+          const hasShownChallenge = localStorage.getItem(storageKey) === 'true'
+          
+          if (!hasShownChallenge) {
+            setPendingChallenge(pendingChallenge)
+            setIsChallengeModalOpen(true)
+            // Mark this challenge as shown
+            localStorage.setItem(storageKey, 'true')
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error checking for pending challenges:', error)
+    } finally {
+      setHasCheckedChallenges(true)
+    }
+  }
+
+  const handleChallengeSuccess = () => {
+    // Refresh tournament data to update matches
+    fetchTournamentMatches()
+    setIsChallengeModalOpen(false)
+    setPendingChallenge(null)
+    setHasCheckedChallenges(false) // Allow checking for new challenges
+  }
+
   const handleManualRefresh = async () => {
     if (refreshing) return
     setRefreshing(true)
     try {
       await fetchLeagueData()
+      setHasCheckedChallenges(false) // Allow checking for challenges again after refresh
     } finally {
       setRefreshing(false)
     }
@@ -786,6 +858,16 @@ export default function LeaguePage() {
         isOpen={isRatingModalOpen}
         onClose={() => setIsRatingModalOpen(false)}
         currentTournament={currentTournament}
+      />
+
+      {/* Challenge Request Modal */}
+      <ChallengeRequestModal
+        isOpen={isChallengeModalOpen}
+        onClose={() => setIsChallengeModalOpen(false)}
+        challenge={pendingChallenge}
+        slug={slug}
+        tournamentSlug={selectedTournament?.slug || ''}
+        onSuccess={handleChallengeSuccess}
       />
 
     </div>
