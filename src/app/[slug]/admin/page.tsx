@@ -1382,8 +1382,14 @@ export default function AdminPage() {
     if (!editTournamentData.name.trim()) return
 
     try {
-      const response = await fetch(`/api/leagues/${slug}/tournaments/${tournamentId}`, {
-        method: 'PATCH',
+      const tournament = tournaments.find(t => t.id === tournamentId)
+      if (!tournament) {
+        alert('Tournament not found')
+        return
+      }
+
+      const response = await fetch(`/api/leagues/${slug}/tournaments/${tournament.slug}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: editTournamentData.name.trim(),
