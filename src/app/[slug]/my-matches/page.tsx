@@ -8,6 +8,7 @@ import RegisterAsPlayerModal from '@/components/RegisterAsPlayerModal'
 import ScheduleRequestModal from '@/components/ScheduleRequestModal'
 import ScoreRequestModal from '@/components/ScoreRequestModal'
 import TabNavigation from '@/components/TabNavigation'
+import TournamentChallengeModal from '@/components/TournamentChallengeModal'
 
 interface UserMatch {
   id: string
@@ -88,6 +89,12 @@ export default function MyMatchesPage() {
     sent: any[]
     received: any[]
   }>({ sent: [], received: [] })
+  const [showChallengeModal, setShowChallengeModal] = useState(false)
+  const [challenges, setChallenges] = useState<{
+    sent: any[]
+    received: any[]
+  }>({ sent: [], received: [] })
+  const [tournamentParticipants, setTournamentParticipants] = useState<any[]>([])
 
   useEffect(() => {
     if (slug) {
@@ -525,6 +532,115 @@ export default function MyMatchesPage() {
     )
   }
 
+  // Challenge functions
+  const fetchChallengesAndParticipants = async (tournamentSlug: string) => {
+    try {
+      // Fetch challenges
+      const challengesResponse = await fetch(`/api/leagues/${slug}/tournaments/${tournamentSlug}/challenges`)
+      if (challengesResponse.ok) {
+        const challengeData = await challengesResponse.json()
+        setChallenges({
+          sent: challengeData.sent_challenges || [],
+          received: challengeData.received_challenges || []
+        })
+      }
+
+      // Fetch tournament participants
+      const participantsResponse = await fetch(`/api/leagues/${slug}/tournaments/${tournamentSlug}/participants`)
+      if (participantsResponse.ok) {
+        const participantsData = await participantsResponse.json()
+        // Filter out current user from available participants
+        const availableParticipants = participantsData.tournament_participants
+          ?.map((tp: any) => tp.participant)
+          ?.filter((participant: any) => participant.id !== data?.user_player?.id) || []
+        setTournamentParticipants(availableParticipants)
+      }
+    } catch (err) {
+      console.error('Error fetching challenges and participants:', err)
+    }
+  }
+
+  const handleChallengeResponse = async (challengeId: string, action: 'accept' | 'reject') => {
+    try {
+      const selectedTournament = tournaments.find(t => t.id === selectedTournamentId)
+      if (!selectedTournament) return
+
+      const response = await fetch(`/api/leagues/${slug}/tournaments/${selectedTournament.slug}/challenges/${challengeId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ action }),
+      })
+
+      const responseData = await response.json()
+
+      if (!response.ok) {
+        throw new Error(responseData.error || 'Failed to respond to challenge')
+      }
+
+      // Refresh challenges and matches
+      await fetchChallengesAndParticipants(selectedTournament.slug)
+      if (action === 'accept') {
+        await fetchMyMatchesWithTournament() // Refresh matches since a new one was created
+      }
+    } catch (err) {
+      console.error('Error responding to challenge:', err)
+      setError(err instanceof Error ? err.message : 'Failed to respond to challenge')
+    }
+  }
+
+  const handleDeleteChallenge = async (challengeId: string) => {
+    try {
+      const selectedTournament = tournaments.find(t => t.id === selectedTournamentId)
+      if (!selectedTournament) return
+
+      const response = await fetch(`/api/leagues/${slug}/tournaments/${selectedTournament.slug}/challenges/${challengeId}`, {
+        method: 'DELETE',
+      })
+
+      const responseData = await response.json()
+
+      if (!response.ok) {
+        throw new Error(responseData.error || 'Failed to delete challenge')
+      }
+
+      // Refresh challenges
+      await fetchChallengesAndParticipants(selectedTournament.slug)
+    } catch (err) {
+      console.error('Error deleting challenge:', err)
+      setError(err instanceof Error ? err.message : 'Failed to delete challenge')
+    }
+  }
+
+  const handleOpenChallengeModal = () => {
+    setShowChallengeModal(true)
+  }
+
+  const handleCloseChallengeModal = () => {
+    setShowChallengeModal(false)
+  }
+
+  const handleChallengeSuccess = () => {
+    const selectedTournament = tournaments.find(t => t.id === selectedTournamentId)
+    if (selectedTournament) {
+      fetchChallengesAndParticipants(selectedTournament.slug)
+    }
+  }
+
+  // Check if selected tournament is exhibition and fetch challenges
+  useEffect(() => {
+    if (selectedTournamentId && data?.user_player) {
+      const selectedTournament = tournaments.find(t => t.id === selectedTournamentId)
+      if (selectedTournament && selectedTournament.tournament_type === 'exhibition') {
+        fetchChallengesAndParticipants(selectedTournament.slug)
+      } else {
+        setChallenges({ sent: [], received: [] })
+        setTournamentParticipants([])
+      }
+    }
+  }, [selectedTournamentId, data?.user_player])
+
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -712,6 +828,155 @@ export default function MyMatchesPage() {
                       </p>
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* Exhibition Tournament Challenge Section */}
+            {selectedTournamentId && tournaments.find(t => t.id === selectedTournamentId)?.tournament_type === 'exhibition' && (
+              <div className="bg-orange-50 border border-orange-200 rounded-lg">
+                <div className="px-6 py-4">
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center">
+                      <div className="bg-orange-600 text-white px-3 py-1 text-sm font-bold tracking-wide rounded">
+                        CHALLENGE PLAYERS
+                      </div>
+                      <span className="ml-3 text-sm text-gray-600">
+                        Exhibition Tournament
+                      </span>
+                    </div>
+                    {tournamentParticipants.length > 0 && (
+                      <button
+                        onClick={handleOpenChallengeModal}
+                        className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2"
+                      >
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        Send Challenge
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Challenge Content */}
+                  <div className="space-y-4">
+                    {/* Received Challenges */}
+                    {challenges.received.filter(c => c.status === 'pending').length > 0 && (
+                      <div className="bg-white rounded-lg border border-orange-200 overflow-hidden">
+                        <div className="bg-orange-100 px-4 py-2">
+                          <h4 className="font-semibold text-orange-900 text-sm">
+                            Incoming Challenges ({challenges.received.filter(c => c.status === 'pending').length})
+                          </h4>
+                        </div>
+                        <div className="p-4 space-y-3">
+                          {challenges.received.filter(c => c.status === 'pending').map((challenge) => (
+                            <div key={challenge.id} className="flex items-center justify-between bg-gray-50 rounded-lg p-3 border border-gray-200">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <div className="w-6 h-6 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center text-xs font-bold">
+                                    {challenge.challenger_participant.name.charAt(0).toUpperCase()}
+                                  </div>
+                                  <span className="font-medium text-gray-900 text-sm">
+                                    {challenge.challenger_participant.name}
+                                  </span>
+                                  <span className="text-xs text-gray-500">
+                                    {getTimeAgo(challenge.created_at)}
+                                  </span>
+                                </div>
+                                {challenge.message && (
+                                  <p className="text-sm text-gray-600 italic ml-8">
+                                    "{challenge.message}"
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex space-x-2 ml-4">
+                                <button
+                                  onClick={() => handleChallengeResponse(challenge.id, 'accept')}
+                                  className="bg-green-100 hover:bg-green-200 text-green-800 px-3 py-1 rounded-md text-xs font-medium transition-colors border border-green-200 hover:border-green-300"
+                                >
+                                  Accept
+                                </button>
+                                <button
+                                  onClick={() => handleChallengeResponse(challenge.id, 'reject')}
+                                  className="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded-md text-xs font-medium transition-colors border border-red-200 hover:border-red-300"
+                                >
+                                  Reject
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Sent Challenges */}
+                    {challenges.sent.filter(c => c.status === 'pending').length > 0 && (
+                      <div className="bg-white rounded-lg border border-orange-200 overflow-hidden">
+                        <div className="bg-orange-100 px-4 py-2">
+                          <h4 className="font-semibold text-orange-900 text-sm">
+                            Sent Challenges ({challenges.sent.filter(c => c.status === 'pending').length})
+                          </h4>
+                        </div>
+                        <div className="p-4 space-y-3">
+                          {challenges.sent.filter(c => c.status === 'pending').map((challenge) => (
+                            <div key={challenge.id} className="flex items-center justify-between bg-gray-50 rounded-lg p-3 border border-gray-200">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <div className="w-6 h-6 rounded-full bg-gray-100 text-gray-700 flex items-center justify-center text-xs font-bold">
+                                    {challenge.challenged_participant.name.charAt(0).toUpperCase()}
+                                  </div>
+                                  <span className="font-medium text-gray-900 text-sm">
+                                    Challenged {challenge.challenged_participant.name}
+                                  </span>
+                                  <span className="text-xs text-gray-500">
+                                    {getTimeAgo(challenge.created_at)}
+                                  </span>
+                                </div>
+                                {challenge.message && (
+                                  <p className="text-sm text-gray-600 italic ml-8">
+                                    "{challenge.message}"
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex space-x-2 ml-4">
+                                <button
+                                  onClick={() => handleDeleteChallenge(challenge.id)}
+                                  className="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded-md text-xs font-medium transition-colors border border-red-200 hover:border-red-300"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* No challenges message */}
+                    {challenges.received.filter(c => c.status === 'pending').length === 0 && 
+                     challenges.sent.filter(c => c.status === 'pending').length === 0 && (
+                      <div className="text-center py-8 bg-white rounded-lg border border-orange-200">
+                        <div className="w-12 h-12 bg-orange-100 rounded-full mx-auto mb-4 flex items-center justify-center">
+                          <svg className="h-6 w-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                          </svg>
+                        </div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">No active challenges</h3>
+                        <p className="text-gray-500 mb-4">
+                          Challenge other participants to create new matches in this exhibition tournament.
+                        </p>
+                        {tournamentParticipants.length > 0 && (
+                          <button
+                            onClick={handleOpenChallengeModal}
+                            className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                          >
+                            Send Your First Challenge
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -1192,6 +1457,18 @@ export default function MyMatchesPage() {
           currentPlayerId={data.user_player.id}
           slug={slug}
           onSuccess={handleScoreRequestSuccess}
+        />
+      )}
+
+      {/* Tournament Challenge Modal */}
+      {selectedTournamentId && tournaments.find(t => t.id === selectedTournamentId)?.tournament_type === 'exhibition' && (
+        <TournamentChallengeModal
+          isOpen={showChallengeModal}
+          onClose={handleCloseChallengeModal}
+          slug={slug}
+          tournamentSlug={tournaments.find(t => t.id === selectedTournamentId)?.slug || ''}
+          participants={tournamentParticipants}
+          onSuccess={handleChallengeSuccess}
         />
       )}
     </div>
