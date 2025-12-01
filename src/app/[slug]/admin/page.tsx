@@ -38,6 +38,11 @@ interface Admin {
   created_at: string
 }
 
+interface Editor {
+  id: string
+  email: string
+  created_at: string
+}
 
 interface RegistrationRequest {
   id: string
@@ -121,6 +126,7 @@ export default function AdminPage() {
   const [participants, setParticipants] = useState<Participant[]>([])
   const [matches, setMatches] = useState<Match[]>([])
   const [admins, setAdmins] = useState<Admin[]>([])
+  const [editors, setEditors] = useState<Editor[]>([])
   const [registrationRequests, setRegistrationRequests] = useState<RegistrationRequest[]>([])
   const [chatIntegration, setChatIntegration] = useState<ChatIntegration | null>(null)
   const [tournaments, setTournaments] = useState<Tournament[]>([])
@@ -136,6 +142,10 @@ export default function AdminPage() {
   // Admin forms state
   const [newAdminEmail, setNewAdminEmail] = useState('')
   const [addingAdmin, setAddingAdmin] = useState(false)
+  
+  // Editor forms state
+  const [newEditorEmail, setNewEditorEmail] = useState('')
+  const [addingEditor, setAddingEditor] = useState(false)
   
   
   // Chat integration forms state
@@ -278,6 +288,7 @@ export default function AdminPage() {
       setLeague(leagueData)
       await fetchData(leagueData.id)
       await fetchAdmins()
+      await fetchEditors()
       await fetchRegistrationRequests()
       await fetchChatIntegration()
       await fetchTournaments()
@@ -336,6 +347,18 @@ export default function AdminPage() {
       }
     } catch (error) {
       console.error('Error fetching admins:', error)
+    }
+  }
+
+  const fetchEditors = async () => {
+    try {
+      const response = await fetch(`/api/leagues/${slug}/editors`)
+      if (response.ok) {
+        const data = await response.json()
+        setEditors(data.editors)
+      }
+    } catch (error) {
+      console.error('Error fetching editors:', error)
     }
   }
 
@@ -945,6 +968,61 @@ export default function AdminPage() {
     } catch (error) {
       console.error('Error removing admin:', error)
       alert('Failed to remove administrator')
+    }
+  }
+
+  // Editor management functions
+  const handleAddEditor = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newEditorEmail.trim()) return
+
+    setAddingEditor(true)
+
+    try {
+      const response = await fetch(`/api/leagues/${slug}/editors`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: newEditorEmail.trim() })
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setNewEditorEmail('')
+        await fetchEditors()
+        alert('Editor added successfully!')
+      } else {
+        alert(data.error || 'Failed to add editor')
+      }
+    } catch (error) {
+      console.error('Error adding editor:', error)
+      alert('Failed to add editor')
+    } finally {
+      setAddingEditor(false)
+    }
+  }
+
+  const handleRemoveEditor = async (editor: Editor) => {
+    if (!confirm(`Are you sure you want to remove ${editor.email} as an editor?`)) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/leagues/${slug}/editors?id=${editor.id}&email=${editor.email}`, {
+        method: 'DELETE'
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        await fetchEditors()
+        alert('Editor removed successfully!')
+      } else {
+        alert(data.error || 'Failed to remove editor')
+      }
+    } catch (error) {
+      console.error('Error removing editor:', error)
+      alert('Failed to remove editor')
     }
   }
 
@@ -2729,7 +2807,7 @@ export default function AdminPage() {
               </div>
 
               {/* Admins List */}
-              <div className="card">
+              <div className="card mb-6">
                 <div className="p-6 border-b border-gray-200">
                   <h3 className="text-lg font-semibold text-black">Current Administrators</h3>
                 </div>
@@ -2775,6 +2853,94 @@ export default function AdminPage() {
                         <tr>
                           <td colSpan={3} className="table-cell text-center text-gray-500">
                             No administrators found.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Add Editor Form */}
+              <div className="card p-6 mb-6">
+                <h3 className="text-lg font-semibold text-black mb-4">Add New Editor</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Editors can edit all data in the admin panel but cannot create or delete items, and cannot manage administrators or editors.
+                </p>
+                <form onSubmit={handleAddEditor} className="flex gap-4">
+                  <input
+                    type="email"
+                    placeholder="Editor email"
+                    value={newEditorEmail}
+                    onChange={(e) => setNewEditorEmail(e.target.value)}
+                    className="input-field flex-1"
+                    required
+                  />
+                  <button 
+                    type="submit" 
+                    className="btn-secondary"
+                    disabled={addingEditor}
+                  >
+                    {addingEditor ? (
+                      <>
+                        <Clock className="h-4 w-4 mr-2 animate-spin" />
+                        Adding...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Editor
+                      </>
+                    )}
+                  </button>
+                </form>
+              </div>
+
+              {/* Editors List */}
+              <div className="card">
+                <div className="p-6 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-black">Current Editors</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr>
+                        <th className="table-header">Email</th>
+                        <th className="table-header">Added Date</th>
+                        <th className="table-header">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {editors.map((editor) => (
+                        <tr key={editor.id}>
+                          <td className="table-cell">
+                            <div className="flex items-center gap-2">
+                              <span>{editor.email}</span>
+                              {editor.email === currentUserEmail && (
+                                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
+                                  You
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="table-cell">
+                            {formatDate(editor.created_at)}
+                          </td>
+                          <td className="table-cell">
+                            <button
+                              onClick={() => handleRemoveEditor(editor)}
+                              className="p-2 text-red-600 hover:text-red-800"
+                              title="Remove editor"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {editors.length === 0 && (
+                        <tr>
+                          <td colSpan={3} className="table-cell text-center text-gray-500">
+                            No editors assigned.
                           </td>
                         </tr>
                       )}
