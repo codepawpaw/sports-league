@@ -305,18 +305,37 @@ export async function POST(
 
       if (leagueData && tournamentData && challenge.challenger_participant && challenge.challenged_participant) {
         // Send notification via our internal API endpoint
-        fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'https://sports-league-tau.vercel.app'}/api/leagues/${slug}/chat-integration/notify-challenge`, {
+        const notificationPayload = {
+          challengerName: challenge.challenger_participant.name,
+          challengedName: challenge.challenged_participant.name,
+          tournamentName: tournamentData.name,
+          leagueName: leagueData.name,
+          challengeId: challenge.id,
+          appUrl: process.env.NEXT_PUBLIC_APP_URL || 'https://sports-league-tau.vercel.app'
+        }
+
+        console.log('Sending challenge notification:', notificationPayload)
+        
+        // Use absolute URL for internal API calls in production
+        const baseUrl = process.env.NODE_ENV === 'production' 
+          ? (process.env.NEXT_PUBLIC_APP_URL || 'https://sports-league-tau.vercel.app')
+          : 'http://localhost:3000'
+        
+        const notificationUrl = `${baseUrl}/api/leagues/${slug}/chat-integration/notify-challenge`
+        
+        const response = await fetch(notificationUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            challengerName: challenge.challenger_participant.name,
-            challengedName: challenge.challenged_participant.name,
-            tournamentName: tournamentData.name,
-            leagueName: leagueData.name,
-            challengeId: challenge.id,
-            appUrl: process.env.NEXT_PUBLIC_APP_URL || 'https://sports-league-tau.vercel.app'
-          })
-        }).catch(error => console.error('Failed to send challenge notification:', error))
+          body: JSON.stringify(notificationPayload)
+        })
+
+        const result = await response.json()
+        
+        if (!response.ok) {
+          console.error('Challenge notification failed:', response.status, result.error)
+        } else {
+          console.log('Challenge notification sent successfully:', result.message)
+        }
       }
     } catch (error) {
       console.error('Error sending challenge notification:', error)
