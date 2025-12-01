@@ -11,6 +11,7 @@ interface ChatIntegration {
   notify_approved_schedules: boolean
   notify_schedule_requests: boolean
   notify_match_completions: boolean
+  notify_challenge_requests: boolean
   created_at: string
   updated_at: string
 }
@@ -103,6 +104,7 @@ export async function POST(
       notify_approved_schedules, 
       notify_schedule_requests,
       notify_match_completions,
+      notify_challenge_requests,
       daily_summary_enabled,
       daily_summary_time,
       summary_include_streaks,
@@ -151,6 +153,7 @@ export async function POST(
       notify_approved_schedules: notify_approved_schedules !== undefined ? notify_approved_schedules : true,
       notify_schedule_requests: notify_schedule_requests !== undefined ? notify_schedule_requests : true,
       notify_match_completions: notify_match_completions !== undefined ? notify_match_completions : true,
+      notify_challenge_requests: notify_challenge_requests !== undefined ? notify_challenge_requests : true,
       daily_summary_enabled: daily_summary_enabled !== undefined ? daily_summary_enabled : false,
       daily_summary_time: daily_summary_time || '09:00:00',
       summary_include_streaks: summary_include_streaks !== undefined ? summary_include_streaks : true,

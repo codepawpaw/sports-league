@@ -822,6 +822,78 @@ export class GoogleChatNotifier {
 
     return this.sendMessage(webhookUrl, message)
   }
+
+  static async notifyNewChallenge(
+    webhookUrl: string,
+    challengerName: string,
+    challengedName: string,
+    tournamentName: string,
+    leagueName: string,
+    leagueSlug: string,
+    appUrl: string,
+    timezone: string = 'Asia/Jakarta'
+  ): Promise<boolean> {
+    const challengeUrl = `${appUrl}/${leagueSlug}`
+    
+    const card: GoogleChatCard = {
+      header: {
+        title: '🏆 New Challenge Request',
+        subtitle: leagueName,
+      },
+      sections: [
+        {
+          widgets: [
+            {
+              textParagraph: {
+                text: `**${challengerName}** has challenged **${challengedName}** in **${tournamentName}**!\n\nThis exciting match is waiting to be scheduled. Don't miss the action!`
+              }
+            },
+            {
+              keyValue: {
+                topLabel: 'Challenger',
+                content: challengerName,
+                contentMultiline: false
+              }
+            },
+            {
+              keyValue: {
+                topLabel: 'Challenged',
+                content: challengedName,
+                contentMultiline: false
+              }
+            },
+            {
+              keyValue: {
+                topLabel: 'Tournament',
+                content: tournamentName,
+                contentMultiline: false
+              }
+            },
+            {
+              buttons: [
+                {
+                  textButton: {
+                    text: 'View this challenge on app',
+                    onClick: {
+                      openLink: {
+                        url: challengeUrl
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+
+    const message: GoogleChatMessage = {
+      cards: [card]
+    }
+
+    return this.sendMessage(webhookUrl, message)
+  }
 }
 
 export type { MatchNotificationData, ScheduleApprovalData, ScheduleRequestData, MatchCompletionData, DailySummaryData }

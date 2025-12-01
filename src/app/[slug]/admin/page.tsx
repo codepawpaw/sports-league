@@ -62,6 +62,7 @@ interface ChatIntegration {
   notify_approved_schedules: boolean
   notify_schedule_requests: boolean
   notify_match_completions: boolean
+  notify_challenge_requests: boolean
   daily_summary_enabled: boolean
   daily_summary_time: string
   summary_include_streaks: boolean
@@ -145,6 +146,7 @@ export default function AdminPage() {
     notify_approved_schedules: true,
     notify_schedule_requests: true,
     notify_match_completions: true,
+    notify_challenge_requests: true,
     daily_summary_enabled: false,
     daily_summary_time: '09:00',
     summary_include_streaks: true,
@@ -364,6 +366,7 @@ export default function AdminPage() {
             notify_approved_schedules: data.integration.notify_approved_schedules,
             notify_schedule_requests: data.integration.notify_schedule_requests !== false,
             notify_match_completions: data.integration.notify_match_completions,
+            notify_challenge_requests: data.integration.notify_challenge_requests !== false,
             daily_summary_enabled: data.integration.daily_summary_enabled || false,
             daily_summary_time: data.integration.daily_summary_time || '09:00',
             summary_include_streaks: data.integration.summary_include_streaks !== false,
@@ -1072,6 +1075,7 @@ export default function AdminPage() {
           notify_approved_schedules: true,
           notify_schedule_requests: true,
           notify_match_completions: true,
+          notify_challenge_requests: true,
           daily_summary_enabled: false,
           daily_summary_time: '09:00',
           summary_include_streaks: true,
@@ -2866,6 +2870,16 @@ export default function AdminPage() {
                               className="mr-2"
                             />
                             Notify on match completions
+                          </label>
+                          
+                          <label className="flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={chatConfig.notify_challenge_requests}
+                              onChange={(e) => setChatConfig(prev => ({ ...prev, notify_challenge_requests: e.target.checked }))}
+                              className="mr-2"
+                            />
+                            Notify on challenge requests
                           </label>
                         </div>
                       </div>

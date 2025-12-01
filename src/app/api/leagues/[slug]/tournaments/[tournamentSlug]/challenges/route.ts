@@ -289,6 +289,40 @@ export async function POST(
       )
     }
 
+    // Send Google Chat notification if enabled
+    try {
+      const { data: leagueData } = await supabase
+        .from('leagues')
+        .select('name')
+        .eq('id', league.id)
+        .single()
+
+      const { data: tournamentData } = await supabase
+        .from('tournaments')
+        .select('name')
+        .eq('id', tournament.id)
+        .single()
+
+      if (leagueData && tournamentData && challenge.challenger_participant && challenge.challenged_participant) {
+        // Send notification via our internal API endpoint
+        fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'https://sports-league-tau.vercel.app'}/api/leagues/${slug}/chat-integration/notify-challenge`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            challengerName: challenge.challenger_participant.name,
+            challengedName: challenge.challenged_participant.name,
+            tournamentName: tournamentData.name,
+            leagueName: leagueData.name,
+            challengeId: challenge.id,
+            appUrl: process.env.NEXT_PUBLIC_APP_URL || 'https://sports-league-tau.vercel.app'
+          })
+        }).catch(error => console.error('Failed to send challenge notification:', error))
+      }
+    } catch (error) {
+      console.error('Error sending challenge notification:', error)
+      // Don't fail the challenge creation if notification fails
+    }
+
     return NextResponse.json({
       challenge,
       message: 'Challenge sent successfully'
