@@ -15,6 +15,7 @@ import UpcomingMatchesCarousel from '@/components/UpcomingMatchesCarousel'
 import TabNavigation from '@/components/TabNavigation'
 import CompletedMatchesCarousel from '@/components/CompletedMatchesCarousel'
 import LeaguePredictionCard from '@/components/LeaguePredictionCard'
+import RatingCalculationModal from '@/components/RatingCalculationModal'
 
 interface League {
   id: string
@@ -99,6 +100,7 @@ export default function LeaguePage() {
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false)
   const [hasShownAutoModal, setHasShownAutoModal] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+  const [isRatingModalOpen, setIsRatingModalOpen] = useState(false)
 
   // Tournament-based rankings state
   const [tournaments, setTournaments] = useState<Tournament[]>([])
@@ -569,6 +571,13 @@ export default function LeaguePage() {
                 </div>
                 <div className="flex items-center gap-3">
                   <button
+                    onClick={() => setIsRatingModalOpen(true)}
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-black bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+                    title="Learn how ratings are calculated in this tournament"
+                  >
+                    How rating calculated?
+                  </button>
+                  <button
                     onClick={handleManualRefresh}
                     disabled={refreshing}
                     className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors duration-200 ${refreshing ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -770,6 +779,13 @@ export default function LeaguePage() {
         onClose={() => setIsRegisterModalOpen(false)}
         slug={slug}
         onSuccess={handleRegistrationSuccess}
+      />
+
+      {/* Rating Calculation Modal */}
+      <RatingCalculationModal
+        isOpen={isRatingModalOpen}
+        onClose={() => setIsRatingModalOpen(false)}
+        currentTournament={currentTournament}
       />
 
     </div>
