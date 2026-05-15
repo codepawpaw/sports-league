@@ -241,6 +241,9 @@ export default function AdminPage() {
   // Player filter state
   const [selectedPlayerFilter, setSelectedPlayerFilter] = useState('all')
 
+  // Generate matches state
+  const [generatingMatches, setGeneratingMatches] = useState(false)
+
 
 
   useEffect(() => {
@@ -446,6 +449,93 @@ export default function AdminPage() {
       setTournamentMatches([])
     } finally {
       setLoadingTournamentMatches(false)
+    }
+  }
+
+  const getGenerateMatchesCopy = (type: Tournament['tournament_type'] | undefined) => {
+    switch (type) {
+      case 'round_robin':
+        return {
+          label: 'Generate All Round-Robin Matches',
+          description: 'Creates one match between every pair of participants (N×(N−1)/2 matches).',
+        }
+      case 'table_system':
+        return {
+          label: 'Generate All Table-System Matches',
+          description: 'Creates one match between every pair of participants for table standings.',
+        }
+      case 'exhibition':
+        return {
+          label: 'Generate All Exhibition Matches',
+          description: 'Creates one exhibition match between every pair of participants.',
+        }
+      case 'single_elimination':
+        return {
+          label: 'Generate First-Round Bracket',
+          description: 'Seeds participants and pairs top vs bottom (1 vs N, 2 vs N−1, …). Bottom seed gets a bye if odd.',
+        }
+      case 'double_elimination':
+        return {
+          label: 'Generate First-Round Bracket',
+          description: 'Creates the upper-bracket first round. Losers will form the lower bracket as matches complete.',
+        }
+      default:
+        return {
+          label: 'Generate All Matches',
+          description: 'Generates matches based on the tournament type.',
+        }
+    }
+  }
+
+  const handleGenerateTournamentMatches = async (clearExisting: boolean = false) => {
+    const tournament = tournaments.find(t => t.id === selectedTournamentForMatch)
+    if (!tournament) return
+
+    const copy = getGenerateMatchesCopy(tournament.tournament_type)
+    const existingCount = tournamentMatches.length
+
+    let confirmMessage = `${copy.label} for "${tournament.name}"?`
+    if (existingCount > 0 && !clearExisting) {
+      confirmMessage = `This tournament already has ${existingCount} match(es). Existing pairs will be skipped and only new matches will be created. Continue?`
+    }
+    if (clearExisting) {
+      confirmMessage = `This will DELETE all ${existingCount} existing match(es) for "${tournament.name}" and regenerate them. Continue?`
+    }
+
+    if (!confirm(confirmMessage)) return
+
+    setGeneratingMatches(true)
+    try {
+      const response = await fetch(
+        `/api/leagues/${slug}/tournaments/${tournament.slug}/matches/generate`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clearExisting }),
+        }
+      )
+      const data = await response.json()
+
+      if (!response.ok) {
+        alert(data.error || 'Failed to generate matches')
+        return
+      }
+
+      if (data.matchesCreated === 0) {
+        alert(data.message || 'No new matches were created.')
+      } else {
+        alert(`Successfully created ${data.matchesCreated} match(es)!`)
+      }
+
+      await fetchTournamentMatches(tournament.slug)
+      if (league) {
+        await fetchData(league.id)
+      }
+    } catch (error) {
+      console.error('Error generating tournament matches:', error)
+      alert('Failed to generate matches')
+    } finally {
+      setGeneratingMatches(false)
     }
   }
 
@@ -1954,6 +2044,62 @@ export default function AdminPage() {
                       </div>
                     )}
                   </div>
+
+                  {/* Generate Matches Panel — adapts to tournament type */}
+                  {selectedTournamentForMatch && (() => {
+                    const t = tournaments.find(tr => tr.id === selectedTournamentForMatch)
+                    if (!t) return null
+                    const copy = getGenerateMatchesCopy(t.tournament_type)
+                    const hasExisting = tournamentMatches.length > 0
+                    return (
+                      <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Shuffle className="h-4 w-4 text-gray-700" />
+                              <span className="font-medium text-black">{copy.label}</span>
+                              <span className="text-xs px-2 py-0.5 bg-white border border-gray-300 rounded-full capitalize text-gray-700">
+                                {t.tournament_type.replace('_', ' ')}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-600">{copy.description}</p>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleGenerateTournamentMatches(false)}
+                              disabled={generatingMatches || loadingTournamentMatches}
+                              className="btn-primary"
+                            >
+                              {generatingMatches ? (
+                                <>
+                                  <Clock className="h-4 w-4 mr-2 animate-spin" />
+                                  Generating...
+                                </>
+                              ) : (
+                                <>
+                                  <Plus className="h-4 w-4 mr-2" />
+                                  {hasExisting ? 'Generate Missing Matches' : copy.label}
+                                </>
+                              )}
+                            </button>
+                            {hasExisting && (
+                              <button
+                                type="button"
+                                onClick={() => handleGenerateTournamentMatches(true)}
+                                disabled={generatingMatches || loadingTournamentMatches}
+                                className="btn-secondary"
+                                title="Delete all existing matches for this tournament and regenerate"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Clear & Regenerate
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })()}
                 </div>
                 
                 {/* Add Match Form */}
