@@ -13,6 +13,14 @@ interface League {
   name: string
 }
 
+interface Tournament {
+  id: string
+  name: string
+  slug: string
+  status: 'upcoming' | 'active' | 'completed' | 'cancelled'
+  tournament_type?: string
+}
+
 interface Player {
   id: string
   name: string
@@ -30,6 +38,7 @@ interface Player {
 
 interface PlayersData {
   league: League
+  tournament?: Tournament
   players: Player[]
   total: number
 }
@@ -58,7 +67,7 @@ export default function PlayersPage() {
   const getCurrentUser = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     setCurrentUser(user)
-    
+
     if (user && data?.league) {
       // Check if user is a participant
       const { data: participantData } = await supabase
@@ -75,11 +84,31 @@ export default function PlayersPage() {
   const fetchPlayers = async () => {
     try {
       setLoading(true)
-      // Add cache-busting parameter
-      const response = await fetch(`/api/leagues/${slug}/players?_t=${Date.now()}`, {
+
+      const tournamentsResponse = await fetch(`/api/leagues/${slug}/tournaments?_t=${Date.now()}`, {
         cache: 'no-store'
       })
-      
+
+      if (!tournamentsResponse.ok) {
+        throw new Error('Failed to fetch tournaments')
+      }
+
+      const tournamentsData = await tournamentsResponse.json()
+      const tournaments: Tournament[] = tournamentsData.tournaments || []
+
+      if (tournaments.length === 0) {
+        setError('No tournament found for this league')
+        setData(null)
+        return
+      }
+
+      const tournament = tournaments.find(t => t.status === 'active') || tournaments[0]
+
+      const response = await fetch(
+        `/api/leagues/${slug}/players-v2?tournamentId=${tournament.id}&_t=${Date.now()}`,
+        { cache: 'no-store' }
+      )
+
       if (!response.ok) {
         throw new Error('Failed to fetch players')
       }
