@@ -190,7 +190,7 @@ function PollCard({
 }) {
   const isClosed = poll.status === 'closed'
   const hasVoted = !!poll.my_option_id
-  const showResults = isClosed || hasVoted
+  const canVote = !isClosed && !hasVoted && !!currentUser
   const totalVotes = poll.total_votes
   const [expanded, setExpanded] = useState(false)
 
@@ -247,44 +247,49 @@ function PollCard({
           const isSelected = poll.my_option_id === option.id
           const percent = totalVotes > 0 ? Math.round((option.vote_count / totalVotes) * 100) : 0
 
-          if (showResults) {
-            return (
+          const baseClasses = `relative w-full text-left border rounded-lg overflow-hidden transition-colors ${
+            isSelected ? 'border-green-400' : 'border-gray-200'
+          } ${canVote ? 'hover:border-green-300 cursor-pointer' : ''}`
+
+          const body = (
+            <>
               <div
-                key={option.id}
-                className={`relative border rounded-lg overflow-hidden ${
-                  isSelected ? 'border-green-400' : 'border-gray-200'
+                className={`absolute inset-y-0 left-0 ${
+                  isSelected ? 'bg-green-100' : 'bg-gray-100'
                 }`}
-              >
-                <div
-                  className={`absolute inset-y-0 left-0 ${
-                    isSelected ? 'bg-green-100' : 'bg-gray-100'
-                  }`}
-                  style={{ width: `${percent}%` }}
-                />
-                <div className="relative flex items-center justify-between px-4 py-3">
-                  <div className="flex items-center gap-2 min-w-0">
-                    {isSelected && (
-                      <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
-                    )}
-                    <span className="font-medium text-black truncate">{option.label}</span>
-                  </div>
-                  <div className="text-sm text-gray-700 font-medium ml-3 flex-shrink-0">
-                    {percent}% <span className="text-gray-500">({option.vote_count})</span>
-                  </div>
+                style={{ width: `${percent}%` }}
+              />
+              <div className="relative flex items-center justify-between px-4 py-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  {isSelected && (
+                    <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                  )}
+                  <span className="font-medium text-black truncate">{option.label}</span>
+                </div>
+                <div className="text-sm text-gray-700 font-medium ml-3 flex-shrink-0">
+                  {percent}% <span className="text-gray-500">({option.vote_count})</span>
                 </div>
               </div>
+            </>
+          )
+
+          if (canVote) {
+            return (
+              <button
+                key={option.id}
+                onClick={() => onVote(option.id)}
+                disabled={submitting}
+                className={`${baseClasses} disabled:opacity-60 disabled:cursor-not-allowed`}
+              >
+                {body}
+              </button>
             )
           }
 
           return (
-            <button
-              key={option.id}
-              onClick={() => onVote(option.id)}
-              disabled={submitting || !currentUser}
-              className="w-full text-left border border-gray-200 rounded-lg px-4 py-3 hover:bg-green-50 hover:border-green-300 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              <span className="font-medium text-black">{option.label}</span>
-            </button>
+            <div key={option.id} className={baseClasses}>
+              {body}
+            </div>
           )
         })}
 
