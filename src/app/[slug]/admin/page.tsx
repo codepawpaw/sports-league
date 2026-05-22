@@ -3,10 +3,11 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Trophy, ArrowLeft, Users, Calendar, Plus, Edit, Trash2, Save, X, Shuffle, Eye, Clock, Shield, CheckCircle, XCircle, MessageSquare, UserPlus, Settings, Calculator } from 'lucide-react'
+import { Trophy, ArrowLeft, Users, Calendar, Plus, Edit, Trash2, Save, X, Shuffle, Eye, Clock, Shield, CheckCircle, XCircle, MessageSquare, UserPlus, Settings, Calculator, Vote } from 'lucide-react'
 import { createSupabaseComponentClient } from '@/lib/supabase'
 import MatchEditModal from '@/components/MatchEditModal'
 import TournamentSettingsModal from '@/components/TournamentSettingsModal'
+import VotingAdminPanel from '@/components/VotingAdminPanel'
 
 interface League {
   id: string
@@ -1772,6 +1773,18 @@ export default function AdminPage() {
               <span className="xs:hidden">Admins</span>
             </button>
             <button
+              onClick={() => setActiveTab('voting')}
+              className={`flex-shrink-0 py-4 px-1 sm:px-2 border-b-2 font-medium text-sm whitespace-nowrap ${
+                activeTab === 'voting'
+                  ? 'border-black text-black'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <Vote className="h-4 w-4 inline mr-1 sm:mr-2" />
+              <span className="hidden xs:inline">Voting</span>
+              <span className="xs:hidden">Polls</span>
+            </button>
+            <button
               onClick={() => setActiveTab('integrations')}
               className={`flex-shrink-0 py-4 px-1 sm:px-2 border-b-2 font-medium text-sm whitespace-nowrap ${
                 activeTab === 'integrations'
@@ -3111,6 +3124,10 @@ export default function AdminPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {activeTab === 'voting' && (
+          <VotingAdminPanel slug={slug} participants={participants} />
         )}
 
         {activeTab === 'integrations' && (

@@ -17,6 +17,7 @@ import CompletedMatchesCarousel from '@/components/CompletedMatchesCarousel'
 import LeaguePredictionCard from '@/components/LeaguePredictionCard'
 import RatingCalculationModal from '@/components/RatingCalculationModal'
 import ChallengeRequestModal from '@/components/ChallengeRequestModal'
+import VotingSection from '@/components/VotingSection'
 
 interface League {
   id: string
@@ -616,10 +617,13 @@ export default function LeaguePage() {
       {/* Completed Matches Carousel */}
       <CompletedMatchesCarousel recentMatches={recentMatches} />
 
-      <UpcomingMatchesCarousel 
+      <UpcomingMatchesCarousel
           upcomingMatches={upcomingMatches}
           slug={slug}
       />
+
+      {/* Community Voting */}
+      <VotingSection slug={slug} currentUser={currentUser} />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
