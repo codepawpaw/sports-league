@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
+import { GoogleChatNotifier } from '@/lib/googleChat'
 
 export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
@@ -20,7 +21,7 @@ export async function POST(
 
     const { data: league } = await supabase
       .from('leagues')
-      .select('id')
+      .select('id, name')
       .eq('slug', params.slug)
       .single()
 
@@ -30,7 +31,7 @@ export async function POST(
 
     const { data: poll } = await supabase
       .from('league_polls')
-      .select('id, league_id, status')
+      .select('id, league_id, status, title')
       .eq('id', params.pollId)
       .single()
 
@@ -49,7 +50,7 @@ export async function POST(
 
     const { data: option } = await supabase
       .from('league_poll_options')
-      .select('id, poll_id')
+      .select('id, poll_id, label')
       .eq('id', option_id)
       .single()
 
@@ -59,10 +60,13 @@ export async function POST(
 
     const { data: existingVote } = await supabase
       .from('league_poll_votes')
-      .select('id')
+      .select('id, option_id')
       .eq('poll_id', poll.id)
       .eq('voter_email', user.email)
       .single()
+
+    const isVoteChange = !!existingVote
+    const isSameOption = existingVote?.option_id === option_id
 
     if (existingVote) {
       const { error: updateError } = await supabase
@@ -90,6 +94,46 @@ export async function POST(
       if (insertError) {
         console.error('Error inserting vote:', insertError)
         return NextResponse.json({ error: 'Failed to cast vote' }, { status: 500 })
+      }
+    }
+
+    if (!isSameOption) {
+      try {
+        const { data: chatIntegration } = await supabase
+          .from('league_chat_integrations')
+          .select('webhook_url, enabled')
+          .eq('league_id', league.id)
+          .single()
+
+        if (chatIntegration?.enabled && chatIntegration?.webhook_url) {
+          const { data: participant } = await supabase
+            .from('participants')
+            .select('name')
+            .eq('league_id', league.id)
+            .eq('email', user.email)
+            .maybeSingle()
+
+          const { count: totalVotes } = await supabase
+            .from('league_poll_votes')
+            .select('id', { count: 'exact', head: true })
+            .eq('poll_id', poll.id)
+
+          const appUrl =
+            process.env.NEXT_PUBLIC_APP_URL || `${new URL(request.url).origin}`
+
+          await GoogleChatNotifier.notifyNewVote(chatIntegration.webhook_url, {
+            leagueName: league.name,
+            pollTitle: poll.title,
+            optionLabel: option.label,
+            voterName: participant?.name || user.email,
+            totalVotes: totalVotes ?? 0,
+            isVoteChange,
+            leagueSlug: params.slug,
+            appUrl
+          })
+        }
+      } catch (notifyError) {
+        console.error('Failed to send vote notification:', notifyError)
       }
     }
 

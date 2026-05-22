@@ -837,6 +837,81 @@ export class GoogleChatNotifier {
     return this.sendMessage(webhookUrl, message)
   }
 
+  static async notifyNewVote(
+    webhookUrl: string,
+    data: {
+      leagueName: string
+      pollTitle: string
+      optionLabel: string
+      voterName: string
+      totalVotes: number
+      isVoteChange: boolean
+      leagueSlug: string
+      appUrl: string
+    }
+  ): Promise<boolean> {
+    const card: GoogleChatCard = {
+      header: {
+        title: data.isVoteChange ? '🔁 Vote Updated' : '🗳️ New Vote',
+        subtitle: data.leagueName,
+      },
+      sections: [
+        {
+          widgets: [
+            {
+              keyValue: {
+                topLabel: 'Poll',
+                content: data.pollTitle,
+                contentMultiline: false
+              }
+            },
+            {
+              keyValue: {
+                topLabel: 'Voter',
+                content: data.voterName,
+                contentMultiline: false
+              }
+            },
+            {
+              keyValue: {
+                topLabel: data.isVoteChange ? 'Changed vote to' : 'Voted for',
+                content: data.optionLabel,
+                contentMultiline: false
+              }
+            },
+            {
+              keyValue: {
+                topLabel: 'Total votes',
+                content: `${data.totalVotes}`,
+                contentMultiline: false
+              }
+            },
+            {
+              buttons: [
+                {
+                  textButton: {
+                    text: 'View Poll',
+                    onClick: {
+                      openLink: {
+                        url: `${data.appUrl}/${data.leagueSlug}`
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+
+    const message: GoogleChatMessage = {
+      cards: [card]
+    }
+
+    return this.sendMessage(webhookUrl, message)
+  }
+
   static async notifyNewChallenge(
     webhookUrl: string,
     challengerName: string,
