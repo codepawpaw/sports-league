@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Vote, CheckCircle2, Lock, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react'
+import { Vote, CheckCircle2, Lock, RefreshCw, ChevronDown, ChevronUp, X } from 'lucide-react'
 
 const VISIBLE_OPTIONS_LIMIT = 3
 
@@ -190,7 +190,7 @@ function PollCard({
 }) {
   const isClosed = poll.status === 'closed'
   const hasVoted = !!poll.my_option_id
-  const canVote = !isClosed && !hasVoted && !!currentUser
+  const canVote = !isClosed && !!currentUser
   const totalVotes = poll.total_votes
   const [expanded, setExpanded] = useState(false)
 
@@ -315,19 +315,24 @@ function PollCard({
         )}
       </div>
 
-      <div className="mt-4 flex items-center justify-between text-sm">
+      <div className="mt-4 flex items-center justify-between gap-3 text-sm">
         {!currentUser ? (
           <p className="text-gray-500">Log in to cast your vote.</p>
         ) : isClosed ? (
           <p className="text-gray-500">This poll is closed.</p>
         ) : hasVoted ? (
-          <button
-            onClick={onRetract}
-            disabled={submitting}
-            className="text-gray-600 hover:text-black underline disabled:opacity-60"
-          >
-            Change vote
-          </button>
+          <>
+            <p className="text-gray-500">You've voted. Pick another option to change, or unvote.</p>
+            <button
+              type="button"
+              onClick={onRetract}
+              disabled={submitting}
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <X className="h-4 w-4" />
+              Unvote
+            </button>
+          </>
         ) : (
           <p className="text-gray-500">Pick one option above.</p>
         )}
