@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Vote, CheckCircle2, Lock, RefreshCw } from 'lucide-react'
+import { Vote, CheckCircle2, Lock, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react'
+
+const VISIBLE_OPTIONS_LIMIT = 3
 
 interface PollOption {
   id: string
@@ -190,6 +192,25 @@ function PollCard({
   const hasVoted = !!poll.my_option_id
   const showResults = isClosed || hasVoted
   const totalVotes = poll.total_votes
+  const [expanded, setExpanded] = useState(false)
+
+  const sortedOptions = [...poll.options].sort((a, b) => {
+    if (b.vote_count !== a.vote_count) return b.vote_count - a.vote_count
+    return a.display_order - b.display_order
+  })
+
+  const myOptionIndex = poll.my_option_id
+    ? sortedOptions.findIndex((o) => o.id === poll.my_option_id)
+    : -1
+  const needsExpandForMyVote =
+    !expanded && myOptionIndex >= VISIBLE_OPTIONS_LIMIT
+
+  const hasOverflow = sortedOptions.length > VISIBLE_OPTIONS_LIMIT
+  const visibleOptions =
+    expanded || !hasOverflow
+      ? sortedOptions
+      : sortedOptions.slice(0, VISIBLE_OPTIONS_LIMIT)
+  const hiddenCount = sortedOptions.length - visibleOptions.length
 
   return (
     <div className="p-6">
@@ -222,7 +243,7 @@ function PollCard({
       </div>
 
       <div className="space-y-2 mt-4">
-        {poll.options.map((option) => {
+        {visibleOptions.map((option) => {
           const isSelected = poll.my_option_id === option.id
           const percent = totalVotes > 0 ? Math.round((option.vote_count / totalVotes) * 100) : 0
 
@@ -266,6 +287,27 @@ function PollCard({
             </button>
           )
         })}
+
+        {hasOverflow && (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="w-full inline-flex items-center justify-center gap-1 text-sm text-gray-600 hover:text-black border border-dashed border-gray-200 rounded-lg px-4 py-2 transition-colors"
+          >
+            {expanded ? (
+              <>
+                Show less <ChevronUp className="h-4 w-4" />
+              </>
+            ) : (
+              <>
+                {needsExpandForMyVote
+                  ? `Show all ${sortedOptions.length} options (your vote is in here)`
+                  : `Show ${hiddenCount} more option${hiddenCount === 1 ? '' : 's'}`}
+                <ChevronDown className="h-4 w-4" />
+              </>
+            )}
+          </button>
+        )}
       </div>
 
       <div className="mt-4 flex items-center justify-between text-sm">
