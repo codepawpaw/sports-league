@@ -29,32 +29,6 @@ interface RawPollRow {
   }>
 }
 
-async function checkAdminOrEditor(
-  supabase: ReturnType<typeof createRouteHandlerClient>,
-  leagueId: string,
-  email: string | undefined
-): Promise<boolean> {
-  if (!email) return false
-
-  const { data: admin } = await supabase
-    .from('league_admins')
-    .select('id')
-    .eq('league_id', leagueId)
-    .eq('email', email)
-    .single()
-
-  if (admin) return true
-
-  const { data: editor } = await supabase
-    .from('league_editors')
-    .select('id')
-    .eq('league_id', leagueId)
-    .eq('email', email)
-    .single()
-
-  return !!editor
-}
-
 export async function GET(
   request: NextRequest,
   { params }: { params: { slug: string } }
@@ -162,7 +136,24 @@ export async function POST(
       return NextResponse.json({ error: 'League not found' }, { status: 404 })
     }
 
-    const allowed = await checkAdminOrEditor(supabase, league.id, user.email)
+    const { data: admin } = await supabase
+      .from('league_admins')
+      .select('id')
+      .eq('league_id', league.id)
+      .eq('email', user.email)
+      .single()
+
+    let allowed = !!admin
+    if (!allowed) {
+      const { data: editor } = await supabase
+        .from('league_editors')
+        .select('id')
+        .eq('league_id', league.id)
+        .eq('email', user.email)
+        .single()
+      allowed = !!editor
+    }
+
     if (!allowed) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
