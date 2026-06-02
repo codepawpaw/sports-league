@@ -223,7 +223,7 @@ export default function AdminPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   
   // Match tabs state
-  const [activeMatchTab, setActiveMatchTab] = useState<'scheduled' | 'completed' | 'ongoing'>('scheduled')
+  const [activeMatchTab, setActiveMatchTab] = useState<'scheduled' | 'completed' | 'ongoing' | 'cancelled'>('scheduled')
 
   // Auto draw state
   const [showAutoDraw, setShowAutoDraw] = useState(false)
@@ -1014,6 +1014,8 @@ export default function AdminPage() {
         return filtered.filter(match => match.status === 'in_progress')
       case 'completed':
         return filtered.filter(match => match.status === 'completed')
+      case 'cancelled':
+        return filtered.filter(match => match.status === 'cancelled')
       default:
         return filtered
     }
@@ -2278,6 +2280,16 @@ export default function AdminPage() {
                         }`}
                       >
                         Completed ({(selectedTournamentForMatch ? tournamentMatches : matches).filter(m => m.status === 'completed').length})
+                      </button>
+                      <button
+                        onClick={() => setActiveMatchTab('cancelled')}
+                        className={`py-3 px-1 border-b-2 font-medium text-sm ${
+                          activeMatchTab === 'cancelled'
+                            ? 'border-green-500 text-green-600'
+                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        }`}
+                      >
+                        Cancelled ({(selectedTournamentForMatch ? tournamentMatches : matches).filter(m => m.status === 'cancelled').length})
                       </button>
                     </nav>
                   </div>
